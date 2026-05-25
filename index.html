@@ -4603,7 +4603,16 @@ document.addEventListener('pointerdown',e=>{
   closeSaveMenu();
 });
 
-function closeDrops(){closeProfDrop();closeSaveMenu();closeTextColorDrop();}
+function closeTextColorDrop(){
+  const drop=document.getElementById('textColorDrop');
+  if(drop) drop.style.display='none';
+}
+
+function closeDrops(){
+  closeProfDrop();
+  closeSaveMenu();
+  closeTextColorDrop();
+}
 
 // â”€â”€ CAJETIN â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function loadCaj(){
