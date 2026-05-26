@@ -178,11 +178,16 @@ canvas{position:absolute;inset:0;}
 @media (max-width:640px) and (orientation:portrait){
   .logo{display:none;}
   /* Barra unificada: compacta con flex-wrap para que fluya en varias filas */
-  #topbar{padding:4px max(5px,env(safe-area-inset-right)) 4px max(5px,env(safe-area-inset-left));gap:4px;min-height:auto;max-height:38dvh;overflow-x:hidden;overflow-y:auto;flex-wrap:wrap;justify-content:flex-start;align-content:flex-start;}
-  .toolGroup{gap:2px;padding:3px 4px;min-height:32px;border-radius:8px;max-width:calc(100vw - 10px);flex-wrap:wrap;}
-  .toolGroup[data-group="lineas"]{display:flex;max-width:calc(100vw - 10px);}
-  .tbtn{width:32px;height:32px;font-size:12px;border-radius:6px;}
-  .tbtn.txt{width:36px;min-width:36px;font-size:10px;padding:0 5px;}
+  #topbar{padding:4px max(5px,env(safe-area-inset-right)) 4px max(5px,env(safe-area-inset-left));gap:4px;min-height:auto;max-height:42dvh;overflow-x:visible;overflow-y:auto;flex-wrap:wrap;justify-content:flex-start;align-content:flex-start;}
+  .toolGroup{gap:2px;padding:3px 4px;min-height:32px;border-radius:8px;max-width:100%;min-width:0;flex:0 1 auto;flex-wrap:wrap;overflow:visible;}
+  .toolGroup[data-group="lineas"]{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));width:100%;flex:1 1 100%;max-width:100%;align-items:center;}
+  .toolGroup[data-group="nav"]{flex:0 1 auto;}
+  .toolGroup[data-group="bloques"]{flex:1 1 calc(100% - 88px);}
+  .toolGroup[data-group="datos"]{flex:0 0 auto;}
+  .toolGroup[data-group="guardar"]{flex:1 1 100%;}
+  .tbtn{width:32px;height:32px;font-size:12px;border-radius:6px;min-width:0;}
+  .toolGroup[data-group="lineas"] .tbtn{width:100%;}
+  .tbtn.txt{width:36px;min-width:34px;font-size:10px;padding:0 5px;}
   #bform{width:46px;}
   #bsave{width:56px;}
   #bfile{width:52px;}
@@ -994,6 +999,15 @@ function ensureVP(){
   if(!Number.isFinite(S.vp.px)) S.vp.px=-S.vp.x;
   if(!Number.isFinite(S.vp.py)) S.vp.py=-S.vp.y;
   return S.vp;
+}
+function syncFixedViewportRect(){
+  const vp=ensureVP();
+  if(!vp||!S.fixedVP) return vp;
+  vp.x=DEFAULT_VP.x;
+  vp.y=DEFAULT_VP.y;
+  vp.w=DEFAULT_VP.w;
+  vp.h=DEFAULT_VP.h;
+  return vp;
 }
 function modelToPaper(pt){
   const vp=ensureVP();
@@ -5824,7 +5838,9 @@ function shareImg(skipForm=false){
 }
 
 // â”€â”€ ZOOM CONTROLS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-function contentBounds(){
+function contentBounds(opts={}){
+  const includeTexts=opts.includeTexts===true;
+  const pad=Math.max(0,Number(opts.pad)||0);
   let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
   const add=p=>{minX=Math.min(minX,p.x);minY=Math.min(minY,p.y);maxX=Math.max(maxX,p.x);maxY=Math.max(maxY,p.y);};
   const addBox=b=>{if(!b) return; add({x:b.x1,y:b.y1}); add({x:b.x2,y:b.y2});};
@@ -5833,24 +5849,26 @@ function contentBounds(){
     const r=blockWorldRect(b);
     addBox(r);
   }
-  if(Array.isArray(S.texts)){
+  if(includeTexts&&Array.isArray(S.texts)){
     const scratch=document.createElement('canvas').getContext('2d');
     for(const t of S.texts){
       if(t) addBox(customTextBox(t,scratch));
     }
   }
   if(!Number.isFinite(minX)) return null;
+  minX-=pad; minY-=pad; maxX+=pad; maxY+=pad;
   return{minX,minY,maxX,maxY,w:Math.max(1,maxX-minX),h:Math.max(1,maxY-minY)};
 }
 
 function fitVPContent(){
-  const vp=ensureVP(); if(!vp) return false;
-  const b=contentBounds();
+  const vp=syncFixedViewportRect(); if(!vp) return false;
+  const fitPad=UNITS_PER_M*(isCompactPortraitViewport()?0.42:0.30);
+  const b=contentBounds({pad:fitPad});
   if(!b){
     vp.z=1; vp.px=-vp.x; vp.py=-vp.y; redraw();
     return true;
   }
-  const margin=isCompactPortraitViewport()?0.90:0.88;
+  const margin=isCompactPortraitViewport()?0.78:0.84;
   const z=Math.min(VP_Z_MAX,Math.max(VP_Z_MIN,Math.min(vp.w/b.w,vp.h/b.h)*margin));
   const cx=(b.minX+b.maxX)/2;
   const cy=(b.minY+b.maxY)/2;
@@ -5893,9 +5911,9 @@ function isCompactPortraitViewport(){
 }
 
 function fitViewportFrame(doRedraw=true){
-  const vp=ensureVP(); if(!vp) return;
+  const vp=syncFixedViewportRect(); if(!vp) return;
   const W=CW.clientWidth,H=CW.clientHeight;
-  const padScale=isCompactPortraitViewport()?0.98:0.88;
+  const padScale=isCompactPortraitViewport()?0.94:0.88;
   S.zoom=Math.min(W/vp.w,H/vp.h) * padScale;
   S.px=(W-vp.w*S.zoom)/2-vp.x*S.zoom;
   S.py=(H-vp.h*S.zoom)/2-vp.y*S.zoom;
