@@ -178,10 +178,11 @@ canvas{position:absolute;inset:0;}
 @media (max-width:640px) and (orientation:portrait){
   .logo{display:none;}
   /* Barra unificada: compacta con flex-wrap para que fluya en varias filas */
-  #topbar{padding:4px 5px;gap:4px;min-height:auto;flex-wrap:wrap;justify-content:flex-start;}
-  .toolGroup{gap:2px;padding:3px 4px;min-height:32px;border-radius:8px;}
+  #topbar{padding:4px max(5px,env(safe-area-inset-right)) 4px max(5px,env(safe-area-inset-left));gap:4px;min-height:auto;max-height:38dvh;overflow-x:hidden;overflow-y:auto;flex-wrap:wrap;justify-content:flex-start;align-content:flex-start;}
+  .toolGroup{gap:2px;padding:3px 4px;min-height:32px;border-radius:8px;max-width:calc(100vw - 10px);flex-wrap:wrap;}
+  .toolGroup[data-group="lineas"]{display:flex;max-width:calc(100vw - 10px);}
   .tbtn{width:32px;height:32px;font-size:12px;border-radius:6px;}
-  .tbtn.txt{width:38px;font-size:10px;}
+  .tbtn.txt{width:36px;min-width:36px;font-size:10px;padding:0 5px;}
   #bform{width:46px;}
   #bsave{width:56px;}
   #bfile{width:52px;}
@@ -747,6 +748,7 @@ canvas{position:absolute;inset:0;}
       <button class="mok" id="fsave">Guardar</button>
     </div>
   </div>
+</div>
 <div class="mbg" id="textmod">
   <div class="mod" style="width:300px;">
     <h3>Editar Texto</h3>
@@ -872,6 +874,9 @@ const VALVE_TARGET_LEN_M = 0.15;
 const CABINET_LABEL_TEXT = 'C.M';
 const CABINET_LABEL_H_M = 0.25;
 const CABINET_LABEL_OFFSET_M = 0.04;
+const CUSTOM_TEXT_H_M = 0.18;
+const CUSTOM_TEXT_MIN_W_M = 0.55;
+const CUSTOM_TEXT_MAX_W_M = 6.5;
 const PIPE_LABEL_H_M = 0.20;
 const PIPE_LABEL_OFFSET_M = 0.30;
 const PIPE_LABEL_DIAM = '\u00d8';
@@ -1205,13 +1210,9 @@ function syncAutoAccessories(){
 }
 
 function drawFieldBoxText(ctx,text,x,y,w,h,screen=false,size=10,align='center',color='#545454'){
+  if(!text) return;
   const p=screen?ts(x,y):{x,y};
   const scale=screen?S.zoom:1;
-  ctx.save();
-  ctx.fillStyle='#ffffff';
-  ctx.fillRect(p.x - w*scale/2 + 2, p.y - h*scale/2 + 2, w*scale - 4, h*scale - 4);
-  ctx.restore();
-  if(!text) return;
   ctx.save();
   ctx.fillStyle=color;
   ctx.textAlign=align; ctx.textBaseline='middle';
@@ -1230,21 +1231,21 @@ function drawFieldBoxText(ctx,text,x,y,w,h,screen=false,size=10,align='center',c
 function drawFormatFields(ctx,screen=false){
   const f=S.form||{};
   const t=materialTotals();
-  drawFieldBoxText(ctx,f.direccion,423,112,500,18,screen,12,'center','#545454');
-  drawFieldBoxText(ctx,f.suministro,960,112,150,18,screen,12,'center','#545454');
-  drawFieldBoxText(ctx,f.isometrista,489.5,663,145,20,screen,11.5,'center','#545454');
-  drawFieldBoxText(ctx,f.usuario,688,663,220,20,screen,11.5,'center','#545454');
-  drawFieldBoxText(ctx,f.instalador,923,663,220,20,screen,11.5,'center','#545454');
-  drawFieldBoxText(ctx,fmtNum(t.vista[1216]),828.5,216.9,31,14,screen,9.5,'center','#1a47c7');
-  drawFieldBoxText(ctx,fmtNum(t.vista[2025]),941.5,216.9,49,14,screen,9.5,'center','#1a47c7');
-  drawFieldBoxText(ctx,fmtNum(t.empotrada[1216]),828.5,299,31,14,screen,9.5,'center');
-  drawFieldBoxText(ctx,fmtNum(t.empotrada[2025]),941.5,299,49,14,screen,9.5,'center');
-  drawFieldBoxText(ctx,fmtNum(t.vistaTotal),270,638.5,53,13,screen,9.5,'center','#1a47c7');
-  drawFieldBoxText(ctx,fmtNum(t.empotradaTotal),270,655.5,53,13,screen,9.5,'center');
-  drawFieldBoxText(ctx,fmtNum(t.total),270,672.5,53,13,screen,9.5,'center');
+  drawFieldBoxText(ctx,f.direccion,423,112,500,18,screen,13,'center','#545454');
+  drawFieldBoxText(ctx,f.suministro,960,112,150,18,screen,13,'center','#545454');
+  drawFieldBoxText(ctx,f.isometrista,489.5,663,145,20,screen,12.5,'center','#545454');
+  drawFieldBoxText(ctx,f.usuario,688,663,220,20,screen,12.5,'center','#545454');
+  drawFieldBoxText(ctx,f.instalador,923,663,220,20,screen,12.5,'center','#545454');
+  drawFieldBoxText(ctx,fmtNum(t.vista[1216]),828.5,216.9,31,14,screen,10.5,'center','#1a47c7');
+  drawFieldBoxText(ctx,fmtNum(t.vista[2025]),941.5,216.9,49,14,screen,10.5,'center','#1a47c7');
+  drawFieldBoxText(ctx,fmtNum(t.empotrada[1216]),828.5,299,31,14,screen,10.5,'center');
+  drawFieldBoxText(ctx,fmtNum(t.empotrada[2025]),941.5,299,49,14,screen,10.5,'center');
+  drawFieldBoxText(ctx,fmtNum(t.vistaTotal),270,638.5,53,13,screen,10.5,'center','#1a47c7');
+  drawFieldBoxText(ctx,fmtNum(t.empotradaTotal),270,655.5,53,13,screen,10.5,'center');
+  drawFieldBoxText(ctx,fmtNum(t.total),270,672.5,53,13,screen,10.5,'center');
   syncAutoAccessories();
   for(const item of ACCESSORY_FIELDS){
-    drawFieldBoxText(ctx,fmtCount(accessoryCount(item.key)),1017, item.y,38,14,screen,10.5,'center');
+    drawFieldBoxText(ctx,fmtCount(accessoryCount(item.key)),1017, item.y,38,14,screen,11.5,'center');
   }
 }
 
@@ -1599,19 +1600,23 @@ function ensureCabinetTexts(){
         const tx = r.x2 + CABINET_LABEL_OFFSET_M * UNITS_PER_M + (fs * 0.8);
         const ty = r.y + r.h * 0.52;
         if(existing){
-          existing.x = tx;
-          existing.y = ty;
-          existing.lines = ['C.M'];
-          existing.color = '#ef4444';
+          if(!existing.manual){
+            existing.x = tx;
+            existing.y = ty;
+          }
+          if(!Array.isArray(existing.lines)||!existing.lines.length) existing.lines = [CABINET_LABEL_TEXT];
+          existing.color = existing.color || '#ef4444';
+          existing.isCustomText = true;
         } else {
           S.texts.push({
             id: 'txt_cab_' + b.id,
             cabinetId: b.id,
             x: tx,
             y: ty,
-            lines: ['C.M'],
+            lines: [CABINET_LABEL_TEXT],
             color: '#ef4444', // Rojo
             scale: 1,
+            boxW: fs * 2.4,
             isCustomText: true
           });
         }
@@ -2072,21 +2077,105 @@ function drawPipeLabels(ctx,zoomScale=modelZoom()){
   ctx.restore();
 }
 
-function renderCustomText(ctx,text,zoomScale=modelZoom()){
-  const labelScale = text.scale || 1;
-  const fs = 0.20 * UNITS_PER_M * S.textScale * labelScale; // 20 cm height
-  const lineH = fs * 1.16;
-  const lines = Array.isArray(text.lines) ? text.lines : ['Texto'];
-  
-  ctx.save();
-  ctx.font = `600 ${fs}px "Arial Narrow","Roboto Condensed",Arial,sans-serif`;
-  const m = measurePipeLabel(ctx, lines, fs);
-  
+function isCustomTextObject(text){
+  return !!(text&&Array.isArray(S.texts)&&S.texts.includes(text));
+}
+
+function customTextFontSize(text){
+  const baseM=text&&text.cabinetId?CABINET_LABEL_H_M:(text.fontM||CUSTOM_TEXT_H_M);
+  return baseM*UNITS_PER_M*S.textScale*(text.scale||1);
+}
+
+function wrapTextLine(ctx,line,maxW){
+  const txt=String(line||'');
+  if(!Number.isFinite(maxW)||maxW<=0) return [txt];
+  const words=txt.split(/\s+/).filter(Boolean);
+  if(!words.length) return [''];
+  const out=[];
+  let cur='';
+  const pushLongWord=word=>{
+    let part='';
+    for(const ch of word){
+      const test=part+ch;
+      if(part&&ctx.measureText(test).width>maxW){
+        out.push(part);
+        part=ch;
+      }else{
+        part=test;
+      }
+    }
+    if(part) cur=part;
+  };
+  for(const word of words){
+    const test=cur?cur+' '+word:word;
+    if(ctx.measureText(test).width<=maxW){
+      cur=test;
+    }else{
+      if(cur) out.push(cur);
+      cur='';
+      if(ctx.measureText(word).width>maxW) pushLongWord(word);
+      else cur=word;
+    }
+  }
+  if(cur) out.push(cur);
+  return out.length?out:[''];
+}
+
+function customTextMetrics(ctx,text){
+  const fs=customTextFontSize(text);
+  const lineH=fs*1.12;
+  ctx.font=`600 ${fs}px "Arial Narrow","Roboto Condensed",Arial,sans-serif`;
+  const padX=fs*(text&&text.cabinetId?0.18:0.26);
+  const padY=fs*(text&&text.cabinetId?0.10:0.16);
+  const raw=Array.isArray(text&&text.lines)?text.lines:[String((text&&text.text)||'Texto')];
+  const minW=(text&&text.cabinetId?fs*2.1:CUSTOM_TEXT_MIN_W_M*UNITS_PER_M);
+  const maxW=CUSTOM_TEXT_MAX_W_M*UNITS_PER_M;
+  const fixedW=Number.isFinite(text&&text.boxW)?Math.min(maxW,Math.max(minW,text.boxW)):null;
+  const maxTextW=fixedW?Math.max(4,fixedW-padX*2):Infinity;
+  const lines=raw.flatMap(line=>wrapTextLine(ctx,line,maxTextW));
+  const widths=lines.map(t=>ctx.measureText(t).width);
+  const naturalW=(widths.length?Math.max(...widths):fs*2)+padX*2;
+  const boxW=fixedW||Math.min(maxW,Math.max(minW,naturalW));
+  const boxH=Math.max(fs*1.05,lines.length*lineH+padY*2);
+  return {fs,lineH,lines,padX,padY,boxW,boxH};
+}
+
+function customTextBox(text,ctx=document.createElement('canvas').getContext('2d')){
+  const m=customTextMetrics(ctx,text);
+  return {
+    ...m,
+    x1:text.x-m.boxW/2,
+    y1:text.y-m.boxH/2,
+    x2:text.x+m.boxW/2,
+    y2:text.y+m.boxH/2
+  };
+}
+
+function hitCustomTextHandle(text,wx,wy,zoomScale=modelZoom()){
+  if(!isCustomTextObject(text)) return null;
+  const box=customTextBox(text);
+  const r=Math.max(11/zoomScale,5);
+  const points=[
+    {k:'delete',x:box.x2,y:box.y1},
+    {k:'edit',x:box.x2,y:box.y2},
+    {k:'resize',x:box.x2,y:text.y}
+  ];
+  for(const p of points){
+    if(Math.hypot(wx-p.x,wy-p.y)<=r) return p.k;
+  }
+  return null;
+}
+
+function setCustomTextBoxWidth(text,w){
+  if(!text) return;
+  const minW=(text.cabinetId?customTextFontSize(text)*2.1:CUSTOM_TEXT_MIN_W_M*UNITS_PER_M);
+  text.boxW=Math.min(CUSTOM_TEXT_MAX_W_M*UNITS_PER_M,Math.max(minW,w));
+}
+
+function renderCustomTextLegacy(ctx,text,zoomScale=modelZoom()){
+  // Legacy renderer kept only as a safety fallback during migration.
+  return renderCustomText(ctx,text,zoomScale);
   // Draw filled white cajetín box
-  const padX = fs * 0.4;
-  const padY = fs * 0.25;
-  const boxW = m.w + padX * 2;
-  const boxH = Math.max(0.20 * UNITS_PER_M, m.h + padY * 2);
   
   // Draw filled white cajetín box only if it's NOT a cabinet label!
   if (!text.cabinetId) {
@@ -2154,6 +2243,79 @@ function renderCustomText(ctx,text,zoomScale=modelZoom()){
     ctx.lineTo(brX, brY + r*0.4);
     ctx.stroke();
     ctx.restore();
+  }
+}
+
+function renderCustomText(ctx,text,zoomScale=modelZoom()){
+  ctx.save();
+  const m=customTextMetrics(ctx,text);
+  const boxW=m.boxW;
+  const boxH=m.boxH;
+
+  if(!text.cabinetId){
+    ctx.fillStyle='#ffffff';
+    ctx.fillRect(text.x-boxW/2,text.y-boxH/2,boxW,boxH);
+    ctx.strokeStyle='#4b5563';
+    ctx.lineWidth=Math.max(1.0/zoomScale,1);
+    ctx.strokeRect(text.x-boxW/2,text.y-boxH/2,boxW,boxH);
+  }
+
+  ctx.textAlign='center';
+  ctx.textBaseline='middle';
+  ctx.fillStyle=text.color||'#111111';
+  for(let i=0;i<m.lines.length;i++){
+    const y=text.y+(i-(m.lines.length-1)/2)*m.lineH;
+    ctx.fillText(m.lines[i],text.x,y);
+  }
+  ctx.restore();
+
+  if(text===S.selLabel&&S.tool==='sel'){
+    ctx.save();
+    ctx.strokeStyle='#4fa8e8';
+    ctx.lineWidth=1.5/zoomScale;
+    ctx.setLineDash([4/zoomScale,2/zoomScale]);
+    ctx.strokeRect(text.x-boxW/2-2,text.y-boxH/2-2,boxW+4,boxH+4);
+    ctx.restore();
+
+    const r=Math.max(7/zoomScale,5);
+    const drawCircle=(x,y,fill,draw)=>{
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(x,y,r,0,Math.PI*2);
+      ctx.fillStyle=fill;
+      ctx.fill();
+      ctx.strokeStyle='#ffffff';
+      ctx.lineWidth=1.5/zoomScale;
+      ctx.beginPath();
+      draw(x,y,r);
+      ctx.stroke();
+      ctx.restore();
+    };
+
+    drawCircle(text.x+boxW/2,text.y-boxH/2,'#ef4444',(x,y,rr)=>{
+      ctx.moveTo(x-rr*0.4,y-rr*0.4);
+      ctx.lineTo(x+rr*0.4,y+rr*0.4);
+      ctx.moveTo(x+rr*0.4,y-rr*0.4);
+      ctx.lineTo(x-rr*0.4,y+rr*0.4);
+    });
+
+    drawCircle(text.x+boxW/2,text.y+boxH/2,'#22c55e',(x,y,rr)=>{
+      ctx.moveTo(x-rr*0.4,y);
+      ctx.lineTo(x+rr*0.4,y);
+      ctx.moveTo(x,y-rr*0.4);
+      ctx.lineTo(x,y+rr*0.4);
+    });
+
+    drawCircle(text.x+boxW/2,text.y,'#1a7fd4',(x,y,rr)=>{
+      ctx.moveTo(x-rr*0.42,y);
+      ctx.lineTo(x+rr*0.42,y);
+      ctx.moveTo(x-rr*0.18,y-rr*0.24);
+      ctx.lineTo(x-rr*0.42,y);
+      ctx.lineTo(x-rr*0.18,y+rr*0.24);
+      ctx.moveTo(x+rr*0.18,y-rr*0.24);
+      ctx.lineTo(x+rr*0.42,y);
+      ctx.lineTo(x+rr*0.18,y+rr*0.24);
+    });
   }
 }
 
@@ -2818,7 +2980,7 @@ function fitDetailContent(d,b=contentBounds()){
     d.px=-cx*d.z; d.py=-cy*d.z;
     return;
   }
-  const pad=d.r*0.22;
+  const pad=d.r*0.10;
   const z=Math.min((d.r*2-pad*2)/Math.max(1,b.w),(d.r*2-pad*2)/Math.max(1,b.h));
   d.z=Math.min(VP_Z_MAX,Math.max(VP_Z_MIN,z));
   const cx=(b.minX+b.maxX)/2, cy=(b.minY+b.maxY)/2;
@@ -2942,8 +3104,8 @@ function placeAutoDetailViewport(autoId,bounds,anchorPaper,idx){
   }
   d.visible=true;
   d.active=false;
-  const maxR=Math.min(vp.w,vp.h)*0.23;
-  const minR=Math.max(42,Math.min(vp.w,vp.h)*0.12);
+  const maxR=Math.min(vp.w,vp.h)*0.28;
+  const minR=Math.max(46,Math.min(vp.w,vp.h)*0.13);
   const others=detailList().filter(x=>x&&x!==d&&x.visible);
   const obstacles=detailPlacementObstacles();
   let best=null;
@@ -2989,8 +3151,8 @@ function syncAutoDetailViewports(){
     const valve2025=c&&nearestBlockToPoint(b=>isValveBlock(b)&&b.diam==='2025',c);
     if(valve2025){
       const b=mergeModelBounds([
-        boundsFromWorldRect(blockWorldRect(cabinet),UNITS_PER_M*0.07),
-        boundsFromWorldRect(blockWorldRect(valve2025),UNITS_PER_M*0.12)
+        boundsFromWorldRect(blockWorldRect(cabinet),UNITS_PER_M*0.04),
+        boundsFromWorldRect(blockWorldRect(valve2025),UNITS_PER_M*0.06)
       ]);
       specs.push({autoId:'auto-gabinete-valvula-2025',bounds:b,anchor:modelToPaper(c||modelBoundsCenter(b))});
     }
@@ -2998,9 +3160,9 @@ function syncAutoDetailViewports(){
   const red=reductionMarkers()[0];
   if(red){
     const b=mergeModelBounds([
-      boundsFromPoint(red.p,UNITS_PER_M*0.16),
-      boundsFromLine(red.big,UNITS_PER_M*0.08),
-      boundsFromLine(red.small,UNITS_PER_M*0.08)
+      boundsFromPoint(red.p,UNITS_PER_M*0.09),
+      boundsFromLine(red.big,UNITS_PER_M*0.05),
+      boundsFromLine(red.small,UNITS_PER_M*0.05)
     ]);
     specs.push({autoId:'auto-reduccion',bounds:b,anchor:modelToPaper(red.p)});
   }
@@ -3008,13 +3170,13 @@ function syncAutoDetailViewports(){
   const codo=codoAdaptadorMarkers()[0];
   if(valve1216){
     const b=mergeModelBounds([
-      boundsFromWorldRect(blockWorldRect(valve1216),UNITS_PER_M*0.16),
-      codo?boundsFromPoint(codo.p,UNITS_PER_M*0.20):null
+      boundsFromWorldRect(blockWorldRect(valve1216),UNITS_PER_M*0.07),
+      codo?boundsFromPoint(codo.p,UNITS_PER_M*0.08):null
     ]);
     const anchorPt=blockCenter(valve1216)||(codo&&codo.p)||modelBoundsCenter(b);
     specs.push({autoId:'auto-valvula-1216-codo',bounds:b,anchor:modelToPaper(anchorPt)});
   } else if(codo){
-    const b=mergeModelBounds([boundsFromPoint(codo.p,UNITS_PER_M*0.20)]);
+    const b=mergeModelBounds([boundsFromPoint(codo.p,UNITS_PER_M*0.08)]);
     specs.push({autoId:'auto-codo-adaptador-1216',bounds:b,anchor:modelToPaper(codo.p)});
   }
   const keep=new Set(specs.map(s=>s.autoId));
@@ -3029,8 +3191,8 @@ function syncAutoDetailViewports(){
 function clampDetailToVP(d){
   const vp=ensureVP();
   if(!d||!vp) return;
-  const maxR=Math.max(34,Math.min(vp.w,vp.h)*0.28);
-  d.r=Math.min(maxR,Math.max(34,d.r||70));
+  const maxR=Math.max(38,Math.min(vp.w,vp.h)*0.32);
+  d.r=Math.min(maxR,Math.max(38,d.r||70));
   d.x=Math.min(vp.x+vp.w-d.r,Math.max(vp.x+d.r,d.x));
   d.y=Math.min(vp.y+vp.h-d.r,Math.max(vp.y+d.r,d.y));
 }
@@ -3288,8 +3450,17 @@ function pointInPolygon(p, pts) {
 }
 
 function hitLabel(wx, wy) {
-  if (!Array.isArray(S.pipeLabels)) return null;
   const scratch = document.createElement('canvas').getContext('2d');
+  if(Array.isArray(S.texts)){
+    for(let i=S.texts.length-1;i>=0;i--){
+      const text=S.texts[i];
+      if(!text) continue;
+      const box=customTextBox(text,scratch);
+      const pad=Math.max(8/modelZoom(),2);
+      if(wx>=box.x1-pad&&wx<=box.x2+pad&&wy>=box.y1-pad&&wy<=box.y2+pad) return text;
+    }
+  }
+  if (!Array.isArray(S.pipeLabels)) return null;
   for (let i = S.pipeLabels.length - 1; i >= 0; i--) {
     const label = S.pipeLabels[i];
     const fs = PIPE_LABEL_H_M * UNITS_PER_M * S.textScale * (label.scale || 1);
@@ -3370,7 +3541,7 @@ function clampToVP(w){
 
 // â”€â”€ HISTORY â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function historyState(){
-  return {lines:S.lines,blocks:S.blocks,pipeLabels:S.pipeLabels,vp:S.vp,detailVPs:detailList()};
+  return {lines:S.lines,blocks:S.blocks,texts:S.texts,pipeLabels:S.pipeLabels,vp:S.vp,detailVPs:detailList()};
 }
 function pushH(){
   S.hist.push(JSON.stringify(historyState()));
@@ -3379,6 +3550,7 @@ function pushH(){
 }
 function applyState(sn){
   S.lines=sn.lines; S.blocks=sn.blocks; S.vp=sn.vp;
+  S.texts=Array.isArray(sn.texts)?sn.texts:[];
   S.pipeLabels=Array.isArray(sn.pipeLabels)?sn.pipeLabels:[];
   S.detailVPs=sn.detailVPs||[sn.detailVP].filter(Boolean);
   for(const d of S.detailVPs) if(d) d.active=false;
@@ -3734,6 +3906,7 @@ let dragBlk=null,dbOX=0,dbOY=0;
 let dragBlkStart=null,dragBlkMoved=false;
 let dragLabel=null,dlOX=0,dlOY=0;
 let dragLabelStart=null,dragLabelMoved=false;
+let resizeText=null;
 let uiTimer=null;
 let pinchScope=null;
 
@@ -3779,6 +3952,7 @@ function onDn(e){
       lines: ['Texto'],
       color: S.textColor || '#111111',
       scale: 1,
+      boxW: UNITS_PER_M * 1.6,
       isCustomText: true
     };
     if(!S.texts) S.texts=[];
@@ -3854,30 +4028,10 @@ function onDn(e){
   // SEL tool
   if(S.tool==='sel'){
     // Hit test custom text buttons if selected!
-    if(S.selLabel && S.selLabel.lines){ // Custom texts have .lines property
+    if(isCustomTextObject(S.selLabel)){
       const text = S.selLabel;
-      const fs = 0.20 * UNITS_PER_M * S.textScale * (text.scale || 1);
-      const scratch = document.createElement('canvas').getContext('2d');
-      scratch.font = `600 ${fs}px "Arial Narrow","Roboto Condensed",Arial,sans-serif`;
-      const m = measurePipeLabel(scratch, text.lines, fs);
-      const padX = fs * 0.4;
-      const padY = fs * 0.25;
-      const boxW = m.w + padX * 2;
-      const boxH = Math.max(0.20 * UNITS_PER_M, m.h + padY * 2);
-      
-      // Top right (delete button)
-      const trX = text.x + boxW/2;
-      const trY = text.y - boxH/2;
-      const distDel = Math.hypot(w.x - trX, w.y - trY);
-      
-      // Bottom right (add line button)
-      const brX = text.x + boxW/2;
-      const brY = text.y + boxH/2;
-      const distAdd = Math.hypot(w.x - brX, w.y - brY);
-      
-      const hitRadius = Math.max(12 / S.zoom, 9); // touch friendly radius
-      
-      if(distDel < hitRadius){
+      const handle=hitCustomTextHandle(text,w.x,w.y);
+      if(handle==='delete'){
         e.stopPropagation();
         pushH();
         S.texts = S.texts.filter(t => t !== text);
@@ -3886,26 +4040,22 @@ function onDn(e){
         toast('Texto eliminado');
         return;
       }
-      if(distAdd < hitRadius){
+      if(handle==='edit'){
         e.stopPropagation();
-        text.lines.push('Texto');
         showTextEditModal(text);
+        return;
+      }
+      if(handle==='resize'){
+        e.stopPropagation();
+        pushH();
+        const box=customTextBox(text);
+        resizeText={text,startW:box.boxW};
         return;
       }
     }
 
     const label = hitLabel(w.x, w.y);
     if(label){
-      if(label.cabinetId){
-        const linkedBlock = S.blocks.find(b => b && b.id === label.cabinetId);
-        if(linkedBlock){
-          S.selBlock=linkedBlock; S.selLine=null; S.selLabel=null;
-          dragBlk=linkedBlock; dbOX=w.x-linkedBlock.x; dbOY=w.y-linkedBlock.y;
-          dragBlkStart={sx:sc.x,sy:sc.y,x:linkedBlock.x,y:linkedBlock.y};
-          dragBlkMoved=false;
-          redraw(); return;
-        }
-      }
       S.selLabel=label; S.selBlock=null; S.selLine=null;
       dragLabel=label; dlOX=w.x-label.x; dlOY=w.y-label.y;
       dragLabelStart={sx:sc.x,sy:sc.y,x:label.x,y:label.y};
@@ -4003,6 +4153,12 @@ function onMv(e){
     S.vp={...S.vp,x:S.vpMoveStart.x+ddx,y:S.vpMoveStart.y+ddy};
     redraw(); return;
   }
+  // Custom text width resize
+  if(resizeText&&resizeText.text){
+    setCustomTextBoxWidth(resizeText.text,Math.abs(w.x-resizeText.text.x)*2);
+    resizeText.text.manual=true;
+    redraw(); return;
+  }
   // Block drag
   if(dragBlk){
     if(dragBlkStart&&Math.hypot(sc.x-dragBlkStart.sx,sc.y-dragBlkStart.sy)>8) dragBlkMoved=true;
@@ -4019,6 +4175,7 @@ function onMv(e){
     if(dragLabelStart&&Math.hypot(sc.x-dragLabelStart.sx,sc.y-dragLabelStart.sy)>8) dragLabelMoved=true;
     dragLabel.x=w.x-dlOX;
     dragLabel.y=w.y-dlOY;
+    if(isCustomTextObject(dragLabel)) dragLabel.manual=true;
     evaluateLabelSplitting(dragLabel);
     redraw();
     return;
@@ -4088,10 +4245,12 @@ function onUp(e){
   const sc=gpp(e);
   delete aPtr[e.pointerId];
   const hadDetailAdjust=!!(S.detailMove||S.detailResize);
+  const hadTextResize=!!resizeText;
   if(Object.keys(aPtr).length<2){isPinch=false;S.tDist=null;S.tMid=null;pinchScope=null;}
   if(Object.keys(aPtr).length===0){S.panPt=null;}
-  if(Object.keys(aPtr).length===0){S.detailPan=null;S.detailMove=null;S.detailResize=null;}
+  if(Object.keys(aPtr).length===0){S.detailPan=null;S.detailMove=null;S.detailResize=null;resizeText=null;}
   clearLoupe(); DOT.style.display='none'; S.guideSnap=null;
+  if(hadTextResize){redraw();return;}
   if(hadDetailAdjust){redraw();return;}
 
   // VP create end
@@ -4131,7 +4290,10 @@ function onUp(e){
 
   // Label drop
   if(dragLabel){
+    const label=dragLabel;
+    const wasTap=!dragLabelMoved&&dragLabelStart&&Math.hypot(sc.x-dragLabelStart.sx,sc.y-dragLabelStart.sy)<10;
     dragLabel=null; dragLabelStart=null; dragLabelMoved=false;
+    if(wasTap&&isCustomTextObject(label)) showTextEditModal(label);
     redraw();
     return;
   }
@@ -4147,22 +4309,12 @@ function onUp(e){
       const label=hitLabel(w.x,w.y);
       const b=(S.vp&&!hitVP(paper.x,paper.y))?null:hitB(w.x,w.y);
       const l=(!editDetail&&S.vp&&!hitVP(paper.x,paper.y))?null:hitL(w.x,w.y);
+      const wasGabineteSelected=!!(S.selBlock&&S.selBlock.lid==='gabinete');
       
       if(label){
         const oldSel = S.selLabel;
         S.selLabel=label; S.selBlock=null; S.selLine=null;
-        if(label.cabinetId){
-          const block = S.blocks.find(x => x && x.id === label.cabinetId);
-          if(block){
-            S.selBlock = block;
-            S.selLabel = null;
-            rotateSelectedGabinete();
-            redraw();
-            S.selDown=null;
-            return;
-          }
-        }
-        if(label === oldSel && label.lines){ // Tap already selected custom text
+        if(label === oldSel && isCustomTextObject(label)){
           showTextEditModal(label);
         }
       } else if(b){
@@ -4173,6 +4325,11 @@ function onUp(e){
       } else {
         S.selLabel=null; S.selBlock=null; S.selLine=null;
         S.selDetail=null; S.activeDetail=null; // Deselect circle/detail when click outside!
+        if(wasGabineteSelected){
+          activateDefaultLineTool();
+          S.selDown=null;
+          return;
+        }
       }
       redraw();
     }
@@ -4225,17 +4382,32 @@ function pinch(){
   const mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2};
   const paperMid=tw(mid.x,mid.y);
   if(!pinchScope){
-    const pd=S.vpEdit?detailAt(paperMid.x,paperMid.y,true):null;
-    if(pd) pinchScope={type:'detail',d:pd};
-    else {
-      const locked=S.vpEdit?detailAt(paperMid.x,paperMid.y,false):null;
-      if(locked) pinchScope={type:'detailRadius',d:locked};
-      else pinchScope=(S.vpEdit&&S.vp&&hitVP(paperMid.x,paperMid.y))?'vp':'paper';
+    const midModel=paperToModel(paperMid);
+    if(isCustomTextObject(S.selLabel)){
+      const box=customTextBox(S.selLabel);
+      if(midModel.x>=box.x1&&midModel.x<=box.x2&&midModel.y>=box.y1&&midModel.y<=box.y2){
+        pushH();
+        pinchScope={type:'textBox',text:S.selLabel};
+      }
+    }
+    if(!pinchScope){
+      const pd=S.vpEdit?detailAt(paperMid.x,paperMid.y,true):null;
+      if(pd) pinchScope={type:'detail',d:pd};
+      else {
+        const locked=S.vpEdit?detailAt(paperMid.x,paperMid.y,false):null;
+        if(locked) pinchScope={type:'detailRadius',d:locked};
+        else pinchScope=(S.vpEdit&&S.vp&&hitVP(paperMid.x,paperMid.y))?'vp':'paper';
+      }
     }
   }
   if(S.tDist){
     const dz=dist/S.tDist;
-    if(pinchScope&&pinchScope.type==='detail'&&pinchScope.d){
+    if(pinchScope&&pinchScope.type==='textBox'&&pinchScope.text){
+      const text=pinchScope.text;
+      const box=customTextBox(text);
+      setCustomTextBoxWidth(text,box.boxW*dz);
+      text.manual=true;
+    } else if(pinchScope&&pinchScope.type==='detail'&&pinchScope.d){
       const d=pinchScope.d;
       const old=d.z;
       const nz=Math.min(VP_Z_MAX,Math.max(VP_Z_MIN,old*dz));
@@ -4909,7 +5081,9 @@ document.getElementById('fsave').addEventListener('click',saveForm);
 
 function showTextEditModal(textObject){
   S.editingTextObject = textObject;
-  document.getElementById('textLinesInput').value = textObject.lines.join('\n');
+  const lines=Array.isArray(textObject.lines)?textObject.lines:[String(textObject.text||'Texto')];
+  textObject.lines=lines;
+  document.getElementById('textLinesInput').value = lines.join('\n');
   openM('textmod');
   setTimeout(()=>{
     const el = document.getElementById('textLinesInput');
@@ -4922,8 +5096,9 @@ document.getElementById('textSaveBtn').addEventListener('click', () => {
   if (S.editingTextObject) {
     const val = document.getElementById('textLinesInput').value;
     const lines = val.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-    S.editingTextObject.lines = lines.length > 0 ? lines : ['Texto'];
     pushH();
+    S.editingTextObject.lines = lines.length > 0 ? lines : ['Texto'];
+    S.editingTextObject.manual = true;
     redraw();
   }
   closeM('textmod');
@@ -5006,7 +5181,7 @@ function loadCajetinSrc(src){
   S.cajetinSrc=src;
 }
 function resetProject(form=blankForm()){
-  S.lines=[]; S.blocks=[]; S.pipeLabels=[]; S.lib=[]; S.hist=[]; S.fut=[];
+  S.lines=[]; S.blocks=[]; S.texts=[]; S.pipeLabels=[]; S.lib=[]; S.hist=[]; S.fut=[];
   ensureBuiltInBlocks();
   S.form=JSON.parse(JSON.stringify(form||blankForm()));
   S.fileName=defaultFileName();
@@ -5041,6 +5216,7 @@ function captureProject(){
     vp:S.vp,
     detailVPs:detailList(),
     pipeLabels:S.pipeLabels,
+    texts:S.texts,
     lines:S.lines,
     blocks:S.blocks,
     lib:S.lib.map(item=>({id:item.id,name:item.name||item.id,views:item.views||[],cpts:item.cpts||[],viewCpts:item.viewCpts||null,viewBounds:item.viewBounds||null,scale:item.scale||0.25,realSize:item.realSize||null,builtin:!!item.builtin})),
@@ -5112,6 +5288,7 @@ function loadProjectData(data){
   S.detailVP=S.detailVPs[S.detailVPs.length-1]||null;
   S.activeDetail=null; S.selDetail=null;
   S.pipeLabels=Array.isArray(data.pipeLabels)?data.pipeLabels:[];
+  S.texts=Array.isArray(data.texts)?data.texts:[];
   S.lines=Array.isArray(data.lines)?data.lines:[];
   S.blocks=Array.isArray(data.blocks)?data.blocks:[];
   hydrateLib(data.lib||[]);
@@ -5180,7 +5357,7 @@ function openProjectFile(file){
 let pendingProjectAction=null;
 function projectHasWork(){
   return !!(
-    S.lines.length||S.blocks.length||S.pipeLabels.length||S.lib.length||S.cajetinSrc||
+    S.lines.length||S.blocks.length||(S.texts&&S.texts.length)||S.pipeLabels.length||S.lib.length||S.cajetinSrc||
     detailList().some(d=>d&&d.visible)||
     Object.values(S.form||{}).some(v=>typeof v==='string'?v.trim():v&&Object.keys(v).length)
   );
@@ -5650,10 +5827,17 @@ function shareImg(skipForm=false){
 function contentBounds(){
   let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
   const add=p=>{minX=Math.min(minX,p.x);minY=Math.min(minY,p.y);maxX=Math.max(maxX,p.x);maxY=Math.max(maxY,p.y);};
+  const addBox=b=>{if(!b) return; add({x:b.x1,y:b.y1}); add({x:b.x2,y:b.y2});};
   for(const l of S.lines) for(const p of l.pts) add(p);
   for(const b of S.blocks){
     const r=blockWorldRect(b);
-    add({x:r.x1,y:r.y1}); add({x:r.x2,y:r.y2});
+    addBox(r);
+  }
+  if(Array.isArray(S.texts)){
+    const scratch=document.createElement('canvas').getContext('2d');
+    for(const t of S.texts){
+      if(t) addBox(customTextBox(t,scratch));
+    }
   }
   if(!Number.isFinite(minX)) return null;
   return{minX,minY,maxX,maxY,w:Math.max(1,maxX-minX),h:Math.max(1,maxY-minY)};
@@ -5666,10 +5850,14 @@ function fitVPContent(){
     vp.z=1; vp.px=-vp.x; vp.py=-vp.y; redraw();
     return true;
   }
-  const z=Math.min(VP_Z_MAX,Math.max(VP_Z_MIN,Math.min(vp.w/b.w,vp.h/b.h)*0.86));
+  const margin=isCompactPortraitViewport()?0.90:0.88;
+  const z=Math.min(VP_Z_MAX,Math.max(VP_Z_MIN,Math.min(vp.w/b.w,vp.h/b.h)*margin));
+  const cx=(b.minX+b.maxX)/2;
+  const cy=(b.minY+b.maxY)/2;
   vp.z=z;
-  vp.px=(vp.w-b.w*z)/2-b.minX*z;
-  vp.py=(vp.h-b.h*z)/2-b.minY*z;
+  vp.px=vp.w/2-cx*z;
+  vp.py=vp.h/2-cy*z;
+  S.viewFit='vp';
   redraw();
   return true;
 }
@@ -5953,8 +6141,8 @@ document.getElementById('bgenText').addEventListener('click',()=>{
 });
 document.getElementById('bfitiso').addEventListener('click',()=>{
   setViewportWorkMode(true,{fit:false});
-  fitVPContent();
   fitViewportFrame(false);
+  fitVPContent();
   redraw();
   toast('Isometrico centrado');
 });
