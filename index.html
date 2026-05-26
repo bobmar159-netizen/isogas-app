@@ -37,7 +37,8 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);
   background:linear-gradient(180deg,rgba(18,24,34,.98),rgba(14,18,26,.98));
   border-bottom:2px solid rgba(79,168,232,.15);
   backdrop-filter:blur(16px);z-index:100;
-  box-shadow:0 4px 18px rgba(0,0,0,.32);}
+  box-shadow:0 4px 18px rgba(0,0,0,.32);
+  min-width:0;width:100%;max-width:100%;}
 /* (sin overflow-x — los grupos nunca se ocultan) */
 #topbar2{display:none;}  /* Ya no se usa */
 
@@ -88,7 +89,8 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);
 #bbar{grid-area:bot;display:flex;align-items:center;gap:0;padding:0;
   background:rgba(18,24,34,0.98);border-top:1px solid rgba(79,168,232,.18);
   min-height:52px;max-height:52px;
-  box-shadow:0 -4px 16px rgba(0,0,0,.3);}
+  box-shadow:0 -4px 16px rgba(0,0,0,.3);
+  min-width:0;width:100%;max-width:100%;}
 
 /* Sección izquierda del bottom bar: selector de perfil + controles */
 #bbarLeft{display:none;align-items:center;gap:6px;padding:0 8px;border-right:1px solid var(--bdr);flex-shrink:0;}
@@ -124,7 +126,8 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);
 
 /* CANVAS AREA */
 #cw{grid-area:canvas;position:relative;overflow:hidden;
-  background:#1a1a1a;touch-action:none;}
+  background:#1a1a1a;touch-action:none;
+  min-width:0;width:100%;max-width:100%;}
 canvas{position:absolute;inset:0;}
 #gc{z-index:1;pointer-events:none;}
 #mc{z-index:2;pointer-events:none;}
@@ -177,20 +180,18 @@ canvas{position:absolute;inset:0;}
 /* ══ PORTRAIT MOBILE (≤640px) ══ */
 @media (max-width:640px) and (orientation:portrait){
   .logo{display:none;}
-  /* Barra unificada: compacta con flex-wrap para que fluya en varias filas */
-  #topbar{padding:4px max(5px,env(safe-area-inset-right)) 4px max(5px,env(safe-area-inset-left));gap:4px;min-height:auto;max-height:42dvh;overflow-x:visible;overflow-y:auto;flex-wrap:wrap;justify-content:flex-start;align-content:flex-start;}
-  .toolGroup{gap:2px;padding:3px 4px;min-height:32px;border-radius:8px;max-width:100%;min-width:0;flex:0 1 auto;flex-wrap:wrap;overflow:visible;}
-  .toolGroup[data-group="lineas"]{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));width:100%;flex:1 1 100%;max-width:100%;align-items:center;}
-  .toolGroup[data-group="nav"]{flex:0 1 auto;}
-  .toolGroup[data-group="bloques"]{flex:1 1 calc(100% - 88px);}
-  .toolGroup[data-group="datos"]{flex:0 0 auto;}
-  .toolGroup[data-group="guardar"]{flex:1 1 100%;}
-  .tbtn{width:32px;height:32px;font-size:12px;border-radius:6px;min-width:0;}
-  .toolGroup[data-group="lineas"] .tbtn{width:100%;}
-  .tbtn.txt{width:36px;min-width:34px;font-size:10px;padding:0 5px;}
-  #bform{width:46px;}
-  #bsave{width:56px;}
-  #bfile{width:52px;}
+  /* Compacto real para telefonos tipo Galaxy A54 */
+  #topbar{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));padding:4px max(4px,env(safe-area-inset-right)) 4px max(4px,env(safe-area-inset-left));gap:4px;min-height:auto;max-height:34dvh;overflow-x:hidden;overflow-y:auto;justify-content:stretch;align-content:start;}
+  .toolGroup{display:grid;gap:3px;padding:3px;min-height:0;border-radius:8px;max-width:100%;min-width:0;width:100%;overflow:hidden;}
+  .toolGroup[data-group="viewport"]{grid-column:1/-1;grid-template-columns:repeat(4,minmax(0,1fr));}
+  .toolGroup[data-group="lineas"]{grid-column:1/-1;grid-template-columns:repeat(4,minmax(0,1fr));}
+  .toolGroup[data-group="nav"]{grid-column:1/-1;grid-template-columns:repeat(4,minmax(0,1fr));}
+  .toolGroup[data-group="bloques"]{grid-column:1/-1;grid-template-columns:repeat(4,minmax(0,1fr));}
+  .toolGroup[data-group="datos"]{grid-column:1/2;grid-template-columns:minmax(0,1fr);}
+  .toolGroup[data-group="guardar"]{grid-column:2/-1;grid-template-columns:repeat(6,minmax(0,1fr));}
+  .tbtn{width:100%;height:28px;font-size:10px;border-radius:6px;min-width:0;}
+  .tbtn.txt{width:100%;min-width:0;font-size:9px;padding:0 3px;line-height:1.05;}
+  #bform,#bsave,#bfile{width:100%;}
   .groupLabel{display:none;} /* Ocultar labels de grupos en retrato móvil para ahorrar espacio */
   /* styleStrip sigue oculto (está en bottom bar) */
   .toolGroup[data-group="lineas"] .styleStrip{display:none!important;}
@@ -972,8 +973,17 @@ FORMAT_IMG.onerror=()=>toast('No se pudo cargar el formato del plano');
 FORMAT_IMG.src=FORMAT_SVG_SRC;
 
 // â”€â”€ RESIZE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+function visibleCanvasSize(){
+  const rect=CW.getBoundingClientRect();
+  const vw=window.visualViewport?.width || window.innerWidth || rect.width || CW.clientWidth || 1;
+  const vh=window.visualViewport?.height || window.innerHeight || rect.height || CW.clientHeight || 1;
+  return {
+    w:Math.max(1,Math.round(Math.min(rect.width || vw, CW.clientWidth || vw, vw))),
+    h:Math.max(1,Math.round(Math.min(rect.height || vh, CW.clientHeight || vh, vh)))
+  };
+}
 function resize(){
-  const W=CW.clientWidth, H=CW.clientHeight;
+  const {w:W,h:H}=visibleCanvasSize();
   [GC,MC,DC,OC,LC].forEach(c=>{c.width=W;c.height=H;});
   if(S.zoom===1&&S.px===0&&S.py===0){
     S.px=(W-A4W*S.zoom)/2;
@@ -5912,7 +5922,7 @@ function isCompactPortraitViewport(){
 
 function fitViewportFrame(doRedraw=true){
   const vp=syncFixedViewportRect(); if(!vp) return;
-  const W=CW.clientWidth,H=CW.clientHeight;
+  const {w:W,h:H}=visibleCanvasSize();
   const padScale=isCompactPortraitViewport()?0.94:0.88;
   S.zoom=Math.min(W/vp.w,H/vp.h) * padScale;
   S.px=(W-vp.w*S.zoom)/2-vp.x*S.zoom;
@@ -5922,7 +5932,7 @@ function fitViewportFrame(doRedraw=true){
 }
 
 function fitSheetFrame(doRedraw=true){
-  const W=CW.clientWidth,H=CW.clientHeight;
+  const {w:W,h:H}=visibleCanvasSize();
   const padScale=isCompactPortraitViewport()?0.98:0.92;
   const zx=W/A4W*padScale, zy=H/A4H*padScale;
   S.zoom=Math.min(zx,zy);
@@ -5939,7 +5949,7 @@ function zoomAt(factor){
     zoomViewportAt(factor,c.x,c.y);
     return;
   }
-  const W=CW.clientWidth,H=CW.clientHeight;
+  const {w:W,h:H}=visibleCanvasSize();
   const cx=W/2,cy=H/2;
   const nz=Math.min(8,Math.max(0.08,S.zoom*factor));
   S.px=cx-(cx-S.px)*(nz/S.zoom);
