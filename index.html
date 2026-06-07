@@ -1869,6 +1869,7 @@ const S = {
   snapS:false, snapE:false, snapType:'ep',
   polyAnchor:null,
   wallTapStart:null, wallTapPreviewEnd:null, wallPointerDown:null, wallGesture:null, wallFreehandPts:[], wallFreehandPath:null,
+  wallApproachHint:null,
   // select / pan
   selLine:null, selBlock:null, selLabel:null, selOpening:null, selDown:null,
   panPt:null,
@@ -2885,7 +2886,11 @@ function lineSegmentsForSnap(line){
 function lineSnapPoints(line){
   if(!line||!Array.isArray(line.pts)||line.pts.length<2) return [];
   const pts=line.pts.map(p=>({x:p.x,y:p.y}));
-  if(isWallLine(line)) pts.push(...wallPolygonPoints(line));
+  if(isWallLine(line)){
+    pts.push(...wallPolygonPoints(line));
+    pts.push(...wallEndpointSnapCandidates(line,'start'));
+    pts.push(...wallEndpointSnapCandidates(line,'end'));
+  }
   return pts.filter((p,idx,arr)=>!arr.slice(0,idx).some(q=>Math.hypot(q.x-p.x,q.y-p.y)<0.01));
 }
 
@@ -3171,6 +3176,7 @@ function buildCenterWallRenderPaths(lines){
     const trace=(startKey,edge)=>{
       const path=[];
       const pathLines=[];
+      const startDegree=nodes.get(startKey)?.edges?.length||0;
       let currentKey=startKey;
       let currentEdge=edge;
       path.push({...nodes.get(currentKey).pt});
@@ -3186,7 +3192,8 @@ function buildCenterWallRenderPaths(lines){
         if(node.edges.length!==2) break;
         currentEdge=next[0];
       }
-      return {points:path,lines:pathLines,wall:cloneWallDefaults(pathLines[0]?.wall)};
+      const endDegree=nodes.get(currentKey)?.edges?.length||0;
+      return {points:path,lines:pathLines,wall:cloneWallDefaults(pathLines[0]?.wall),startDegree,endDegree};
     };
     for(const node of nodes.values()){
       if(node.edges.length===2) continue;
@@ -3225,6 +3232,23 @@ function drawCenterWallRenderPath(ctx,item,sel,zoomScale){
   ctx.strokeStyle='#ffffff';
   ctx.lineWidth=wallWidth;
   strokePath();
+  ctx.strokeStyle=edgeColor;
+  ctx.lineWidth=edgeWidth;
+  if(item.startDegree<=1&&geometry.path.length>1){
+    const startPoly=wallPolygonPoints(geometry.path[0],geometry.path[1],wall);
+    ctx.beginPath();
+    ctx.moveTo(startPoly[0].x,startPoly[0].y);
+    ctx.lineTo(startPoly[3].x,startPoly[3].y);
+    ctx.stroke();
+  }
+  if(item.endDegree<=1&&geometry.path.length>1){
+    const lastIdx=geometry.path.length-1;
+    const endPoly=wallPolygonPoints(geometry.path[lastIdx-1],geometry.path[lastIdx],wall);
+    ctx.beginPath();
+    ctx.moveTo(endPoly[1].x,endPoly[1].y);
+    ctx.lineTo(endPoly[2].x,endPoly[2].y);
+    ctx.stroke();
+  }
   ctx.restore();
 }
 
@@ -3299,9 +3323,12 @@ function wallSnapTarget(a,b,wall){
   return wall?.orthogonal===false ? {x:b.x,y:b.y} : orthoSnap(a.x,a.y,b.x,b.y);
 }
 
-const WALL_TAP_DRAG_THRESHOLD_PX = 14;
-const WALL_FREEHAND_SAMPLE_STEP = UNITS_PER_M * 0.16;
+const WALL_TAP_DRAG_THRESHOLD_PX = 8;
+const WALL_FREEHAND_SAMPLE_STEP = UNITS_PER_M * 0.08;
 const WALL_FREEHAND_MIN_SEG = UNITS_PER_M * 0.1;
+const WALL_ENDPOINT_SNAP_R = SNAP_R * 1.8;
+const WALL_LINE_SNAP_R = SNAP_R * 1.2;
+const WALL_PROJ_SNAP_R = PROJ_SNAP_R * 1.6;
 
 function resetWallGestureState(){
   S.wallPointerDown=null;
@@ -3324,7 +3351,142 @@ function clearWallTapState(){
 function clearWallInteractionState(clearOverlay=false){
   resetWallGestureState();
   clearWallTapState();
+  S.wallApproachHint=null;
   if(clearOverlay) ox.clearRect(0,0,OC.width,OC.height);
+}
+
+function lineEndpointArray(l){
+  if(!l?.pts?.length) return [];
+  return [l.pts[0], l.pts[l.pts.length-1]].filter(Boolean);
+}
+
+function wallEndpointSnapCandidates(line,which='start'){
+  if(!isWallLine(line)||!line?.pts?.length) return [];
+  const center=wallCenterlinePoints(line);
+  const poly=wallPolygonPoints(line);
+  if(which==='end'){
+    return [
+      {x:poly[1].x,y:poly[1].y,role:'outer'},
+      {x:center.b.x,y:center.b.y,role:'center'},
+      {x:poly[2].x,y:poly[2].y,role:'inner'}
+    ];
+  }
+  return [
+    {x:poly[0].x,y:poly[0].y,role:'outer'},
+    {x:center.a.x,y:center.a.y,role:'center'},
+    {x:poly[3].x,y:poly[3].y,role:'inner'}
+  ];
+}
+
+function nearestWallApproachHint(wx,wy,rad=WALL_ENDPOINT_SNAP_R/modelZoom()){
+  let best=null;
+  for(const line of S.lines){
+    if(!isWallLine(line)) continue;
+    for(const which of ['start','end']){
+      const pts=wallEndpointSnapCandidates(line,which);
+      const d=Math.min(...pts.map(p=>Math.hypot(wx-p.x,wy-p.y)));
+      if(d<rad && (!best || d<best.d)){
+        best={line,which,points:pts,d};
+      }
+    }
+  }
+  return best;
+}
+
+function wallDirectSnap(wx,wy){
+  if(!S.snap) return null;
+  const zoom=modelZoom();
+  const endpointRadius=WALL_ENDPOINT_SNAP_R/zoom;
+  const lineRadius=WALL_LINE_SNAP_R/zoom;
+  const wallHint=nearestWallApproachHint(wx,wy,endpointRadius);
+  S.wallApproachHint=wallHint;
+  if(wallHint){
+    const best=wallHint.points
+      .map(p=>({pt:{x:p.x,y:p.y},type:p.role==='center'?'ep':'ol',d:Math.hypot(wx-p.x,wy-p.y),role:p.role}))
+      .sort((a,b)=>a.d-b.d)[0];
+    if(best && best.d<endpointRadius) return best;
+  }
+  let bestEndpoint=null;
+  for(const l of S.lines){
+    for(const p of lineEndpointArray(l)){
+      const d=Math.hypot(wx-p.x,wy-p.y);
+      if(d<endpointRadius && (!bestEndpoint || d<bestEndpoint.d)){
+        bestEndpoint={pt:{x:p.x,y:p.y},type:'ep',d};
+      }
+    }
+  }
+  if(bestEndpoint) return bestEndpoint;
+  let bestInt=null;
+  for(let i=0;i<S.lines.length;i++) for(let j=i+1;j<S.lines.length;j++){
+    const li=S.lines[i], lj=S.lines[j];
+    const segsI=lineSegmentsForSnap(li), segsJ=lineSegmentsForSnap(lj);
+    for(const segI of segsI) for(const segJ of segsJ){
+      const pt=segIntersect(segI[0],segI[1],segJ[0],segJ[1]);
+      if(!pt) continue;
+      const d=Math.hypot(wx-pt.x,wy-pt.y);
+      if(d<endpointRadius && (!bestInt || d<bestInt.d)) bestInt={pt,type:'int',d};
+    }
+  }
+  if(bestInt) return bestInt;
+  let bestLine=null;
+  for(const l of S.lines){
+    for(const seg of lineSegmentsForSnap(l)){
+      const a=seg[0],b=seg[1];
+      const dx2=b.x-a.x,dy2=b.y-a.y,l2=dx2*dx2+dy2*dy2;
+      if(l2<1) continue;
+      let t=((wx-a.x)*dx2+(wy-a.y)*dy2)/l2;
+      t=Math.max(0.01,Math.min(0.99,t));
+      const px2=a.x+t*dx2,py2=a.y+t*dy2;
+      const d=Math.hypot(wx-px2,wy-py2);
+      if(d<lineRadius && (!bestLine || d<bestLine.d)){
+        bestLine={pt:{x:px2,y:py2},type:'ol',d};
+      }
+    }
+  }
+  return bestLine;
+}
+
+function wallProjectionSnap(from,wx,wy){
+  if(!S.snap||!from) return null;
+  const zoom=modelZoom();
+  const r=WALL_PROJ_SNAP_R/zoom;
+  const IA=activeProjectionAngles();
+  const raw=Math.atan2(wy-from.y,wx-from.x);
+  let mainA=IA[0],bestA=Infinity;
+  for(const a of IA){
+    let d=Math.abs(raw-a);
+    if(d>Math.PI) d=2*Math.PI-d;
+    if(d<bestA){ bestA=d; mainA=a; }
+  }
+  const dir={x:Math.cos(mainA),y:Math.sin(mainA)};
+  const ray2={x:from.x+dir.x*10000,y:from.y+dir.y*10000};
+  let best=null,bd=r;
+  for(const g of nearestGuides(wx,wy,6,WALL_ENDPOINT_SNAP_R/zoom)){
+    for(const a of IA){
+      const gd={x:Math.cos(a),y:Math.sin(a)};
+      const pt=lineIntersect(from,ray2,{x:g.x-gd.x*10000,y:g.y-gd.y*10000},{x:g.x+gd.x*10000,y:g.y+gd.y*10000});
+      if(!pt||pt.t<-0.001) continue;
+      const d=Math.hypot(wx-pt.x,wy-pt.y);
+      if(d<bd&&Math.hypot(pt.x-from.x,pt.y-from.y)>2/zoom){
+        bd=d; best={pt:{x:pt.x,y:pt.y},type:'proj',d,anchor:g,angle:a};
+      }
+    }
+  }
+  return best;
+}
+
+function strongWallSnap(wx,wy,from=null){
+  const direct=wallDirectSnap(wx,wy);
+  const proj=wallProjectionSnap(from,wx,wy);
+  S.guideSnap=(proj&&(!direct||proj.d<direct.d))?proj:null;
+  if(S.guideSnap) return S.guideSnap;
+  return direct||smartSnap(wx,wy,from);
+}
+
+function fuseWallPoint(p,from=null){
+  if(!p) return null;
+  const sn=strongWallSnap(p.x,p.y,from);
+  return sn?{...sn.pt}:{x:p.x,y:p.y};
 }
 
 function wallInputPointFromScreen(sc,detail=null,anchor=null){
@@ -3333,11 +3495,11 @@ function wallInputPointFromScreen(sc,detail=null,anchor=null){
   const raw=detail?detailToModel(detail,drawPaper):screenToModel(sc.x,sc.y);
   const safeRaw=detail?raw:clampToVP(raw);
   if(anchor){
-    const sn=smartSnap(safeRaw.x,safeRaw.y,anchor);
+    const sn=strongWallSnap(safeRaw.x,safeRaw.y,anchor);
     if(sn) return {pt:{...sn.pt},raw:safeRaw,snap:sn};
     return {pt:wallSnapTarget(anchor,safeRaw,cloneWallDefaults()),raw:safeRaw,snap:null};
   }
-  const sn=smartSnap(safeRaw.x,safeRaw.y,null);
+  const sn=strongWallSnap(safeRaw.x,safeRaw.y,null);
   return {pt:sn?{...sn.pt}:{...safeRaw},raw:safeRaw,snap:sn};
 }
 
@@ -3404,6 +3566,18 @@ function orthogonalizeWallGesture(points){
   return path;
 }
 
+function normalizeWallPathConnections(points){
+  if(!Array.isArray(points)||!points.length) return [];
+  const out=[fuseWallPoint(points[0],null)];
+  for(let i=1;i<points.length;i++){
+    const prev=out[out.length-1];
+    const raw=wallSnapTarget(prev,points[i],cloneWallDefaults());
+    const fused=fuseWallPoint(raw,prev);
+    if(Math.hypot(fused.x-prev.x,fused.y-prev.y)>0.01) out.push(fused);
+  }
+  return out;
+}
+
 function lineIntersectionPoint(a1,a2,b1,b2){
   const x1=a1.x, y1=a1.y, x2=a2.x, y2=a2.y;
   const x3=b1.x, y3=b1.y, x4=b2.x, y4=b2.y;
@@ -3457,16 +3631,18 @@ function wallCommittedPathGeometry(points,wall,pathMode='tap'){
 
 function commitWallPath(points,{measureLast=false,detail=null,pathMode='tap'}={}){
   if(!Array.isArray(points)||points.length<2) return null;
+  const normalized=normalizeWallPathConnections(points);
+  if(normalized.length<2) return null;
   const wall=cloneWallDefaults();
-  const geometry=wallCommittedPathGeometry(points,wall,pathMode);
+  const geometry=wallCommittedPathGeometry(normalized,wall,pathMode);
   if(!Array.isArray(geometry.path)||geometry.path.length<2) return null;
   const lines=[];
   for(let i=1;i<geometry.path.length;i++){
     const a=geometry.path[i-1], b=geometry.path[i];
     if(Math.hypot(b.x-a.x,b.y-a.y)<=WALL_FREEHAND_MIN_SEG) continue;
     const line=makeWallLine(a,b,geometry.wall);
-    if(pathMode==='freehand'&&points[i-1]&&points[i]){
-      line.label=(Math.hypot(points[i].x-points[i-1].x,points[i].y-points[i-1].y)/UNITS_PER_M).toFixed(2).replace(/0+$/,'').replace(/\.$/,'');
+    if(pathMode==='freehand'&&normalized[i-1]&&normalized[i]){
+      line.label=(Math.hypot(normalized[i].x-normalized[i-1].x,normalized[i].y-normalized[i-1].y)/UNITS_PER_M).toFixed(2).replace(/0+$/,'').replace(/\.$/,'');
     }else{
       updateLineLengthFromCoords(line);
     }
@@ -3475,7 +3651,7 @@ function commitWallPath(points,{measureLast=false,detail=null,pathMode='tap'}={}
   if(!lines.length) return null;
   pushH();
   S.lines.push(...lines);
-  S.polyAnchor={...points[points.length-1]};
+  S.polyAnchor={...normalized[normalized.length-1]};
   hideAutoLabels();
   invalidatePipeLabels();
   redraw();
@@ -7245,6 +7421,22 @@ function drawReductionOnOverlay(ctx, m, zoomScale){
   ctx.restore();
 }
 
+function drawWallApproachHint(ctx,zoomScale){
+  if(S.tool!=='wall'||!S.wallApproachHint?.points?.length) return;
+  ctx.save();
+  for(const p of S.wallApproachHint.points){
+    const r=p.role==='center'?5.2/zoomScale:4.2/zoomScale;
+    ctx.beginPath();
+    ctx.arc(p.x,p.y,r,0,Math.PI*2);
+    ctx.fillStyle=p.role==='center'?'rgba(38,198,255,0.94)':'rgba(255,214,10,0.92)';
+    ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,0.95)';
+    ctx.lineWidth=1.1/zoomScale;
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
 // â”€â”€ OVERLAY (live drag line + ref lines) â”€â”€â”€â”€â”€â”€â”€
 function drawOverlay(curW,detail=null){
   ox.clearRect(0,0,OC.width,OC.height);
@@ -7331,6 +7523,7 @@ function drawOverlay(curW,detail=null){
         S.lines = oldLines;
       }
     }
+    drawWallApproachHint(ox,zs);
   };
   if(detail) withDetailTransform(ox,detail,draw);
   else withModelTransform(ox,draw);
@@ -7341,12 +7534,16 @@ function drawLoupe(sx,sy){
   lx.clearRect(0,0,LC.width,LC.height);
   const srcR=LOUPE_R/LOUPE_Z;
   const sideOffset=LOUPE_R+58;
-  const verticalOffset=Math.round(LOUPE_R*0.42);
+  const verticalOffset=S.tool==='wall' ? 0 : Math.round(LOUPE_R*0.42);
   let lcx=sx+sideOffset, lcy=sy-verticalOffset;
   if(lcx>LC.width-LOUPE_R-8) lcx=sx-sideOffset;
   if(lcx<LOUPE_R+8) lcx=sx+Math.min(sideOffset,LOUPE_R+26);
   if(lcx>LC.width-LOUPE_R-8) lcx=sx;
-  if(lcy<LOUPE_R+8) lcy=sy+verticalOffset;
+  if(S.tool==='wall'){
+    lcy=sy;
+  }else if(lcy<LOUPE_R+8){
+    lcy=sy+verticalOffset;
+  }
   lcx=Math.min(Math.max(lcx,LOUPE_R+4),LC.width-LOUPE_R-4);
   lcy=Math.min(Math.max(lcy,LOUPE_R+4),LC.height-LOUPE_R-4);
   lx.save();
@@ -8662,8 +8859,14 @@ function onMv(e){
 
   if(S.tool==='wall'&&S.drag&&S.wallGesture==='freehand'&&S.ds){
     const detail=S.drawDetail;
-    const info=wallInputPointFromScreen(sc,detail,null);
-    appendWallFreehandPoint(info.raw);
+    const coalesced=typeof e.getCoalescedEvents==='function' ? e.getCoalescedEvents() : [e];
+    let info=null;
+    for(const ev of coalesced){
+      const sc2=gpp(ev);
+      info=wallInputPointFromScreen(sc2,detail,null);
+      appendWallFreehandPoint(info.raw);
+    }
+    if(!info) info=wallInputPointFromScreen(sc,detail,null);
     S.wallFreehandPath=orthogonalizeWallGesture(S.wallFreehandPts);
     const previewPath=S.wallFreehandPath||[];
     S.de=previewPath.length>1?{...previewPath[previewPath.length-1]}:{...S.ds};
@@ -8679,7 +8882,7 @@ function onMv(e){
     const detail=S.drawDetail;
     const drawPaper=detail?clampPaperToDetail(detail,paper):paper;
     const w1=detail?detailToModel(detail,drawPaper):w;
-    const sn=smartSnap(w1.x,w1.y,S.ds);
+    const sn=S.tool==='wall'?strongWallSnap(w1.x,w1.y,S.ds):smartSnap(w1.x,w1.y,S.ds);
     S.snapE=!!sn;
     let ep=sn?{...sn.pt}:null;
     if(!ep){
@@ -8699,7 +8902,7 @@ function onMv(e){
   // Hover: snap dot + ref lines
   const hoverDetail=drawingDetailAtPaper(paper);
   const canHover=hoverDetail||!S.vp||hitVP(paper.x,paper.y);
-  if(!canHover) S.guideSnap=null;
+  if(!canHover){ S.guideSnap=null; S.wallApproachHint=null; }
   const hw=hoverDetail?detailToModel(hoverDetail,paper):w;
   if((S.tool==='vano'||S.tool==='window'||S.tool==='door') && canHover){
     const wt=nearestWallProjection(hw.x,hw.y);
@@ -8711,6 +8914,15 @@ function onMv(e){
     }
   }
   const sn=canHover?smartSnap(hw.x,hw.y,null):null;
+  if(S.tool==='wall'&&canHover&&!S.wallTapStart){
+    const wsn=strongWallSnap(hw.x,hw.y,null);
+    if(wsn){
+      const ss=modelToDrawingScreen(wsn.pt,hoverDetail);
+      showSnapDot(ss.x,ss.y,wsn.type);
+      drawOverlay(canHover?hw:null,hoverDetail);
+      return;
+    }
+  }
   if(sn){const ss=modelToDrawingScreen(sn.pt,hoverDetail);showSnapDot(ss.x,ss.y,sn.type);}
   else DOT.style.display='none';
   if(S.tool==='wall'&&S.wallTapStart){
