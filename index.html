@@ -699,7 +699,9 @@ canvas{position:absolute;inset:0;}
     <span class="groupLabel">Líneas</span>
     <div class="tbtn on txt" id="btline" title="Línea">Lin</div>
     <div class="tbtn txt" id="bmuro" title="Muro (solo planta)" style="display:none;">Muro</div>
-    <div class="tbtn txt" id="bwallgen" title="Generador de muros" style="display:none;">Gen muro</div>
+    <div class="tbtn txt" id="bwallgen" title="Rectangulo 7 x 15 m" style="display:none;">□</div>
+    <div class="tbtn txt" id="bwalldims" title="Mostrar cotas de muros" style="display:none;">Cotas</div>
+    <div class="tbtn txt" id="badddim" title="Insertar cota" style="display:none;">+Cota</div>
     <div class="tbtn txt" id="bvano" title="Vano en muro" style="display:none;">Vano</div>
     <div class="tbtn txt" id="bventana" title="Ventana en muro" style="display:none;">Vent</div>
     <div class="tbtn txt" id="bpuerta" title="Puerta en muro" style="display:none;">Puerta</div>
@@ -1870,6 +1872,8 @@ const S = {
   polyAnchor:null,
   wallTapStart:null, wallTapPreviewEnd:null, wallPointerDown:null, wallGesture:null, wallFreehandPts:[], wallFreehandPath:null,
   wallApproachHint:null,
+  wallDimsVisible:false,
+  pendingDimensionPick:false,
   // select / pan
   selLine:null, selBlock:null, selLabel:null, selOpening:null, selDown:null,
   panPt:null,
@@ -3850,7 +3854,7 @@ function readWallGeneratorUI(){
 
 function syncProjectModeUI(){
   const isPlanta=(S.projectKind||'iso')==='planta';
-  ['bmuro','bwallgen','bvano','bventana','bpuerta'].forEach(id=>{
+  ['bmuro','bwallgen','bwalldims','badddim','bvano','bventana','bpuerta'].forEach(id=>{
     const el=document.getElementById(id);
     if(el) el.style.display=isPlanta?'flex':'none';
   });
@@ -3994,7 +3998,62 @@ function makeWallLine(a,b,wall=cloneWallDefaults()){
   };
 }
 
-function insertWallRectanglePreset(widthM=15,heightM=7){
+function wallRectangleGroupId(){
+  return 'wallrect_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
+}
+
+function wallRectangleRoleMap(rectId,wall){
+  return {
+    top:Object.assign(makeWallLine({x:0,y:0},{x:0,y:0},wall),{wallRectId:rectId,wallRectRole:'top'}),
+    right:Object.assign(makeWallLine({x:0,y:0},{x:0,y:0},wall),{wallRectId:rectId,wallRectRole:'right'}),
+    bottom:Object.assign(makeWallLine({x:0,y:0},{x:0,y:0},wall),{wallRectId:rectId,wallRectRole:'bottom'}),
+    left:Object.assign(makeWallLine({x:0,y:0},{x:0,y:0},wall),{wallRectId:rectId,wallRectRole:'left'})
+  };
+}
+
+function wallRectangleGroupFor(line){
+  const rectId=line?.wallRectId;
+  if(!rectId) return null;
+  const group=S.lines.filter(item=>item.wallRectId===rectId);
+  if(group.length!==4) return null;
+  const byRole=Object.fromEntries(group.map(item=>[item.wallRectRole,item]));
+  if(!byRole.top||!byRole.right||!byRole.bottom||!byRole.left) return null;
+  return byRole;
+}
+
+function wallRectangleBounds(group){
+  return {
+    leftX:group.left.pts[0].x,
+    rightX:group.right.pts[0].x,
+    topY:group.top.pts[0].y,
+    bottomY:group.bottom.pts[0].y
+  };
+}
+
+function syncWallRectangleGroup(group,leftX,rightX,topY,bottomY){
+  group.top.pts=[{x:leftX,y:topY},{x:rightX,y:topY}];
+  group.right.pts=[{x:rightX,y:topY},{x:rightX,y:bottomY}];
+  group.bottom.pts=[{x:rightX,y:bottomY},{x:leftX,y:bottomY}];
+  group.left.pts=[{x:leftX,y:bottomY},{x:leftX,y:topY}];
+  Object.values(group).forEach(updateLineLengthFromCoords);
+}
+
+function applyWallRectangleMeasure(line,lenM){
+  const group=wallRectangleGroupFor(line);
+  if(!group) return false;
+  const size=Math.max(0,lenM)*UNITS_PER_M;
+  const {leftX,rightX,topY,bottomY}=wallRectangleBounds(group);
+  let newRightX=rightX, newBottomY=bottomY;
+  if(line.wallRectRole==='top'||line.wallRectRole==='bottom'){
+    newRightX=leftX+size;
+  }else{
+    newBottomY=topY+size;
+  }
+  syncWallRectangleGroup(group,leftX,newRightX,topY,newBottomY);
+  return true;
+}
+
+function insertWallRectanglePreset(widthM=7,heightM=15){
   const wall=cloneWallDefaults(readWallGeneratorUI());
   S.wallDefaults=cloneWallDefaults(wall);
   const outerW=widthM*UNITS_PER_M;
@@ -4011,17 +4070,21 @@ function insertWallRectanglePreset(widthM=15,heightM=7){
   const bottomY=bottom-inset;
   const leftX=left+inset;
   const rightX=right-inset;
+  const rectId=wallRectangleGroupId();
+  const group=wallRectangleRoleMap(rectId,wall);
+  syncWallRectangleGroup(group,leftX,rightX,topY,bottomY);
   pushH();
   S.lines.push(
-    makeWallLine({x:leftX,y:topY},{x:rightX,y:topY},wall),
-    makeWallLine({x:rightX,y:topY},{x:rightX,y:bottomY},wall),
-    makeWallLine({x:rightX,y:bottomY},{x:leftX,y:bottomY},wall),
-    makeWallLine({x:leftX,y:bottomY},{x:leftX,y:topY},wall)
+    group.top,
+    group.right,
+    group.bottom,
+    group.left
   );
   hideAutoLabels();
   invalidatePipeLabels();
   closeM('wallmod');
   fitVPContent();
+  setTool('sel');
   redraw();
   toast('Rectangulo de muros 7 x 15 insertado');
 }
@@ -6563,7 +6626,7 @@ function drawDimensions(){
   const obstacles=dimLineSegments(p=>modelToScreen(p));
   const bounds=dimViewportBoundsScreen();
   for(const l of S.lines){
-    if(!l.label) continue;
+    if(!shouldDrawWallDimension(l)) continue;
     drawDim(l,occupied,obstacles,bounds);
   }
   dx.restore();
@@ -6573,7 +6636,7 @@ function drawDim(l,occupied,obstacles=[],bounds=null){
   const p0=modelToScreen(l.pts[0]);
   const p1=modelToScreen(l.pts[l.pts.length-1]);
   const fs=Math.max(10.5,Math.min(18,13*S.textScale));
-  placeDimText(dx,l.label,p0,p1,fs,occupied,{screen:true,obstacles,line:l,bounds});
+  placeDimText(dx,lineDisplayLabel(l),p0,p1,fs,occupied,{screen:true,obstacles,line:l,bounds});
 }
 
 function readableAngle(angle){
@@ -6773,7 +6836,7 @@ function drawDetailDim(ctx,l,d,occupied=[],obstacles=[]){
   const r=Math.abs(d.r*S.zoom)-fs*1.8;
   const clipped=clipSegmentToCircle(p0,p1,c,r);
   if(!clipped) return;
-  placeDimText(ctx,l.label,clipped[0],clipped[1],fs,occupied,{screen:true,circle:{x:c.x,y:c.y,r},obstacles,line:l});
+  placeDimText(ctx,lineDisplayLabel(l),clipped[0],clipped[1],fs,occupied,{screen:true,circle:{x:c.x,y:c.y,r},obstacles,line:l});
 }
 
 function drawDetailViewport(){
@@ -7779,6 +7842,20 @@ function lineMeasureM(line){
   return Math.hypot(b.x-a.x,b.y-a.y)/UNITS_PER_M;
 }
 
+function lineDisplayLabel(line){
+  if(!line) return '';
+  if(line.label) return line.label;
+  if(isWallLine(line)) return fmtMeasureInput(lineMeasureM(line));
+  return '';
+}
+
+function shouldDrawWallDimension(line){
+  if(!isWallLine(line)) return !!lineDisplayLabel(line);
+  if((S.projectKind||'iso')!=='planta') return !!lineDisplayLabel(line);
+  if(S.wallDimsVisible) return !!lineDisplayLabel(line);
+  return (line===S.selLine||line===S.lineEditLine||line===S.editDimLine) && !!lineDisplayLabel(line);
+}
+
 function fmtMeasureInput(v){
   if(!Number.isFinite(v)||v<=0) return '';
   return v.toFixed(2).replace(/0+$/,'').replace(/\.$/,'');
@@ -7790,7 +7867,7 @@ function showMeasureInput(line,isNew=false,detail=null){
   NUMPAD.classList.remove('noDecimal');
   S.editDimLine=line;
   line.awaitMeasure=!!isNew;
-  const current=parseFloat(String(line.label||'').replace(',','.'));
+  const current=parseFloat(String(lineDisplayLabel(line)||'').replace(',','.'));
   const captured=Number.isFinite(current)&&current>0?current:(line.draftMeasure||lineMeasureM(line));
   line.draftMeasure=captured;
   const p0s=modelToDrawingScreen(line.pts[0],detail);
@@ -7900,7 +7977,7 @@ function hideDimInput(commit,opts={}){
       if(Number.isFinite(v)&&v>0){
         if(!line.awaitMeasure) pushH();
         line.label=v.toFixed(2).replace(/0+$/,'').replace(/\.$/,'');
-        applyLineMeasure(line,v);
+        if(!applyWallRectangleMeasure(line,v)) applyLineMeasure(line,v);
         delete line.draftMeasure;
         line.awaitMeasure=false;
         S.polyAnchor={...line.pts[line.pts.length-1]};
@@ -9067,6 +9144,14 @@ function onUp(e){
         S.selLine=l; S.selBlock=null; S.selLabel=null; S.selDetail=null; S.selOpening=null;
         S.scaleMode='cota';
         if(isWallLine(l)) S.lineEditLine=l;
+        if(S.pendingDimensionPick){
+          S.pendingDimensionPick=false;
+          updateToolButtons();
+          showMeasureInput(l,false,editDetail);
+          redraw();
+          S.selDown=null;
+          return;
+        }
         if(S.lineTapTimeout) clearTimeout(S.lineTapTimeout);
         S.lineTapTimeout = setTimeout(() => {
           if(S.lineEditLine !== l) {
@@ -10511,6 +10596,8 @@ function resetProject(form=blankForm(),kind=S.projectKind||'iso'){
   S.profiles=mergedProfiles();
   S.activeProf='p2025c';
   S.textScale=1;
+  S.wallDimsVisible=false;
+  S.pendingDimensionPick=false;
   S.cajetin=null; S.cajetinSrc=null;
   S.detailVP=null; S.detailVPs=[]; S.activeDetail=null; S.selDetail=null; S.drawDetail=null; S.editingTee=null;
   const defaultVP = (S.projectKind === 'planta') ? PLANTA_LAYOUT.drawRect : DEFAULT_VP;
@@ -10535,7 +10622,8 @@ function captureViewState(){
     py:S.py,
     viewFit:S.viewFit||'vp',
     vpEdit:!!S.vpEdit,
-    vpSel:!!S.vpSel
+    vpSel:!!S.vpSel,
+    wallDimsVisible:!!S.wallDimsVisible
   };
 }
 function captureProject(){
@@ -10659,6 +10747,7 @@ function loadProjectData(data){
   S.vpEdit=savedView?savedView.vpEdit!==false:true;
   S.vpSel=savedView?!!savedView.vpSel&&!S.vpEdit:false;
   S.viewFit=savedView?.viewFit||(S.vpEdit?'vp':'sheet');
+  S.wallDimsVisible=!!savedView?.wallDimsVisible;
   if(hasSavedCanvasView){
     S.zoom=savedView.zoom;
     S.px=savedView.px;
@@ -10861,7 +10950,7 @@ function saveMeasure(){
     line.diam=line.kind==='existente'?'':document.getElementById('mdiam').value;
   }
   line.label=len.toFixed(2).replace(/0+$/,'').replace(/\.$/,'');
-  applyLineMeasure(line,len);
+  if(!applyWallRectangleMeasure(line,len)) applyLineMeasure(line,len);
   line.awaitMeasure=false;
   S.polyAnchor={...line.pts[line.pts.length-1]};
   S.editDimLine=null;
@@ -10975,11 +11064,11 @@ function buildExportCanvas(sc){
   const exportObstacles=dimLineSegments(p=>modelToPaper(p));
   const exportBounds=vp?{minX:vp.x+2,minY:vp.y+2,maxX:vp.x+vp.w-2,maxY:vp.y+vp.h-2}:null;
   for(const l of S.lines){
-    if(!l.label) continue;
+    if(!shouldDrawWallDimension(l)) continue;
     const p0=modelToPaper(l.pts[0]);
     const p1=modelToPaper(l.pts[l.pts.length-1]);
     const fs=Math.max(7,Math.min(12,8*S.textScale));
-    placeDimText(ctx,l.label,p0,p1,fs,exportOccupied,{export:true,obstacles:exportObstacles,line:l,bounds:exportBounds});
+    placeDimText(ctx,lineDisplayLabel(l),p0,p1,fs,exportOccupied,{export:true,obstacles:exportObstacles,line:l,bounds:exportBounds});
   }
   ctx.restore();
   for(const d of detailList()){
@@ -11017,14 +11106,14 @@ function buildExportCanvas(sc){
     const dOcc=[];
     const dObstacles=dimLineSegments(p=>({x:d.x+d.px+p.x*d.z,y:d.y+d.py+p.y*d.z}));
     for(const l of S.lines){
-      if(!l.label) continue;
+      if(!shouldDrawWallDimension(l)) continue;
       const p0={x:d.x+d.px+l.pts[0].x*d.z,y:d.y+d.py+l.pts[0].y*d.z};
       const p1={x:d.x+d.px+l.pts[l.pts.length-1].x*d.z,y:d.y+d.py+l.pts[l.pts.length-1].y*d.z};
       const fs=Math.max(6.5,Math.min(11,7.5*S.textScale));
       const r=Math.max(1,d.r-fs*1.8);
       const clipped=clipSegmentToCircle(p0,p1,{x:d.x,y:d.y},r);
       if(!clipped) continue;
-      placeDimText(ctx,l.label,clipped[0],clipped[1],fs,dOcc,{export:true,circle:{x:d.x,y:d.y,r},obstacles:dObstacles,line:l});
+      placeDimText(ctx,lineDisplayLabel(l),clipped[0],clipped[1],fs,dOcc,{export:true,circle:{x:d.x,y:d.y,r},obstacles:dObstacles,line:l});
     }
     ctx.restore();
     ctx.strokeStyle='rgba(0,63,125,.85)';
@@ -11352,6 +11441,10 @@ function updateToolButtons(){
     const el=document.getElementById(map[t]);
     if(el) el.classList.toggle('on',t===S.tool);
   });
+  const wallDimsBtn=document.getElementById('bwalldims');
+  if(wallDimsBtn) wallDimsBtn.classList.toggle('on',!!S.wallDimsVisible);
+  const addDimBtn=document.getElementById('badddim');
+  if(addDimBtn) addDimBtn.classList.toggle('on',!!S.pendingDimensionPick);
   const work=document.getElementById('bwork');
   if(work) work.classList.toggle('on',!!S.vpEdit);
   const detail=document.getElementById('bdetail');
@@ -11658,7 +11751,30 @@ document.getElementById('bmuro').addEventListener('click',()=>{
   setTool('wall');
   toast('Muro: arrastra para dibujar');
 });
-document.getElementById('bwallgen').addEventListener('click',()=>openWallGenerator());
+document.getElementById('bwallgen').addEventListener('click',()=>{
+  if((S.projectKind||'iso')!=='planta'){
+    toast('Rectangulo solo disponible en Planta');
+    return;
+  }
+  insertWallRectanglePreset(7,15);
+});
+document.getElementById('bwalldims')?.addEventListener('click',()=>{
+  S.wallDimsVisible=!S.wallDimsVisible;
+  updateToolButtons();
+  redraw();
+});
+document.getElementById('badddim')?.addEventListener('click',()=>{
+  if(S.selLine){
+    S.pendingDimensionPick=false;
+    updateToolButtons();
+    showMeasureInput(S.selLine,false,null);
+    return;
+  }
+  S.pendingDimensionPick=true;
+  setTool('sel');
+  updateToolButtons();
+  toast('Toca un muro o linea para insertar cota');
+});
 document.getElementById('bvano').addEventListener('click',()=>openOpeningTool('vano'));
 document.getElementById('bventana').addEventListener('click',()=>openOpeningTool('ventana'));
 document.getElementById('bpuerta').addEventListener('click',()=>openOpeningTool('puerta'));
@@ -11668,7 +11784,7 @@ document.getElementById('wallWidthPreset')?.addEventListener('change',e=>{
   if(input && e.target.value!=='custom') input.value=String(e.target.value);
 });
 document.getElementById('wallSaveBtn')?.addEventListener('click',applyWallGenerator);
-document.getElementById('wallRectPreset')?.addEventListener('click',()=>insertWallRectanglePreset(15,7));
+document.getElementById('wallRectPreset')?.addEventListener('click',()=>insertWallRectanglePreset(7,15));
 document.getElementById('openingUseBtn')?.addEventListener('click',applyOpeningTool);
 document.getElementById('bdoor070')?.addEventListener('click',()=>{closePlantaLibraryDrop();applyOpeningPreset('puerta',0.70);});
 document.getElementById('bdoor080')?.addEventListener('click',()=>{closePlantaLibraryDrop();applyOpeningPreset('puerta',0.80);});
