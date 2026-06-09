@@ -2879,6 +2879,145 @@ function pointToSegmentDistance(p,a,b){
   return Math.hypot(p.x-qx,p.y-qy);
 }
 
+function pointInsideOrNearPolygon(p,poly,tol=0.01){
+  if(pointInPolygon(p,poly)) return true;
+  for(let i=0;i<poly.length;i++){
+    const a=poly[i], b=poly[(i+1)%poly.length];
+    if(pointToSegmentDistance(p,a,b)<=tol) return true;
+  }
+  return false;
+}
+
+function segmentIntersectionT(a,b,c,d){
+  const x1=a.x,y1=a.y,x2=b.x,y2=b.y;
+  const x3=c.x,y3=c.y,x4=d.x,y4=d.y;
+  const den=(x1-x2)*(y3-y4)-(y1-y2)*(x3-x4);
+  if(Math.abs(den)<1e-9) return null;
+  const t=((x1-x3)*(y3-y4)-(y1-y3)*(x3-x4))/den;
+  const u=((x1-x3)*(y1-y2)-(y1-y3)*(x1-x2))/den;
+  if(t<-0.0005||t>1.0005||u<-0.0005||u>1.0005) return null;
+  return Math.max(0,Math.min(1,t));
+}
+
+function projectPointToSegment(p,a,b){
+  const dx=b.x-a.x, dy=b.y-a.y;
+  const len2=dx*dx+dy*dy;
+  if(len2<1e-10) return {pt:{x:a.x,y:a.y},t:0,d:Math.hypot(p.x-a.x,p.y-a.y)};
+  let t=((p.x-a.x)*dx+(p.y-a.y)*dy)/len2;
+  t=Math.max(0,Math.min(1,t));
+  const pt={x:a.x+dx*t,y:a.y+dy*t};
+  return {pt,t,d:Math.hypot(p.x-pt.x,p.y-pt.y)};
+}
+
+function wallRailForRole(line,role='center'){
+  const center=wallCenterlinePoints(line);
+  const poly=wallPolygonPoints(line);
+  if(role==='outer') return {a:poly[0],b:poly[1]};
+  if(role==='inner') return {a:poly[3],b:poly[2]};
+  return {a:center.a,b:center.b};
+}
+
+function findWallSlideConstraint(line){
+  if(!isWallLine(line)||!line?.pts?.length) return null;
+  const wall=cloneWallDefaults(line.wall);
+  const tol=Math.max(wallHalfWidthUnits(wall)*0.5,UNITS_PER_M*0.16);
+  let best=null;
+  const endpoints=[line.pts[0],line.pts[line.pts.length-1]];
+  for(let endpointIndex=0;endpointIndex<endpoints.length;endpointIndex++){
+    const p=endpoints[endpointIndex];
+    const otherIndex=endpointIndex===0?line.pts.length-1:0;
+    const otherPt=line.pts[otherIndex];
+    for(const other of S.lines){
+      if(other===line||!isWallLine(other)||!other?.pts?.length) continue;
+      for(const role of ['outer','center','inner']){
+        const rail=wallRailForRole(other,role);
+        const pr=projectPointToSegment(p,rail.a,rail.b);
+        if(pr.t<=0.03||pr.t>=0.97||pr.d>tol) continue;
+        const score=pr.d+(role==='center'?0.15:0);
+        if(!best||score<best.score){
+          best={
+            line,
+            endpointIndex,
+            otherIndex,
+            hostLine:other,
+            role,
+            rail,
+            score,
+            offset:{x:otherPt.x-p.x,y:otherPt.y-p.y}
+          };
+        }
+      }
+    }
+  }
+  return best;
+}
+
+function segmentPolygonIntervals(a,b,poly,tol=0.01){
+  const ts=[0,1];
+  for(let i=0;i<poly.length;i++){
+    const t=segmentIntersectionT(a,b,poly[i],poly[(i+1)%poly.length]);
+    if(t!==null) ts.push(t);
+  }
+  ts.sort((m,n)=>m-n);
+  const uniq=[];
+  for(const t of ts){
+    if(!uniq.length||Math.abs(t-uniq[uniq.length-1])>0.0005) uniq.push(t);
+  }
+  const intervals=[];
+  for(let i=1;i<uniq.length;i++){
+    const t0=uniq[i-1], t1=uniq[i];
+    if(t1-t0<0.0005) continue;
+    const midT=(t0+t1)/2;
+    const mid={x:a.x+(b.x-a.x)*midT,y:a.y+(b.y-a.y)*midT};
+    if(pointInsideOrNearPolygon(mid,poly,tol)){
+      intervals.push({t0,t1});
+    }
+  }
+  return mergeIntervals(intervals);
+}
+
+function wallHiddenIntervalsForEdge(line,a,b){
+  const wall=cloneWallDefaults(line.wall);
+  const tol=Math.max(0.01,wallHalfWidthUnits(wall)*0.12);
+  const edgeLen=Math.hypot(b.x-a.x,b.y-a.y);
+  if(edgeLen<0.01) return [];
+  const items=[];
+  const selfPoly=wallPolygonPoints(line);
+  for(const other of S.lines){
+    if(other===line||!isWallLine(other)||!other?.pts?.length) continue;
+    const otherWall=cloneWallDefaults(other.wall);
+    for(const p of [other.pts[0],other.pts[other.pts.length-1]].filter(Boolean)){
+      if(!pointInsideOrNearPolygon(p,selfPoly,tol)) continue;
+      const pr=projectPointToSegment(p,a,b);
+      if(pr.t<=0.03||pr.t>=0.97||pr.d>tol*1.8) continue;
+      const half=Math.min(0.35,(wallHalfWidthUnits(otherWall)/edgeLen)+0.02);
+      items.push({t0:Math.max(0,pr.t-half),t1:Math.min(1,pr.t+half)});
+    }
+  }
+  return mergeIntervals(items);
+}
+
+function strokeSegmentWithHiddenIntervals(ctx,a,b,hidden=[]){
+  if(!hidden?.length){
+    ctx.moveTo(a.x,a.y);
+    ctx.lineTo(b.x,b.y);
+    return;
+  }
+  let cursor=0;
+  for(const iv of hidden){
+    const t0=Math.max(cursor,Math.min(1,iv.t0));
+    if(t0-cursor>0.001){
+      ctx.moveTo(a.x+(b.x-a.x)*cursor,a.y+(b.y-a.y)*cursor);
+      ctx.lineTo(a.x+(b.x-a.x)*t0,a.y+(b.y-a.y)*t0);
+    }
+    cursor=Math.max(cursor,Math.min(1,iv.t1));
+  }
+  if(1-cursor>0.001){
+    ctx.moveTo(a.x+(b.x-a.x)*cursor,a.y+(b.y-a.y)*cursor);
+    ctx.lineTo(b.x,b.y);
+  }
+}
+
 function tracePolygonPath(ctx,poly){
   if(!poly?.length) return;
   ctx.beginPath();
@@ -2952,8 +3091,9 @@ function drawWallLine(ctx,line,sel,zoomScale,preview=false){
   const segs=wallVisibleSegments(line);
   if(!segs.length) return;
   ctx.save();
-  ctx.lineCap='round';
-  ctx.lineJoin='round';
+  ctx.lineCap='butt';
+  ctx.lineJoin='miter';
+  ctx.miterLimit=10;
   ctx.setLineDash(preview?[8/zoomScale,5/zoomScale]:[]);
   const edgeColor=sel?'#4fa8e8':'#3a3f46';
   const edgeWidth=Math.max(1.15/zoomScale, wall.thick/zoomScale);
@@ -2971,11 +3111,11 @@ function drawWallLine(ctx,line,sel,zoomScale,preview=false){
     if(!preview) drawWallTexture(ctx,poly,wall,zoomScale);
     ctx.strokeStyle=edgeColor;
     ctx.lineWidth=edgeWidth;
+    const hiddenTop=preview?[]:wallHiddenIntervalsForEdge(line,poly[0],poly[1]);
+    const hiddenBottom=preview?[]:wallHiddenIntervalsForEdge(line,poly[3],poly[2]);
     ctx.beginPath();
-    ctx.moveTo(poly[0].x,poly[0].y);
-    ctx.lineTo(poly[1].x,poly[1].y);
-    ctx.moveTo(poly[2].x,poly[2].y);
-    ctx.lineTo(poly[3].x,poly[3].y);
+    strokeSegmentWithHiddenIntervals(ctx,poly[0],poly[1],hiddenTop);
+    strokeSegmentWithHiddenIntervals(ctx,poly[3],poly[2],hiddenBottom);
     const showStartCap=seg.t0>0.0005 || !wallEndpointConnected(line,'start');
     const showEndCap=seg.t1<0.9995 || !wallEndpointConnected(line,'end');
     if(showStartCap){
@@ -3146,13 +3286,37 @@ function drawWallOpeningSymbols(ctx,line,zoomScale){
   ctx.restore();
 }
 
+function wallHasBodyJoin(line){
+  if(!isWallLine(line)||!line?.pts?.length) return false;
+  const poly=wallPolygonPoints(line);
+  const half=wallHalfWidthUnits(line);
+  const tol=Math.max(0.01,half*0.1);
+  const ownEnds=[line.pts[0],line.pts[line.pts.length-1]].filter(Boolean);
+  for(const other of S.lines){
+    if(other===line||!isWallLine(other)||!other?.pts?.length) continue;
+    const otherPoly=wallPolygonPoints(other);
+    const otherEnds=[other.pts[0],other.pts[other.pts.length-1]].filter(Boolean);
+    for(const p of otherEnds){
+      const pr=wallProjection(line,p);
+      if(pr&&pr.t>0.03&&pr.t<0.97&&pointInsideOrNearPolygon(p,poly,tol)) return true;
+    }
+    for(const p of ownEnds){
+      const pr=wallProjection(other,p);
+      if(pr&&pr.t>0.03&&pr.t<0.97&&pointInsideOrNearPolygon(p,otherPoly,tol)) return true;
+    }
+  }
+  return false;
+}
+
 function centerWallRenderEligible(line){
   if(!isWallLine(line)||!line.pts||line.pts.length<2) return false;
+  if((S.projectKind||'iso')==='planta') return false;
   const wall=cloneWallDefaults(line.wall);
   return wall.autoCorners!==false
     && wall.dash==='solid'
     && wall.texture==='solid'
-    && wallOpeningsFor(line).length===0;
+    && wallOpeningsFor(line).length===0
+    && !wallHasBodyJoin(line);
 }
 
 function centerWallStyleKey(line){
@@ -3347,8 +3511,8 @@ function wallSnapTarget(a,b,wall){
 const WALL_TAP_DRAG_THRESHOLD_PX = 8;
 const WALL_FREEHAND_SAMPLE_STEP = UNITS_PER_M * 0.08;
 const WALL_FREEHAND_MIN_SEG = UNITS_PER_M * 0.1;
-const WALL_ENDPOINT_SNAP_R = SNAP_R * 2.15;
-const WALL_LINE_SNAP_R = SNAP_R * 1.55;
+const WALL_ENDPOINT_SNAP_R = SNAP_R * 1.45;
+const WALL_LINE_SNAP_R = SNAP_R * 0.9;
 const WALL_PROJ_SNAP_R = PROJ_SNAP_R * 1.6;
 
 function resetWallGestureState(){
@@ -3401,11 +3565,9 @@ function wallEndpointSnapCandidates(line,which='start'){
 
 function wallBodySnapCandidates(line,wx,wy){
   if(!isWallLine(line)||!line?.pts?.length) return [];
-  const center=wallCenterlinePoints(line);
   const poly=wallPolygonPoints(line);
   const rails=[
     {a:poly[0],b:poly[1],role:'outer'},
-    {a:center.a,b:center.b,role:'center'},
     {a:poly[3],b:poly[2],role:'inner'}
   ];
   return rails.map(rail=>{
@@ -3425,7 +3587,7 @@ function nearestWallApproachHint(wx,wy,rad=WALL_ENDPOINT_SNAP_R/modelZoom()){
   for(const line of S.lines){
     if(!isWallLine(line)) continue;
     for(const which of ['start','end']){
-      const pts=wallEndpointSnapCandidates(line,which);
+      const pts=wallEndpointSnapCandidates(line,which).filter(p=>p.role!=='center');
       const d=Math.min(...pts.map(p=>Math.hypot(wx-p.x,wy-p.y)));
       if(d<rad && (!best || d<best.d)){
         best={line,which,points:pts,d};
@@ -4088,11 +4250,93 @@ function wallRectangleBounds(group){
   };
 }
 
+function wallRectangleOuterBounds(group){
+  const pts=Object.values(group).flatMap(line=>wallPolygonPoints(line));
+  if(!pts.length) return wallRectangleBounds(group);
+  return {
+    leftX:Math.min(...pts.map(p=>p.x)),
+    rightX:Math.max(...pts.map(p=>p.x)),
+    topY:Math.min(...pts.map(p=>p.y)),
+    bottomY:Math.max(...pts.map(p=>p.y))
+  };
+}
+
+function wallLineBounds(line,pad=0){
+  const pts=isWallLine(line)?wallPolygonPoints(line):line?.pts;
+  if(!pts?.length) return null;
+  return {
+    minX:Math.min(...pts.map(p=>p.x))-pad,
+    minY:Math.min(...pts.map(p=>p.y))-pad,
+    maxX:Math.max(...pts.map(p=>p.x))+pad,
+    maxY:Math.max(...pts.map(p=>p.y))+pad
+  };
+}
+
+function scenePlacementObstacles(pad=UNITS_PER_M*0.18){
+  const items=[];
+  for(const line of S.lines){
+    const b=wallLineBounds(line,pad);
+    if(b) items.push(b);
+  }
+  for(const block of S.blocks||[]){
+    const r=blockWorldRect(block,pad);
+    const b=boundsFromWorldRect(r,0);
+    if(b) items.push(b);
+  }
+  return items;
+}
+
+function findWallRectanglePlacement(width,height,pad=UNITS_PER_M*0.35){
+  const vp=ensureVP();
+  if(!vp) return null;
+  const tl=paperToModel({x:vp.x,y:vp.y});
+  const br=paperToModel({x:vp.x+vp.w,y:vp.y+vp.h});
+  const minX=Math.min(tl.x,br.x)+pad;
+  const maxX=Math.max(tl.x,br.x)-pad;
+  const minY=Math.min(tl.y,br.y)+pad;
+  const maxY=Math.max(tl.y,br.y)-pad;
+  if(maxX-minX<width||maxY-minY<height) return null;
+  const center=paperToModel({x:vp.x+vp.w/2,y:vp.y+vp.h/2});
+  const obstacles=scenePlacementObstacles(pad*0.55);
+  const stepX=Math.max(UNITS_PER_M*0.5,width*0.14);
+  const stepY=Math.max(UNITS_PER_M*0.5,height*0.14);
+  const xs=[], ys=[];
+  for(let x=minX;x<=maxX-width+0.001;x+=stepX) xs.push(x);
+  for(let y=minY;y<=maxY-height+0.001;y+=stepY) ys.push(y);
+  const candidates=[];
+  for(const x of xs) for(const y of ys){
+    const box={minX:x,minY:y,maxX:x+width,maxY:y+height};
+    if(obstacles.some(ob=>boxesOverlap(box,ob))) continue;
+    const cx=(box.minX+box.maxX)/2;
+    const cy=(box.minY+box.maxY)/2;
+    candidates.push({x,y,score:Math.hypot(cx-center.x,cy-center.y)});
+  }
+  if(!candidates.length) return null;
+  candidates.sort((a,b)=>a.score-b.score);
+  const best=candidates[0];
+  return {
+    left:best.x,
+    right:best.x+width,
+    top:best.y,
+    bottom:best.y+height
+  };
+}
+
 function syncWallRectangleGroup(group,leftX,rightX,topY,bottomY){
-  group.top.pts=[{x:leftX,y:topY},{x:rightX,y:topY}];
-  group.right.pts=[{x:rightX,y:topY},{x:rightX,y:bottomY}];
-  group.bottom.pts=[{x:rightX,y:bottomY},{x:leftX,y:bottomY}];
-  group.left.pts=[{x:leftX,y:bottomY},{x:leftX,y:topY}];
+  const wall=cloneWallDefaults(group.top?.wall||group.right?.wall||group.bottom?.wall||group.left?.wall||S.wallDefaults);
+  const wallW=wallHalfWidthUnits(wall)*2;
+  const half=wallW/2;
+  let cx0=leftX, cx1=rightX, cy0=topY, cy1=bottomY;
+  if(wall.referenceMode==='center'){
+    cx0=leftX+half;
+    cx1=rightX-half;
+    cy0=topY+half;
+    cy1=bottomY-half;
+  }
+  group.top.pts=[{x:cx0,y:cy0},{x:cx1,y:cy0}];
+  group.right.pts=[{x:cx1,y:cy0},{x:cx1,y:cy1}];
+  group.bottom.pts=[{x:cx1,y:cy1},{x:cx0,y:cy1}];
+  group.left.pts=[{x:cx0,y:cy1},{x:cx0,y:cy0}];
   Object.values(group).forEach(updateLineLengthFromCoords);
 }
 
@@ -4100,7 +4344,7 @@ function applyWallRectangleMeasure(line,lenM){
   const group=wallRectangleGroupFor(line);
   if(!group) return false;
   const size=Math.max(0,lenM)*UNITS_PER_M;
-  const {leftX,rightX,topY,bottomY}=wallRectangleBounds(group);
+  const {leftX,rightX,topY,bottomY}=wallRectangleOuterBounds(group);
   let newRightX=rightX, newBottomY=bottomY;
   if(line.wallRectRole==='top'||line.wallRectRole==='bottom'){
     newRightX=leftX+size;
@@ -4113,24 +4357,20 @@ function applyWallRectangleMeasure(line,lenM){
 
 function insertWallRectanglePreset(widthM=7,heightM=15){
   const wall=cloneWallDefaults(readWallGeneratorUI());
+  const rectWall={...wall,referenceMode:'center'};
   S.wallDefaults=cloneWallDefaults(wall);
   const outerW=widthM*UNITS_PER_M;
   const outerH=heightM*UNITS_PER_M;
-  const wallW=wallHalfWidthUnits(wall)*2;
-  const inset=wall.referenceMode==='center'?(wallW/2):(wall.referenceMode==='inner'?wallW:0);
   const vp=ensureVP();
+  const found=findWallRectanglePlacement(outerW,outerH);
   const center=vp?paperToModel({x:vp.x+vp.w/2,y:vp.y+vp.h/2}):{x:A4W/2,y:A4H/2};
-  const left=center.x-outerW/2;
-  const right=center.x+outerW/2;
-  const top=center.y-outerH/2;
-  const bottom=center.y+outerH/2;
-  const topY=top+inset;
-  const bottomY=bottom-inset;
-  const leftX=left+inset;
-  const rightX=right-inset;
+  const left=found?found.left:center.x-outerW/2;
+  const right=found?found.right:center.x+outerW/2;
+  const top=found?found.top:center.y-outerH/2;
+  const bottom=found?found.bottom:center.y+outerH/2;
   const rectId=wallRectangleGroupId();
-  const group=wallRectangleRoleMap(rectId,wall);
-  syncWallRectangleGroup(group,leftX,rightX,topY,bottomY);
+  const group=wallRectangleRoleMap(rectId,rectWall);
+  syncWallRectangleGroup(group,left,right,top,bottom);
   pushH();
   S.lines.push(
     group.top,
@@ -7543,19 +7783,7 @@ function drawReductionOnOverlay(ctx, m, zoomScale){
 }
 
 function drawWallApproachHint(ctx,zoomScale){
-  if(S.tool!=='wall'||!S.wallApproachHint?.points?.length) return;
-  ctx.save();
-  for(const p of S.wallApproachHint.points){
-    const r=p.role==='center'?5.2/zoomScale:4.2/zoomScale;
-    ctx.beginPath();
-    ctx.arc(p.x,p.y,r,0,Math.PI*2);
-    ctx.fillStyle=p.role==='center'?'rgba(38,198,255,0.94)':'rgba(255,214,10,0.92)';
-    ctx.fill();
-    ctx.strokeStyle='rgba(255,255,255,0.95)';
-    ctx.lineWidth=1.1/zoomScale;
-    ctx.stroke();
-  }
-  ctx.restore();
+  return;
 }
 
 // â”€â”€ OVERLAY (live drag line + ref lines) â”€â”€â”€â”€â”€â”€â”€
@@ -8496,7 +8724,7 @@ function onDn(e){
   }
 
   // Handle active Line Edit Mode interactions
-  if(S.lineEditLine){
+  if(S.tool==='sel'&&S.lineEditLine){
     const pts=S.lineEditLine.pts;
     const p1=pts[0], p2=pts[pts.length-1];
     const editDetail=drawingDetailAtPaper(paper);
@@ -8516,7 +8744,12 @@ function onDn(e){
       const dist = distToSegment(wLine, p1, p2);
       if(dist <= r) {
         S.lineDragGrip = 'body';
-        S.lineDragStart = { x: wLine.x, y: wLine.y, pts: pts.map(p => ({...p})) };
+        S.lineDragStart = {
+          x: wLine.x,
+          y: wLine.y,
+          pts: pts.map(p => ({...p})),
+          slideConstraint:isWallLine(S.lineEditLine)?findWallSlideConstraint(S.lineEditLine):null
+        };
         return;
       }
     }
@@ -8821,7 +9054,9 @@ function onMv(e){
 
     if(S.lineDragGrip === 'A'){
       let snapped;
-      const sn = smartSnap(wLine.x, wLine.y, p2);
+      const sn = isWallLine(S.lineEditLine)
+        ? strongWallSnap(wLine.x, wLine.y, p2)
+        : smartSnap(wLine.x, wLine.y, p2);
       if(sn){
         snapped = sn.pt;
         const ss = modelToDrawingScreen(snapped, editDetail);
@@ -8838,7 +9073,9 @@ function onMv(e){
       drawLoupe(sc.x, sc.y);
     } else if(S.lineDragGrip === 'B'){
       let snapped;
-      const sn = smartSnap(wLine.x, wLine.y, p1);
+      const sn = isWallLine(S.lineEditLine)
+        ? strongWallSnap(wLine.x, wLine.y, p1)
+        : smartSnap(wLine.x, wLine.y, p1);
       if(sn){
         snapped = sn.pt;
         const ss = modelToDrawingScreen(snapped, editDetail);
@@ -8854,13 +9091,29 @@ function onMv(e){
       redraw();
       drawLoupe(sc.x, sc.y);
     } else if(S.lineDragGrip === 'body'){
-      const dx = wLine.x - S.lineDragStart.x;
-      const dy = wLine.y - S.lineDragStart.y;
-      const snappedDisp = isWallLine(S.lineEditLine) && S.lineEditLine.wall?.orthogonal!==false
-        ? orthoSnap(0, 0, dx, dy)
-        : isoSnap(0, 0, dx, dy);
-      pts[0] = { x: S.lineDragStart.pts[0].x + snappedDisp.x, y: S.lineDragStart.pts[0].y + snappedDisp.y };
-      pts[pts.length - 1] = { x: S.lineDragStart.pts[pts.length - 1].x + snappedDisp.x, y: S.lineDragStart.pts[pts.length - 1].y + snappedDisp.y };
+      const slide=S.lineDragStart.slideConstraint;
+      if(slide&&isWallLine(S.lineEditLine)){
+        const rail=wallRailForRole(slide.hostLine,slide.role);
+        const anchorRaw={
+          x:S.lineDragStart.pts[slide.endpointIndex].x+(wLine.x-S.lineDragStart.x),
+          y:S.lineDragStart.pts[slide.endpointIndex].y+(wLine.y-S.lineDragStart.y)
+        };
+        const pr=projectPointToSegment(anchorRaw,rail.a,rail.b);
+        const anchor=pr.pt;
+        const other={x:anchor.x+slide.offset.x,y:anchor.y+slide.offset.y};
+        pts[slide.endpointIndex]={...anchor};
+        pts[slide.otherIndex]={...other};
+        const ss=modelToDrawingScreen(anchor,editDetail);
+        showSnapDot(ss.x,ss.y,slide.role==='center'?'ep':'ol');
+      }else{
+        const dx = wLine.x - S.lineDragStart.x;
+        const dy = wLine.y - S.lineDragStart.y;
+        const snappedDisp = isWallLine(S.lineEditLine) && S.lineEditLine.wall?.orthogonal!==false
+          ? orthoSnap(0, 0, dx, dy)
+          : isoSnap(0, 0, dx, dy);
+        pts[0] = { x: S.lineDragStart.pts[0].x + snappedDisp.x, y: S.lineDragStart.pts[0].y + snappedDisp.y };
+        pts[pts.length - 1] = { x: S.lineDragStart.pts[pts.length - 1].x + snappedDisp.x, y: S.lineDragStart.pts[pts.length - 1].y + snappedDisp.y };
+      }
       redraw();
       drawLoupe(sc.x, sc.y);
     }
@@ -9450,7 +9703,16 @@ function exitVPEdit(){
 // â”€â”€ ERASE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function erase(){
   if(S.selLine){
-    pushH(); S.lines=S.lines.filter(l=>l!==S.selLine); S.selLine=null; invalidatePipeLabels(); redraw();
+    pushH();
+    const deletingLine=S.selLine;
+    if(isWallLine(deletingLine)&&deletingLine.id){
+      S.wallOpenings=(S.wallOpenings||[]).filter(op=>op.wallId!==deletingLine.id);
+    }
+    S.lines=S.lines.filter(l=>l!==deletingLine);
+    if(S.lineEditLine===deletingLine) S.lineEditLine=null;
+    S.selLine=null;
+    invalidatePipeLabels();
+    redraw();
   } else if(S.selBlock){
     pushH(); S.blocks=S.blocks.filter(b=>b!==S.selBlock); S.selBlock=null; invalidatePipeLabels(); redraw();
   } else if(S.selLabel){
