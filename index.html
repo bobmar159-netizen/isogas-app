@@ -9,6 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;
   user-select:none;touch-action:none;}
@@ -1269,6 +1270,30 @@ canvas{position:absolute;inset:0;}
   </div>
 </div>
 
+<div class="mbg" id="sharemod">
+  <div class="mod" style="width: 320px; padding: 18px; border-radius: 12px; background: rgba(24,30,40,0.98); backdrop-filter: blur(16px); border: 1px solid var(--bdr); box-shadow: 0 8px 32px rgba(0,0,0,.5); color: #fff;">
+    <h3 style="margin-top: 0; margin-bottom: 12px; font-size: 16px; font-weight: 600; color: #fff;">Enviar por WhatsApp</h3>
+    
+    <label style="display: flex; flex-direction: column; gap: 6px; font-size: 11px; color: var(--tx2); font-weight: 600; margin-bottom: 16px;">
+      Nombre del archivo
+      <input type="text" id="shareFileName" style="padding: 8px 12px; border-radius: 8px; border: 1px solid var(--bdr); background: rgba(255,255,255,.05); color: #fff; font-size: 13px;" autocomplete="off" spellcheck="false"/>
+    </label>
+    
+    <label style="display: flex; flex-direction: column; gap: 6px; font-size: 11px; color: var(--tx2); font-weight: 600; margin-bottom: 18px;">
+      Formato de archivo
+      <select id="shareFormat" style="padding: 8px 12px; border-radius: 8px; border: 1px solid var(--bdr); background: rgba(24,30,40,0.98); color: #fff; font-size: 13px; outline: none; cursor: pointer;">
+        <option value="jpg">Imagen JPG (.jpg)</option>
+        <option value="pdf">Documento PDF (.pdf)</option>
+      </select>
+    </label>
+    
+    <div class="mbtns" style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px;">
+      <button class="mcx" onclick="closeM('sharemod')" style="padding: 8px 16px; border-radius: 8px; border: 1px solid var(--bdr); background: transparent; color: var(--tx2); font-size: 13px; font-weight: 600; cursor: pointer;">Cancelar</button>
+      <button class="mok" id="shareSubmitBtn" style="padding: 8px 16px; border-radius: 8px; border: none; background: #22c55e; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 5px;">Compartir</button>
+    </div>
+  </div>
+</div>
+
 <div class="mbg" id="measuremod">
   <div class="mod">
     <h3 id="measureTitle">Medida de linea</h3>
@@ -2389,6 +2414,32 @@ function resize(){
   else if(S.viewFit==='sheet'){ fitSheetFrame(false); redraw(); }
   else redraw();
 }
+let hasUnsavedChanges = false;
+
+window.addEventListener('beforeunload', (e) => {
+  if (hasUnsavedChanges) {
+    e.preventDefault();
+    e.returnValue = '';
+    return '';
+  }
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App) {
+    const App = window.Capacitor.Plugins.App;
+    App.addListener('backButton', (data) => {
+      if (hasUnsavedChanges) {
+        const confirmExit = confirm('Tienes cambios sin guardar. ¿Estás seguro de que deseas salir?');
+        if (confirmExit) {
+          App.exitApp();
+        }
+      } else {
+        App.exitApp();
+      }
+    });
+  }
+});
+
 window.addEventListener('resize',resize);
 setTimeout(resize,80);
 
@@ -8108,6 +8159,7 @@ function pushH(){
   S.hist.push(JSON.stringify(historyState()));
   if(S.hist.length>60) S.hist.shift();
   S.fut=[];
+  hasUnsavedChanges = true;
 }
 function applyState(sn){
   S.lines=sn.lines; S.blocks=sn.blocks; S.vp=sn.vp;
@@ -10933,6 +10985,7 @@ function loadCajetinSrc(src){
 }
 function resetProject(form=blankForm(),kind=S.projectKind||'iso'){
   S.lines=[]; S.blocks=[]; S.texts=[]; S.tees=[]; S.wallOpenings=[]; S.pipeLabels=[]; S.lib=[]; S.hist=[]; S.fut=[];
+  hasUnsavedChanges = false;
   ensureBuiltInBlocks();
   S.projectKind=kind==='planta'?'planta':'iso';
   S.form=JSON.parse(JSON.stringify(form||blankForm()));
@@ -11025,6 +11078,7 @@ function persistProjectInApp(skipForm=false,{silent=false}={}){
     closeSaveMenu();
     toast('Editable guardado en la app');
   }
+  hasUnsavedChanges = false;
   return true;
 }
 function saveProject(skipForm=false){
@@ -11039,6 +11093,7 @@ async function saveProjectLocal(skipForm=false){
     const saved = await writeBlobToCustomDirectory(blob, name+'.isogas.json', 'Editable (.json)');
     if (saved) {
       closeSaveMenu();
+      hasUnsavedChanges = false;
       return true;
     }
   }
@@ -11046,6 +11101,7 @@ async function saveProjectLocal(skipForm=false){
   downloadBlob(blob,name+'.isogas.json');
   closeSaveMenu();
   toast('Editable (.json) descargado');
+  hasUnsavedChanges = false;
   return true;
 }
 function saveTemplate(skipForm=false){
@@ -11569,8 +11625,39 @@ async function exportJPG(skipForm=false){
 }
 
 function exportPDF(skipForm=false){
+  if(!skipForm) readOpenForm();
   const name=fileBaseName();
   const cv=buildExportCanvas(3);
+  
+  if (window.jspdf && window.jspdf.jsPDF) {
+    try {
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({
+        orientation: 'landscape',
+        unit: 'mm',
+        format: 'a4'
+      });
+      const imgData = cv.toDataURL('image/jpeg', 0.97);
+      pdf.addImage(imgData, 'JPEG', 0, 0, 297, 210);
+      const blob = pdf.output('blob');
+      
+      if (activeDirectoryHandle) {
+        writeBlobToCustomDirectory(blob, name+'.pdf', 'Documento PDF').then(saved => {
+          if (saved) closeSaveMenu();
+        });
+        return;
+      }
+      
+      downloadBlob(blob, name+'.pdf');
+      closeSaveMenu();
+      toast('PDF descargado');
+      return;
+    } catch(err) {
+      console.error('jsPDF error:', err);
+    }
+  }
+  
+  // Fallback
   const url=cv.toDataURL('image/jpeg',0.97);
   const w=window.open('','_blank');
   if(!w){toast('Permite ventanas emergentes para PDF');return;}
@@ -11590,35 +11677,109 @@ function canvasBlob(cv,type='image/jpeg',quality=0.95){
   return new Promise(resolve=>cv.toBlob(resolve,type,quality));
 }
 
-async function shareWhatsApp(skipForm=false){
-  const name=fileBaseName();
-  const cv=buildExportCanvas(3);
-  const blob=await canvasBlob(cv,'image/jpeg',0.97);
-  if(!blob){toast('No se pudo preparar la imagen');return;}
-  const file=new File([blob],name+'.jpg',{type:'image/jpeg'});
+function openShareModal(){
+  const defaultName = (S.projectKind === 'planta') ? 'Plano en planta' : 'Plano isometrico';
+  const input = document.getElementById('shareFileName');
+  if (input) {
+    input.value = defaultName;
+  }
+  closeSaveMenu();
+  openM('sharemod');
+}
+
+async function executeWhatsAppShare() {
+  const rawName = document.getElementById('shareFileName').value.trim();
+  const format = document.getElementById('shareFormat').value;
+  const name = sanitizeFileName(rawName) || (S.projectKind === 'planta' ? 'Plano-en-planta' : 'Plano-isometrico');
+  const cv = buildExportCanvas(3);
   
-  if(navigator.share && navigator.canShare && navigator.canShare({files:[file]})){
-    try{
-      await navigator.share({
-        files: [file],
-        title: name,
-        text: 'Plano isométrico de gas: ' + name
-      });
-      closeSaveMenu();
-      toast('Abierto para compartir');
-      return;
-    }catch(err){
-      if(err.name==='AbortError') return;
+  closeM('sharemod');
+  toast('Preparando archivo...');
+
+  if (format === 'jpg') {
+    const blob = await canvasBlob(cv, 'image/jpeg', 0.97);
+    if (!blob) { toast('No se pudo preparar la imagen'); return; }
+    const file = new File([blob], name + '.jpg', { type: 'image/jpeg' });
+    
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({
+          files: [file],
+          title: name,
+          text: (S.projectKind === 'planta' ? 'Plano en planta: ' : 'Plano isométrico: ') + name
+        });
+        toast('Abierto para compartir');
+        return;
+      } catch (err) {
+        if (err.name === 'AbortError') return;
+      }
+    }
+    
+    // Fallback
+    downloadBlob(blob, name + '.jpg');
+    const msg = encodeURIComponent(`Hola, comparto el plano "${name}". Adjunto la imagen JPG.`);
+    const url = `https://api.whatsapp.com/send?text=${msg}`;
+    window.open(url, '_blank');
+    toast('JPG descargado. Abriendo WhatsApp...');
+  } else if (format === 'pdf') {
+    if (window.jspdf && window.jspdf.jsPDF) {
+      try {
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF({
+          orientation: 'landscape',
+          unit: 'mm',
+          format: 'a4'
+        });
+        const imgData = cv.toDataURL('image/jpeg', 0.97);
+        pdf.addImage(imgData, 'JPEG', 0, 0, 297, 210);
+        const blob = pdf.output('blob');
+        const file = new File([blob], name + '.pdf', { type: 'application/pdf' });
+        
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+          try {
+            await navigator.share({
+              files: [file],
+              title: name,
+              text: (S.projectKind === 'planta' ? 'Plano en planta: ' : 'Plano isométrico: ') + name
+            });
+            toast('Abierto para compartir');
+            return;
+          } catch (err) {
+            if (err.name === 'AbortError') return;
+          }
+        }
+        
+        // Fallback
+        downloadBlob(blob, name + '.pdf');
+        const msg = encodeURIComponent(`Hola, comparto el plano "${name}". Adjunto el documento PDF.`);
+        const url = `https://api.whatsapp.com/send?text=${msg}`;
+        window.open(url, '_blank');
+        toast('PDF descargado. Abriendo WhatsApp...');
+      } catch (err) {
+        console.error('jsPDF share error:', err);
+        toast('Error al generar PDF. Usando impresión...');
+        fallbackPrintPDF(cv, name);
+      }
+    } else {
+      toast('Cargando ventana de impresión para PDF...');
+      fallbackPrintPDF(cv, name);
     }
   }
-  
-  // Fallback: Descarga y abre WhatsApp Web/API
-  downloadBlob(blob,name+'.jpg');
-  const msg=encodeURIComponent(`Hola, comparto el plano isométrico de gas "${name}". Adjunto la imagen JPG.`);
-  const url=`https://api.whatsapp.com/send?text=${msg}`;
-  window.open(url,'_blank');
-  closeSaveMenu();
-  toast('JPG descargado. Abriendo WhatsApp...');
+}
+
+function fallbackPrintPDF(cv, name) {
+  const url = cv.toDataURL('image/jpeg', 0.97);
+  const w = window.open('', '_blank');
+  if (!w) { toast('Permite ventanas emergentes para PDF'); return; }
+  w.document.write(`<html><head><title>${name}</title><style>
+    @page{size:A4 landscape;margin:0}
+    body{margin:0;background:#fff}
+    img{display:block;width:297mm;height:210mm}
+  </style></head><body>
+  <img src="${url}" onload="window.print()"/>
+  </body></html>`);
+  w.document.close();
+  toast('Impresión de PDF cargada');
 }
 
 async function shareEmail(skipForm=false){
@@ -11650,10 +11811,6 @@ async function shareEmail(skipForm=false){
   window.location.href=`mailto:?subject=${subject}&body=${body}`;
   closeSaveMenu();
   toast('JPG descargado. Abriendo correo...');
-}
-
-function shareImg(skipForm=false){
-  toggleSaveMenu();
 }
 
 // â”€â”€ ZOOM CONTROLS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -12279,13 +12436,16 @@ document.getElementById('bsave').addEventListener('click',e=>{e.stopPropagation(
 document.getElementById('saveAsJpg').addEventListener('click',()=>{closeSaveMenu();exportJPG();});
 document.getElementById('saveAsPdf').addEventListener('click',()=>{closeSaveMenu();exportPDF();});
 document.getElementById('saveLocalProject').addEventListener('click',()=>saveProjectLocal());
-document.getElementById('shareWhatsApp').addEventListener('click',()=>shareWhatsApp());
+document.getElementById('shareWhatsApp').addEventListener('click',openShareModal);
 document.getElementById('shareEmail').addEventListener('click',()=>shareEmail());
 document.getElementById('saveFileName').addEventListener('input',e=>{S.fileName=e.target.value;});
 document.getElementById('saveFileName').addEventListener('pointerdown',e=>e.stopPropagation());
 const btnSelectFolderEl = document.getElementById('btnSelectFolder');
 if(btnSelectFolderEl) btnSelectFolderEl.addEventListener('click', selectCustomFolder);
-document.getElementById('bshr').addEventListener('click',shareImg);
+document.getElementById('bshr').addEventListener('click',openShareModal);
+document.getElementById('shareSubmitBtn').addEventListener('click',executeWhatsAppShare);
+document.getElementById('shareFileName').addEventListener('pointerdown',e=>e.stopPropagation());
+document.getElementById('shareFormat').addEventListener('pointerdown',e=>e.stopPropagation());
 document.getElementById('fileOpen').addEventListener('click',()=>requestProjectAction('open'));
 document.getElementById('fileClose').addEventListener('click',()=>requestProjectAction('close'));
 document.getElementById('guardSaveApp').addEventListener('click',()=>{saveProject(true);continueProjectAction();});
