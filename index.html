@@ -2849,22 +2849,34 @@ function wallEndpointConnected(line,which='start'){
   const capA=which==='end'?poly[1]:poly[3];
   const capB=which==='end'?poly[2]:poly[0];
   const capMid={x:(capA.x+capB.x)/2,y:(capA.y+capB.y)/2};
-  const tol=0.01;
+  const tol=Math.max(0.01,wallHalfWidthUnits(line)*0.12);
   return S.lines.some(other=>{
     if(other===line || !isWallLine(other) || other.wall?.autoCorners===false) return false;
     const oa=other.pts?.[0], ob=other.pts?.[other.pts.length-1];
     if(!oa||!ob) return false;
     if(Math.hypot(oa.x-pt.x,oa.y-pt.y)<=tol || Math.hypot(ob.x-pt.x,ob.y-pt.y)<=tol) return true;
     const otherPoly=wallPolygonPoints(other);
-    if(pointInPolygon(capMid,otherPoly)) return true;
+    const edgePts=[capA,capB,capMid,pt];
+    if(edgePts.some(p=>pointInPolygon(p,otherPoly))) return true;
     const edges=[
       [otherPoly[0],otherPoly[1]],
       [otherPoly[1],otherPoly[2]],
       [otherPoly[2],otherPoly[3]],
       [otherPoly[3],otherPoly[0]]
     ];
-    return edges.some(([s0,s1])=>segIntersects(capA,capB,s0,s1));
+    if(edges.some(([s0,s1])=>segIntersects(capA,capB,s0,s1))) return true;
+    return edgePts.some(p=>edges.some(([s0,s1])=>pointToSegmentDistance(p,s0,s1)<=tol));
   });
+}
+
+function pointToSegmentDistance(p,a,b){
+  const dx=b.x-a.x, dy=b.y-a.y;
+  const len2=dx*dx+dy*dy;
+  if(len2<1e-10) return Math.hypot(p.x-a.x,p.y-a.y);
+  let t=((p.x-a.x)*dx+(p.y-a.y)*dy)/len2;
+  t=Math.max(0,Math.min(1,t));
+  const qx=a.x+dx*t, qy=a.y+dy*t;
+  return Math.hypot(p.x-qx,p.y-qy);
 }
 
 function tracePolygonPath(ctx,poly){
@@ -3220,16 +3232,21 @@ function drawCenterWallRenderPath(ctx,item,sel,zoomScale){
   const wallWidth=wallHalfWidthUnits(wall)*2;
   const edgeWidth=Math.max(1.15/zoomScale, wall.thick/zoomScale);
   const edgeColor=sel?'#4fa8e8':'#3a3f46';
+  const firstPt=geometry.path[0];
+  const lastPt=geometry.path[geometry.path.length-1];
+  const closedLoop=geometry.path.length>2&&Math.hypot(lastPt.x-firstPt.x,lastPt.y-firstPt.y)<=0.01;
   const strokePath=()=>{
     ctx.beginPath();
     ctx.moveTo(geometry.path[0].x,geometry.path[0].y);
-    for(let i=1;i<geometry.path.length;i++) ctx.lineTo(geometry.path[i].x,geometry.path[i].y);
+    const limit=closedLoop?geometry.path.length-1:geometry.path.length;
+    for(let i=1;i<limit;i++) ctx.lineTo(geometry.path[i].x,geometry.path[i].y);
+    if(closedLoop) ctx.closePath();
     ctx.stroke();
   };
   ctx.save();
   ctx.lineCap='butt';
   ctx.lineJoin='miter';
-  ctx.miterLimit=4;
+  ctx.miterLimit=10;
   ctx.strokeStyle=edgeColor;
   ctx.lineWidth=wallWidth+edgeWidth*2;
   strokePath();
@@ -3238,14 +3255,14 @@ function drawCenterWallRenderPath(ctx,item,sel,zoomScale){
   strokePath();
   ctx.strokeStyle=edgeColor;
   ctx.lineWidth=edgeWidth;
-  if(item.startDegree<=1&&geometry.path.length>1){
+  if(!closedLoop&&item.startDegree<=1&&geometry.path.length>1){
     const startPoly=wallPolygonPoints(geometry.path[0],geometry.path[1],wall);
     ctx.beginPath();
     ctx.moveTo(startPoly[0].x,startPoly[0].y);
     ctx.lineTo(startPoly[3].x,startPoly[3].y);
     ctx.stroke();
   }
-  if(item.endDegree<=1&&geometry.path.length>1){
+  if(!closedLoop&&item.endDegree<=1&&geometry.path.length>1){
     const lastIdx=geometry.path.length-1;
     const endPoly=wallPolygonPoints(geometry.path[lastIdx-1],geometry.path[lastIdx],wall);
     ctx.beginPath();
@@ -3330,8 +3347,8 @@ function wallSnapTarget(a,b,wall){
 const WALL_TAP_DRAG_THRESHOLD_PX = 8;
 const WALL_FREEHAND_SAMPLE_STEP = UNITS_PER_M * 0.08;
 const WALL_FREEHAND_MIN_SEG = UNITS_PER_M * 0.1;
-const WALL_ENDPOINT_SNAP_R = SNAP_R * 1.8;
-const WALL_LINE_SNAP_R = SNAP_R * 1.2;
+const WALL_ENDPOINT_SNAP_R = SNAP_R * 2.15;
+const WALL_LINE_SNAP_R = SNAP_R * 1.55;
 const WALL_PROJ_SNAP_R = PROJ_SNAP_R * 1.6;
 
 function resetWallGestureState(){
@@ -3382,6 +3399,27 @@ function wallEndpointSnapCandidates(line,which='start'){
   ];
 }
 
+function wallBodySnapCandidates(line,wx,wy){
+  if(!isWallLine(line)||!line?.pts?.length) return [];
+  const center=wallCenterlinePoints(line);
+  const poly=wallPolygonPoints(line);
+  const rails=[
+    {a:poly[0],b:poly[1],role:'outer'},
+    {a:center.a,b:center.b,role:'center'},
+    {a:poly[3],b:poly[2],role:'inner'}
+  ];
+  return rails.map(rail=>{
+    const dx=rail.b.x-rail.a.x, dy=rail.b.y-rail.a.y;
+    const len2=dx*dx+dy*dy;
+    if(len2<1e-8) return null;
+    let t=((wx-rail.a.x)*dx+(wy-rail.a.y)*dy)/len2;
+    t=Math.max(0,Math.min(1,t));
+    const x=rail.a.x+dx*t;
+    const y=rail.a.y+dy*t;
+    return {x,y,role:rail.role,d:Math.hypot(wx-x,wy-y)};
+  }).filter(Boolean);
+}
+
 function nearestWallApproachHint(wx,wy,rad=WALL_ENDPOINT_SNAP_R/modelZoom()){
   let best=null;
   for(const line of S.lines){
@@ -3397,18 +3435,38 @@ function nearestWallApproachHint(wx,wy,rad=WALL_ENDPOINT_SNAP_R/modelZoom()){
   return best;
 }
 
+function nearestWallBodyHint(wx,wy,rad=WALL_LINE_SNAP_R/modelZoom()){
+  let best=null;
+  for(const line of S.lines){
+    if(!isWallLine(line)) continue;
+    const pts=wallBodySnapCandidates(line,wx,wy);
+    const nearest=pts.slice().sort((a,b)=>a.d-b.d)[0];
+    if(nearest&&nearest.d<rad&&(!best||nearest.d<best.d)){
+      best={line,points:pts,d:nearest.d};
+    }
+  }
+  return best;
+}
+
 function wallDirectSnap(wx,wy){
   if(!S.snap) return null;
   const zoom=modelZoom();
   const endpointRadius=WALL_ENDPOINT_SNAP_R/zoom;
   const lineRadius=WALL_LINE_SNAP_R/zoom;
   const wallHint=nearestWallApproachHint(wx,wy,endpointRadius);
-  S.wallApproachHint=wallHint;
+  const wallBodyHint=nearestWallBodyHint(wx,wy,lineRadius);
+  S.wallApproachHint=wallHint||wallBodyHint;
   if(wallHint){
     const best=wallHint.points
       .map(p=>({pt:{x:p.x,y:p.y},type:p.role==='center'?'ep':'ol',d:Math.hypot(wx-p.x,wy-p.y),role:p.role}))
       .sort((a,b)=>a.d-b.d)[0];
     if(best && best.d<endpointRadius) return best;
+  }
+  if(wallBodyHint){
+    const best=wallBodyHint.points
+      .map(p=>({pt:{x:p.x,y:p.y},type:p.role==='center'?'ep':'ol',d:Math.hypot(wx-p.x,wy-p.y),role:p.role}))
+      .sort((a,b)=>a.d-b.d)[0];
+    if(best&&best.d<lineRadius) return best;
   }
   let bestEndpoint=null;
   for(const l of S.lines){
@@ -7609,19 +7667,23 @@ function drawLoupe(sx,sy){
   }
   lcx=Math.min(Math.max(lcx,LOUPE_R+4),LC.width-LOUPE_R-4);
   lcy=Math.min(Math.max(lcy,LOUPE_R+4),LC.height-LOUPE_R-4);
+  const snapCenter=S.tool==='wall'&&S.snapPreview&&DOT.style.display!=='none'
+    ? {x:S.snapPreview.x,y:S.snapPreview.y}
+    : null;
+  const srcCenter=snapCenter||{x:sx,y:sy};
   lx.save();
   lx.shadowColor='rgba(0,0,0,0.55)'; lx.shadowBlur=12;
   lx.beginPath(); lx.arc(lcx,lcy,LOUPE_R+2,0,Math.PI*2);
   lx.fillStyle='#1c2230'; lx.fill(); lx.shadowBlur=0;
   lx.beginPath(); lx.arc(lcx,lcy,LOUPE_R,0,Math.PI*2); lx.clip();
-  const sl=sx-srcR,st=sy-srcR,sw2=srcR*2,sh=srcR*2;
+  const sl=srcCenter.x-srcR,st=srcCenter.y-srcR,sw2=srcR*2,sh=srcR*2;
   const dl=lcx-LOUPE_R,dt=lcy-LOUPE_R,dw=LOUPE_R*2,dh=LOUPE_R*2;
   lx.fillStyle='#fff'; lx.fillRect(dl,dt,dw,dh);
   lx.drawImage(GC,sl,st,sw2,sh,dl,dt,dw,dh);
   lx.drawImage(MC,sl,st,sw2,sh,dl,dt,dw,dh);
   lx.drawImage(DC,sl,st,sw2,sh,dl,dt,dw,dh);
   lx.drawImage(OC,sl,st,sw2,sh,dl,dt,dw,dh);
-  if(S.snapPreview&&DOT.style.display!=='none'){
+  if(S.snapPreview&&DOT.style.display!=='none'&&!snapCenter){
     const sp=S.snapPreview;
     if(sp.x>=sl&&sp.x<=sl+sw2&&sp.y>=st&&sp.y<=st+sh){
       const px=dl+(sp.x-sl)*LOUPE_Z;
