@@ -2849,7 +2849,7 @@ function wallEndpointConnected(line,which='start'){
   const capA=which==='end'?poly[1]:poly[3];
   const capB=which==='end'?poly[2]:poly[0];
   const capMid={x:(capA.x+capB.x)/2,y:(capA.y+capB.y)/2};
-  const tol=Math.max(0.01,wallHalfWidthUnits(line)*0.12);
+  const tol=Math.max(0.1,wallHalfWidthUnits(line)*1.55);
   return S.lines.some(other=>{
     if(other===line || !isWallLine(other) || other.wall?.autoCorners===false) return false;
     const oa=other.pts?.[0], ob=other.pts?.[other.pts.length-1];
@@ -2929,11 +2929,11 @@ function findWallSlideConstraint(line){
     const otherPt=line.pts[otherIndex];
     for(const other of S.lines){
       if(other===line||!isWallLine(other)||!other?.pts?.length) continue;
-      for(const role of ['outer','center','inner']){
+      for(const role of ['outer','inner']){
         const rail=wallRailForRole(other,role);
         const pr=projectPointToSegment(p,rail.a,rail.b);
         if(pr.t<=0.03||pr.t>=0.97||pr.d>tol) continue;
-        const score=pr.d+(role==='center'?0.15:0);
+        const score=pr.d;
         if(!best||score<best.score){
           best={
             line,
@@ -2977,24 +2977,17 @@ function segmentPolygonIntervals(a,b,poly,tol=0.01){
 }
 
 function wallHiddenIntervalsForEdge(line,a,b){
-  const wall=cloneWallDefaults(line.wall);
-  const tol=Math.max(0.01,wallHalfWidthUnits(wall)*0.12);
   const edgeLen=Math.hypot(b.x-a.x,b.y-a.y);
   if(edgeLen<0.01) return [];
-  const items=[];
-  const selfPoly=wallPolygonPoints(line);
+  const tol=Math.max(0.005,wallHalfWidthUnits(line)*0.04);
+  const allIntervals=[];
   for(const other of S.lines){
     if(other===line||!isWallLine(other)||!other?.pts?.length) continue;
-    const otherWall=cloneWallDefaults(other.wall);
-    for(const p of [other.pts[0],other.pts[other.pts.length-1]].filter(Boolean)){
-      if(!pointInsideOrNearPolygon(p,selfPoly,tol)) continue;
-      const pr=projectPointToSegment(p,a,b);
-      if(pr.t<=0.03||pr.t>=0.97||pr.d>tol*1.8) continue;
-      const half=Math.min(0.35,(wallHalfWidthUnits(otherWall)/edgeLen)+0.02);
-      items.push({t0:Math.max(0,pr.t-half),t1:Math.min(1,pr.t+half)});
-    }
+    const otherPoly=wallPolygonPoints(other);
+    const intervals=segmentPolygonIntervals(a,b,otherPoly,tol);
+    allIntervals.push(...intervals);
   }
-  return mergeIntervals(items);
+  return mergeIntervals(allIntervals);
 }
 
 function strokeSegmentWithHiddenIntervals(ctx,a,b,hidden=[]){
@@ -3029,9 +3022,7 @@ function tracePolygonPath(ctx,poly){
 function lineSegmentsForSnap(line){
   if(!line||!Array.isArray(line.pts)||line.pts.length<2) return [];
   if(isWallLine(line)){
-    const segs=wallOutlineSegments(line);
-    segs.push([line.pts[0],line.pts[line.pts.length-1]]);
-    return segs;
+    return wallOutlineSegments(line);
   }
   const segs=[];
   for(let i=1;i<line.pts.length;i++) segs.push([line.pts[i-1],line.pts[i]]);
@@ -3043,8 +3034,8 @@ function lineSnapPoints(line){
   const pts=line.pts.map(p=>({x:p.x,y:p.y}));
   if(isWallLine(line)){
     pts.push(...wallPolygonPoints(line));
-    pts.push(...wallEndpointSnapCandidates(line,'start'));
-    pts.push(...wallEndpointSnapCandidates(line,'end'));
+    pts.push(...wallEndpointSnapCandidates(line,'start').filter(p=>p.role!=='center'));
+    pts.push(...wallEndpointSnapCandidates(line,'end').filter(p=>p.role!=='center'));
   }
   return pts.filter((p,idx,arr)=>!arr.slice(0,idx).some(q=>Math.hypot(q.x-p.x,q.y-p.y)<0.01));
 }
@@ -3086,7 +3077,7 @@ function drawWallTexture(ctx,poly,wall,zoomScale){
   ctx.restore();
 }
 
-function drawWallLine(ctx,line,sel,zoomScale,preview=false){
+function drawWallLine(ctx,line,sel,zoomScale,preview=false,fillOnly=false){
   const wall=cloneWallDefaults(line.wall);
   const segs=wallVisibleSegments(line);
   if(!segs.length) return;
@@ -3108,6 +3099,7 @@ function drawWallLine(ctx,line,sel,zoomScale,preview=false){
     tracePolygonPath(ctx,poly);
     ctx.fillStyle=preview?'rgba(255,255,255,0.78)':'#ffffff';
     ctx.fill();
+    if(fillOnly) continue;
     if(!preview) drawWallTexture(ctx,poly,wall,zoomScale);
     ctx.strokeStyle=edgeColor;
     ctx.lineWidth=edgeWidth;
@@ -3130,7 +3122,7 @@ function drawWallLine(ctx,line,sel,zoomScale,preview=false){
   }
   ctx.setLineDash([]);
   ctx.restore();
-  if(!preview) drawWallOpeningSymbols(ctx,line,zoomScale);
+  if(!preview&&!fillOnly) drawWallOpeningSymbols(ctx,line,zoomScale);
 }
 
 function ensureWallIds(){
@@ -3310,7 +3302,6 @@ function wallHasBodyJoin(line){
 
 function centerWallRenderEligible(line){
   if(!isWallLine(line)||!line.pts||line.pts.length<2) return false;
-  if((S.projectKind||'iso')==='planta') return false;
   const wall=cloneWallDefaults(line.wall);
   return wall.autoCorners!==false
     && wall.dash==='solid'
@@ -3443,13 +3434,19 @@ function drawWallsBatch(ctx,zoomScale=modelZoom()){
   const centerWalls=walls.filter(centerWallRenderEligible);
   const centerSet=new Set(centerWalls);
   const centerPaths=buildCenterWallRenderPaths(centerWalls);
+  const nonCenterWalls=walls.filter(l=>!centerSet.has(l));
+  // Pass 1: fill all non-center walls first (white polygons)
+  for(const l of nonCenterWalls){
+    drawWallLine(ctx,l,false,zoomScale,false,true);
+  }
+  // Center-path walls use stroke technique (fill+border as one stroke pass)
   for(const path of centerPaths){
     const sel=path.lines.some(l=>l===S.selLine||l===S.lineEditLine);
     drawCenterWallRenderPath(ctx,path,sel,zoomScale);
   }
-  for(const l of walls){
-    if(centerSet.has(l)) continue;
-    drawWallLine(ctx,l,l===S.selLine||l===S.lineEditLine,zoomScale,false);
+  // Pass 2: stroke all non-center walls (edges on top of all fills)
+  for(const l of nonCenterWalls){
+    drawWallLine(ctx,l,l===S.selLine||l===S.lineEditLine,zoomScale,false,false);
   }
   if(S.selOpening) drawWallOpeningSelection(ctx,S.selOpening,zoomScale);
 }
@@ -3511,9 +3508,9 @@ function wallSnapTarget(a,b,wall){
 const WALL_TAP_DRAG_THRESHOLD_PX = 8;
 const WALL_FREEHAND_SAMPLE_STEP = UNITS_PER_M * 0.08;
 const WALL_FREEHAND_MIN_SEG = UNITS_PER_M * 0.1;
-const WALL_ENDPOINT_SNAP_R = SNAP_R * 1.45;
-const WALL_LINE_SNAP_R = SNAP_R * 0.9;
-const WALL_PROJ_SNAP_R = PROJ_SNAP_R * 1.6;
+const WALL_ENDPOINT_SNAP_R = SNAP_R * 1.05;
+const WALL_LINE_SNAP_R = SNAP_R * 0.95;
+const WALL_PROJ_SNAP_R = PROJ_SNAP_R * 1.25;
 
 function resetWallGestureState(){
   S.wallPointerDown=null;
@@ -3790,14 +3787,27 @@ function orthogonalizeWallGesture(points){
   return path;
 }
 
-function normalizeWallPathConnections(points){
+function normalizeWallPathConnections(points, pathMode='tap'){
   if(!Array.isArray(points)||!points.length) return [];
+  const isClosed = points.length >= 3 && Math.hypot(points[points.length-1].x - points[0].x, points[points.length-1].y - points[0].y) < 0.01;
   const out=[fuseWallPoint(points[0],null)];
   for(let i=1;i<points.length;i++){
     const prev=out[out.length-1];
     const raw=wallSnapTarget(prev,points[i],cloneWallDefaults());
-    const fused=fuseWallPoint(raw,prev);
+    let fused;
+    if(pathMode==='freehand'){
+      if(i===points.length-1){
+        fused=isClosed?{x:out[0].x,y:out[0].y}:fuseWallPoint(raw,prev);
+      }else{
+        fused=raw;
+      }
+    }else{
+      fused=(i===points.length-1 && isClosed)?{x:out[0].x,y:out[0].y}:fuseWallPoint(raw,prev);
+    }
     if(Math.hypot(fused.x-prev.x,fused.y-prev.y)>0.01) out.push(fused);
+  }
+  if(isClosed && out.length>=3){
+    out[out.length-1]={x:out[0].x,y:out[0].y};
   }
   return out;
 }
@@ -3844,8 +3854,9 @@ function wallCenterPathFromReference(points,wall){
 
 function wallCommittedPathGeometry(points,wall,pathMode='tap'){
   const raw=Array.isArray(points)?points.map(p=>({x:p.x,y:p.y})):[];
-  if(pathMode!=='freehand'||raw.length<2) return {path:raw,wall:cloneWallDefaults(wall)};
+  if(raw.length<2) return {path:raw,wall:cloneWallDefaults(wall)};
   const baseWall=cloneWallDefaults(wall);
+  if(baseWall.referenceMode==='center') return {path:raw,wall:baseWall};
   const centerPath=wallCenterPathFromReference(raw,baseWall);
   return {
     path:centerPath,
@@ -3855,7 +3866,7 @@ function wallCommittedPathGeometry(points,wall,pathMode='tap'){
 
 function commitWallPath(points,{measureLast=false,detail=null,pathMode='tap'}={}){
   if(!Array.isArray(points)||points.length<2) return null;
-  const normalized=normalizeWallPathConnections(points);
+  const normalized=normalizeWallPathConnections(points,pathMode);
   if(normalized.length<2) return null;
   const wall=cloneWallDefaults();
   const geometry=wallCommittedPathGeometry(normalized,wall,pathMode);
@@ -9236,6 +9247,7 @@ function onMv(e){
   if(S.tool==='wall'&&S.wallPointerDown&&!S.drag){
     const moved=Math.hypot(sc.x-S.wallPointerDown.sc.x,sc.y-S.wallPointerDown.sc.y);
     if(moved>=WALL_TAP_DRAG_THRESHOLD_PX){
+      if(S.wallTapStart) return;
       const detail=S.wallTapStart?.detail||S.wallPointerDown.detail||null;
       const start=S.wallTapStart?{...S.wallTapStart.pt}:{...S.wallPointerDown.startPt};
       S.drawDetail=detail;
@@ -9491,7 +9503,18 @@ function onUp(e){
 
   if(S.tool==='wall'){
     if(S.drag&&S.wallGesture==='freehand'&&Array.isArray(S.wallFreehandPath)&&S.wallFreehandPath.length>1){
-      commitWallPath(S.wallFreehandPath,{measureLast:false,detail:S.drawDetail,pathMode:'freehand'});
+      let commitPath=S.wallFreehandPath;
+      // Auto-close: if the path end is near the start, snap the last point to the first
+      // so the shape becomes a closed room (rectangle, polygon, etc.)
+      if(commitPath.length>=4){
+        const first=commitPath[0];
+        const last=commitPath[commitPath.length-1];
+        const closeSnap=WALL_FREEHAND_MIN_SEG*6; // ~60 cm tolerance for touch input
+        if(Math.hypot(last.x-first.x,last.y-first.y)<=closeSnap){
+          commitPath=[...commitPath.slice(0,-1),{x:first.x,y:first.y}];
+        }
+      }
+      commitWallPath(commitPath,{measureLast:false,detail:S.drawDetail,pathMode:'freehand'});
       resetWallGestureState();
       ox.clearRect(0,0,OC.width,OC.height);
       return;
