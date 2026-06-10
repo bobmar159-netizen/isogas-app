@@ -4539,6 +4539,21 @@ function drawGrid(){
   if(S.grid){
     if(S.vp){
       drawViewportGrid();
+    } else if(isPlanta) {
+      const sp=GRID_LINE_STEP*GRID_PRESENTATION_MULT*S.zoom;
+      if(sp>=2){
+        gx.strokeStyle='rgba(110,110,110,0.16)'; gx.lineWidth=0.5;
+        gx.beginPath();
+        for(let x=Math.floor(tl.x/sp)*sp; x<=br.x; x+=sp){
+          gx.moveTo(x,tl.y);
+          gx.lineTo(x,br.y);
+        }
+        for(let y=Math.floor(tl.y/sp)*sp; y<=br.y; y+=sp){
+          gx.moveTo(tl.x,y);
+          gx.lineTo(br.x,y);
+        }
+        gx.stroke();
+      }
     } else {
       const sp=GRID_LINE_STEP*GRID_PRESENTATION_MULT*S.zoom;
       if(sp>=2){
@@ -10079,6 +10094,7 @@ function toggleSaveMenu(){
   
   const destNameEl=document.getElementById('saveDestName');
   const btnSelectFolderEl=document.getElementById('btnSelectFolder');
+  const nativeSave = hasNativeSaveSupport();
   
   if (destNameEl) {
     if (activeDirectoryHandle) {
@@ -10089,7 +10105,7 @@ function toggleSaveMenu(){
   }
   
   if (btnSelectFolderEl) {
-    if (!window.showDirectoryPicker) {
+    if (!window.showDirectoryPicker && !nativeSave) {
       btnSelectFolderEl.style.display = 'none';
       if (destNameEl) destNameEl.textContent = '📁 Descargas (Predeterminada)';
     } else {
@@ -10100,6 +10116,7 @@ function toggleSaveMenu(){
   
   SAVE_MENU.classList.toggle('open');
   if(SAVE_SHADE) SAVE_SHADE.classList.toggle('open',SAVE_MENU.classList.contains('open'));
+  if(SAVE_MENU.classList.contains('open')) refreshNativeSaveTarget();
 }
 function toggleFileMenu(){
   if(!FILE_MENU) return;
@@ -11097,6 +11114,13 @@ async function saveProjectLocal(skipForm=false){
       return true;
     }
   }
+
+  if(await saveBlobNative(blob, name+'.isogas.json', 'application/json')){
+    closeSaveMenu();
+    toast('Editable (.json) guardado');
+    hasUnsavedChanges = false;
+    return true;
+  }
   
   downloadBlob(blob,name+'.isogas.json');
   closeSaveMenu();
@@ -11385,6 +11409,7 @@ function buildExportCanvas(sc){
   cv.width=A4W*sc; cv.height=A4H*sc;
   const ctx=cv.getContext('2d');
   ctx.fillStyle='#fff'; ctx.fillRect(0,0,cv.width,cv.height);
+  const exportGrid = S.grid && (S.projectKind||'iso') !== 'planta';
   if(S.cajetin){
     ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high';
     ctx.drawImage(S.cajetin,0,0,A4W*sc,A4H*sc);
@@ -11392,8 +11417,8 @@ function buildExportCanvas(sc){
   ctx.save(); ctx.scale(sc,sc);
   drawFormat(ctx,false);
 
-  // Draw faint iso grid first so it goes behind active lines & blocks
-  if(S.grid){
+  // Draw the construction grid only for isometric exports.
+  if(exportGrid){
     ctx.save();
     ctx.strokeStyle='rgba(110,110,110,0.18)'; // faint but visible grid color
     ctx.lineWidth=0.4;
@@ -11484,8 +11509,8 @@ function buildExportCanvas(sc){
     ctx.beginPath(); ctx.arc(d.x,d.y,d.r,0,Math.PI*2); ctx.clip();
     ctx.fillStyle='#fff';
     ctx.fillRect(d.x-d.r,d.y-d.r,d.r*2,d.r*2);
-    // Draw faint grid inside detail circle if S.grid is active
-    if(S.grid){
+    // Draw the construction grid inside detail circles only for isometric exports.
+    if(exportGrid){
       ctx.save();
       ctx.strokeStyle='rgba(0,63,125,0.09)';
       ctx.translate(d.x+d.px, d.y+d.py);
@@ -11537,7 +11562,86 @@ function buildExportCanvas(sc){
 
 let activeDirectoryHandle = null;
 
+function nativeFilePlugin(){
+  return window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.IsogasShare;
+}
+function hasNativeSaveSupport(){
+  const plugin = nativeFilePlugin();
+  return !!(plugin && typeof plugin.saveFile === 'function');
+}
+async function saveBlobNative(blob,fileName,mimeType){
+  const plugin = nativeFilePlugin();
+  if(!blob || !plugin || typeof plugin.saveFile !== 'function') return false;
+  try{
+    const dataUrl = await blobToDataUrl(blob);
+    await plugin.saveFile({dataUrl,fileName,mimeType});
+    return true;
+  }catch(err){
+    console.error('Native save error:',err);
+    toast('No se pudo guardar con Android');
+    return false;
+  }
+}
+async function refreshNativeSaveTarget(){
+  const plugin = nativeFilePlugin();
+  if(!plugin || typeof plugin.getSaveTarget !== 'function') return;
+  try{
+    const target = await plugin.getSaveTarget();
+    const destNameEl = document.getElementById('saveDestName');
+    const btnSelectEl = document.getElementById('btnSelectFolder');
+    if(destNameEl) destNameEl.textContent = 'Carpeta: ' + (target && target.name ? target.name : 'Descargas/Isogas');
+    if(btnSelectEl){
+      btnSelectEl.style.display = 'inline-flex';
+      btnSelectEl.textContent = target && target.hasFolder ? 'Cambiar' : 'Elegir carpeta';
+    }
+    syncNativeResetButton(!!(target && target.hasFolder));
+  }catch(err){
+    console.error('Native save target error:',err);
+  }
+}
+function syncNativeResetButton(show){
+  const btnSelectEl = document.getElementById('btnSelectFolder');
+  let resetBtn = document.getElementById('btnResetFolder');
+  if(!show){
+    if(resetBtn) resetBtn.remove();
+    return;
+  }
+  if(!btnSelectEl || resetBtn) return;
+  resetBtn = document.createElement('button');
+  resetBtn.id = 'btnResetFolder';
+  resetBtn.className = 'btn-select-folder';
+  resetBtn.style.background = 'rgba(239,68,68,.08)';
+  resetBtn.style.borderColor = 'rgba(239,68,68,.25)';
+  resetBtn.style.color = '#fca5a5';
+  resetBtn.style.marginLeft = '4px';
+  resetBtn.type = 'button';
+  resetBtn.textContent = 'X';
+  resetBtn.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    const plugin = nativeFilePlugin();
+    if(plugin && typeof plugin.clearFolder === 'function'){
+      try{ await plugin.clearFolder(); }catch(err){ console.error('Native clear folder error:',err); }
+    }
+    activeDirectoryHandle = null;
+    await refreshNativeSaveTarget();
+    toast('Restablecido a Descargas/Isogas');
+  });
+  btnSelectEl.parentNode.appendChild(resetBtn);
+}
+
 async function selectCustomFolder(){
+  const plugin = nativeFilePlugin();
+  if(plugin && typeof plugin.selectFolder === 'function'){
+    try{
+      await plugin.selectFolder();
+      await refreshNativeSaveTarget();
+      toast('Carpeta destino establecida');
+    }catch(err){
+      if(err && err.message) console.error(err);
+      toast('No se pudo seleccionar carpeta');
+    }
+    return;
+  }
   if(!window.showDirectoryPicker){
     toast('Tu navegador no soporta selección de carpetas locales');
     return;
@@ -11626,13 +11730,19 @@ async function exportJPG(skipForm=false){
       return;
     }
   }
+
+  if(await saveBlobNative(blob, name+'.jpg', 'image/jpeg')){
+    closeSaveMenu();
+    toast('JPG guardado');
+    return;
+  }
   
   downloadBlob(blob,name+'.jpg');
   closeSaveMenu();
   toast('JPG descargado');
 }
 
-function exportPDF(skipForm=false){
+async function exportPDF(skipForm=false){
   if(!skipForm) readOpenForm();
   const name=fileBaseName();
   const cv=buildExportCanvas(3);
@@ -11650,9 +11760,16 @@ function exportPDF(skipForm=false){
       const blob = pdf.output('blob');
       
       if (activeDirectoryHandle) {
-        writeBlobToCustomDirectory(blob, name+'.pdf', 'Documento PDF').then(saved => {
-          if (saved) closeSaveMenu();
-        });
+        const saved = await writeBlobToCustomDirectory(blob, name+'.pdf', 'Documento PDF');
+        if (saved) {
+          closeSaveMenu();
+          return;
+        }
+      }
+
+      if(await saveBlobNative(blob, name+'.pdf', 'application/pdf')){
+        closeSaveMenu();
+        toast('PDF guardado');
         return;
       }
       
