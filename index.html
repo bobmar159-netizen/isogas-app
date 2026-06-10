@@ -11677,6 +11677,61 @@ function canvasBlob(cv,type='image/jpeg',quality=0.95){
   return new Promise(resolve=>cv.toBlob(resolve,type,quality));
 }
 
+function blobToDataUrl(blob){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=()=>resolve(reader.result);
+    reader.onerror=reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function shareFileWithChooser(blob,fileName,mimeType,title,text){
+  if(!blob) return false;
+  const capacitorShare=window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.IsogasShare;
+  if(capacitorShare && typeof capacitorShare.shareFile==='function'){
+    try{
+      const dataUrl=await blobToDataUrl(blob);
+      await capacitorShare.shareFile({dataUrl,fileName,mimeType,title:title||'Compartir plano',text:text||''});
+      return true;
+    }catch(err){
+      console.error('Capacitor native share error:',err);
+    }
+  }
+
+  if(window.AndroidShare && typeof window.AndroidShare.shareDataUrl==='function'){
+    try{
+      const dataUrl=await blobToDataUrl(blob);
+      const opened=window.AndroidShare.shareDataUrl(dataUrl,fileName,mimeType,title||'Compartir plano',text||'');
+      return opened!==false;
+    }catch(err){
+      console.error('Android native share error:',err);
+    }
+  }
+
+  if(navigator.share && navigator.canShare){
+    const file=new File([blob],fileName,{type:mimeType});
+    if(navigator.canShare({files:[file]})){
+      try{
+        await navigator.share({files:[file],title:title||fileName,text:text||''});
+        return true;
+      }catch(err){
+        if(err.name==='AbortError') return true;
+        console.error('Web share error:',err);
+      }
+    }
+  }
+  return false;
+}
+
+function hasNativeShareChooser(){
+  const capacitorShare=window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.IsogasShare;
+  return !!(
+    (capacitorShare && typeof capacitorShare.shareFile==='function') ||
+    (window.AndroidShare && typeof window.AndroidShare.shareDataUrl==='function')
+  );
+}
+
 function openShareModal(){
   const defaultName = (S.projectKind === 'planta') ? 'Plano en planta' : 'Plano isometrico';
   const input = document.getElementById('shareFileName');
@@ -11699,6 +11754,19 @@ async function executeWhatsAppShare() {
   if (format === 'jpg') {
     const blob = await canvasBlob(cv, 'image/jpeg', 0.97);
     if (!blob) { toast('No se pudo preparar la imagen'); return; }
+    if (hasNativeShareChooser()) {
+      const shared = await shareFileWithChooser(
+        blob,
+        name + '.jpg',
+        'image/jpeg',
+        'Compartir ' + name,
+        (S.projectKind === 'planta' ? 'Plano en planta: ' : 'Plano isometrico: ') + name
+      );
+      if (shared) {
+        toast('Elige WhatsApp y envia el archivo');
+        return;
+      }
+    }
     const file = new File([blob], name + '.jpg', { type: 'image/jpeg' });
     
     if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -11717,10 +11785,7 @@ async function executeWhatsAppShare() {
     
     // Fallback
     downloadBlob(blob, name + '.jpg');
-    const msg = encodeURIComponent(`Hola, comparto el plano "${name}". Adjunto la imagen JPG.`);
-    const url = `https://api.whatsapp.com/send?text=${msg}`;
-    window.open(url, '_blank');
-    toast('JPG descargado. Abriendo WhatsApp...');
+    toast('JPG descargado. Comparte el archivo desde Descargas');
   } else if (format === 'pdf') {
     if (window.jspdf && window.jspdf.jsPDF) {
       try {
@@ -11733,6 +11798,19 @@ async function executeWhatsAppShare() {
         const imgData = cv.toDataURL('image/jpeg', 0.97);
         pdf.addImage(imgData, 'JPEG', 0, 0, 297, 210);
         const blob = pdf.output('blob');
+        if (hasNativeShareChooser()) {
+          const shared = await shareFileWithChooser(
+            blob,
+            name + '.pdf',
+            'application/pdf',
+            'Compartir ' + name,
+            (S.projectKind === 'planta' ? 'Plano en planta: ' : 'Plano isometrico: ') + name
+          );
+          if (shared) {
+            toast('Elige WhatsApp y envia el archivo');
+            return;
+          }
+        }
         const file = new File([blob], name + '.pdf', { type: 'application/pdf' });
         
         if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -11751,10 +11829,7 @@ async function executeWhatsAppShare() {
         
         // Fallback
         downloadBlob(blob, name + '.pdf');
-        const msg = encodeURIComponent(`Hola, comparto el plano "${name}". Adjunto el documento PDF.`);
-        const url = `https://api.whatsapp.com/send?text=${msg}`;
-        window.open(url, '_blank');
-        toast('PDF descargado. Abriendo WhatsApp...');
+        toast('PDF descargado. Comparte el archivo desde Descargas');
       } catch (err) {
         console.error('jsPDF share error:', err);
         toast('Error al generar PDF. Usando impresión...');
