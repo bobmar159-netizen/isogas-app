@@ -3559,9 +3559,9 @@ function wallSnapTarget(a,b,wall){
 const WALL_TAP_DRAG_THRESHOLD_PX = 8;
 const WALL_FREEHAND_SAMPLE_STEP = UNITS_PER_M * 0.08;
 const WALL_FREEHAND_MIN_SEG = UNITS_PER_M * 0.1;
-const WALL_ENDPOINT_SNAP_R = SNAP_R * 1.05;
-const WALL_LINE_SNAP_R = SNAP_R * 0.95;
-const WALL_PROJ_SNAP_R = PROJ_SNAP_R * 1.25;
+const WALL_ENDPOINT_SNAP_R = SNAP_R * 0.72;
+const WALL_LINE_SNAP_R = SNAP_R * 0.40;
+const WALL_PROJ_SNAP_R = PROJ_SNAP_R * 0.70;
 
 function resetWallGestureState(){
   S.wallPointerDown=null;
@@ -3752,7 +3752,7 @@ function strongWallSnap(wx,wy,from=null){
   const proj=wallProjectionSnap(from,wx,wy);
   S.guideSnap=(proj&&(!direct||proj.d<direct.d))?proj:null;
   if(S.guideSnap) return S.guideSnap;
-  return direct||smartSnap(wx,wy,from);
+  return direct;
 }
 
 function fuseWallPoint(p,from=null){
@@ -9369,7 +9369,6 @@ function onMv(e){
       return;
     }
   }
-  const sn=canHover?smartSnap(hw.x,hw.y,null):null;
   if(S.tool==='wall'&&canHover&&!S.wallTapStart){
     const wsn=strongWallSnap(hw.x,hw.y,null);
     if(wsn){
@@ -9379,6 +9378,7 @@ function onMv(e){
       return;
     }
   }
+  const sn=(canHover&&S.tool!=='wall')?smartSnap(hw.x,hw.y,null):null;
   if(sn){const ss=modelToDrawingScreen(sn.pt,hoverDetail);showSnapDot(ss.x,ss.y,sn.type);}
   else DOT.style.display='none';
   if(S.tool==='wall'&&S.wallTapStart){
@@ -11407,7 +11407,11 @@ function buildExportCanvas(sc){
       ctx.translate(vp.x+vp.px, vp.y+vp.py);
       ctx.scale(vp.z, vp.z);
       ctx.lineWidth=0.4/vp.z; // Consistently thin grid lines inside scale
-      drawIsoGridWorld(ctx, vpBounds, (GRID_LINE_STEP * GRID_PRESENTATION_MULT) / vp.z);
+      if((S.projectKind||'iso')==='planta'){
+        drawOrthoGridWorld(ctx, vpBounds, (GRID_LINE_STEP * GRID_PRESENTATION_MULT) / vp.z);
+      }else{
+        drawIsoGridWorld(ctx, vpBounds, (GRID_LINE_STEP * GRID_PRESENTATION_MULT) / vp.z);
+      }
       ctx.restore();
     } else {
       [30,150].forEach(deg=>{
@@ -11491,7 +11495,11 @@ function buildExportCanvas(sc){
         minX:-d.px/d.z-d.r/d.z-10, maxX:-d.px/d.z+d.r/d.z+10,
         minY:-d.py/d.z-d.r/d.z-10, maxY:-d.py/d.z+d.r/d.z+10
       };
-      drawIsoGridWorld(ctx, dBounds, (GRID_LINE_STEP * GRID_PRESENTATION_MULT) / d.z);
+      if((S.projectKind||'iso')==='planta'){
+        drawOrthoGridWorld(ctx, dBounds, (GRID_LINE_STEP * GRID_PRESENTATION_MULT) / d.z);
+      }else{
+        drawIsoGridWorld(ctx, dBounds, (GRID_LINE_STEP * GRID_PRESENTATION_MULT) / d.z);
+      }
       ctx.restore();
     }
     ctx.save();
