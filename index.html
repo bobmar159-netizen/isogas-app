@@ -348,9 +348,10 @@ canvas{position:absolute;inset:0;}
     bottom:0;
     z-index:120;
     display:flex;
-    min-height:calc(84px + var(--safe-bottom));
-    max-height:calc(84px + var(--safe-bottom));
+    min-height:calc(92px + var(--safe-bottom));
+    max-height:calc(92px + var(--safe-bottom));
     padding:4px calc(0px + var(--safe-right)) calc(4px + var(--safe-bottom)) calc(0px + var(--safe-left));
+    overflow:hidden;
   }
   #vpchip{
     position:absolute;
@@ -10231,13 +10232,23 @@ const GABINETES_DROP=document.getElementById('gabinetesDropdown');
 let gabinetesDropOpen=false;
 function layoutGabinetesDrop(){
   if(!GABINETES_DROP) return;
+  const pad=8;
+  const hostRect=GABINETES_DROP.parentElement?.getBoundingClientRect();
+  const dropWidth=126;
   GABINETES_DROP.style.width='126px';
   GABINETES_DROP.style.minWidth='126px';
   GABINETES_DROP.style.maxWidth='126px';
   GABINETES_DROP.style.left='0px';
+  GABINETES_DROP.style.right='auto';
   GABINETES_DROP.style.top='calc(100% + 6px)';
   GABINETES_DROP.style.bottom='auto';
   GABINETES_DROP.style.maxHeight='none';
+  if(hostRect){
+    const overflowRight=hostRect.left+dropWidth-(window.innerWidth-pad);
+    if(overflowRight>0){
+      GABINETES_DROP.style.left=(-overflowRight)+'px';
+    }
+  }
 }
 function toggleGabinetesDrop(){
   gabinetesDropOpen=!gabinetesDropOpen;
@@ -10266,9 +10277,19 @@ const PLANTA_LIBRARY_DROP=document.getElementById('plantaLibraryDropdown');
 let plantaLibraryDropOpen=false;
 function layoutPlantaLibraryDrop(){
   if(!PLANTA_LIBRARY_DROP) return;
+  const pad=8;
+  const hostRect=PLANTA_LIBRARY_DROP.parentElement?.getBoundingClientRect();
+  const dropWidth=194;
   PLANTA_LIBRARY_DROP.style.left='0px';
+  PLANTA_LIBRARY_DROP.style.right='auto';
   PLANTA_LIBRARY_DROP.style.top='calc(100% + 6px)';
   PLANTA_LIBRARY_DROP.style.bottom='auto';
+  if(hostRect){
+    const overflowRight=hostRect.left+dropWidth-(window.innerWidth-pad);
+    if(overflowRight>0){
+      PLANTA_LIBRARY_DROP.style.left=(-overflowRight)+'px';
+    }
+  }
 }
 function togglePlantaLibraryDrop(){
   if((S.projectKind||'iso')!=='planta') return;
