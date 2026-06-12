@@ -20,6 +20,10 @@
   --green:#22c55e;--orange:#f59e0b;--red:#ef4444;--snap:#00ffa3;
   --bdr:rgba(255,255,255,0.07);
   --bar:52px;--lbar:0px;--bbar:0px;
+  --safe-top:env(safe-area-inset-top,0px);
+  --safe-right:env(safe-area-inset-right,0px);
+  --safe-bottom:env(safe-area-inset-bottom,0px);
+  --safe-left:env(safe-area-inset-left,0px);
 }
 html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);
   font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-serif;
@@ -36,7 +40,8 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);
 
 /* ╔═╗ TOP BAR ╔═╗ */
 /* Una sola barra que hace wrap automático — nunca oculta botones */
-#topbar{grid-area:top;display:flex;align-items:flex-start;padding:5px 6px;gap:5px;
+#topbar{grid-area:top;display:flex;align-items:flex-start;
+  padding:calc(5px + var(--safe-top)) calc(6px + var(--safe-right)) 5px calc(6px + var(--safe-left));gap:5px;
   flex-wrap:wrap;  /* LOS GRUPOS FLUYEN A LA SIGUIENTE LÍNEA SI NO CABEN */
   background:linear-gradient(180deg,rgba(18,24,34,.98),rgba(14,18,26,.98));
   border-bottom:2px solid rgba(79,168,232,.15);
@@ -91,9 +96,10 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);
 #bsave{min-width:54px;padding:0 6px;font-size:10px;font-weight:800;}
 
 /* ╔═╗ BOTTOM BAR ╔═╗ */
-#bbar{grid-area:bot;display:flex;flex-direction:column;padding:4px 0;
+#bbar{grid-area:bot;display:flex;flex-direction:column;
+  padding:4px calc(0px + var(--safe-right)) calc(4px + var(--safe-bottom)) calc(0px + var(--safe-left));
   background:rgba(18,24,34,0.98);border-top:1px solid rgba(79,168,232,.18);
-  min-height:84px;max-height:84px;
+  min-height:calc(84px + var(--safe-bottom));max-height:calc(84px + var(--safe-bottom));
   box-shadow:0 -4px 16px rgba(0,0,0,.3);
   min-width:0;width:100%;max-width:100%;}
 
@@ -223,7 +229,7 @@ canvas{position:absolute;inset:0;}
   box-shadow:0 4px 14px rgba(0,0,0,.34);touch-action:none;}
 
 /* ╔═╗ TOAST ╔═╗ */
-#toast{position:fixed;bottom:70px;left:50%;
+#toast{position:fixed;bottom:calc(70px + var(--safe-bottom));left:50%;
   transform:translateX(-50%);
   background:rgba(24,30,40,0.95);border:1px solid var(--bdr);color:var(--tx);
   font-size:11px;padding:8px 16px;border-radius:16px;z-index:800;
@@ -286,6 +292,75 @@ canvas{position:absolute;inset:0;}
   #bbar{display:flex;}
   #bbarLeft{display:none;}
   #bbarRight{display:none;}
+  #topbar{
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    align-items:start;
+    padding:calc(8px + var(--safe-top)) calc(6px + var(--safe-right)) 6px calc(6px + var(--safe-left));
+    gap:6px;
+    justify-content:stretch;
+  }
+  .toolGroup{
+    width:100%;
+    min-width:0;
+    flex-wrap:wrap;
+    align-content:flex-start;
+    gap:4px;
+    padding:6px;
+    border-radius:9px;
+    flex-shrink:1;
+  }
+  .toolGroup[data-group="lineas"],
+  .toolGroup[data-group="guardar"],
+  .toolGroup[data-group="escala"]{
+    grid-column:1/-1;
+  }
+  .tbtn{
+    min-width:0;
+    height:31px;
+    border-radius:7px;
+  }
+  .tbtn.txt{
+    min-width:0;
+  }
+  .toolGroup[data-group="viewport"] .tbtn,
+  .toolGroup[data-group="nav"] .tbtn,
+  .toolGroup[data-group="accesorios"] .tbtn,
+  .toolGroup[data-group="guardar"] .tbtn{
+    flex:1 1 calc(25% - 4px);
+  }
+  .toolGroup[data-group="datos"] .tbtn,
+  .toolGroup[data-group="gabinetes"] .tbtn,
+  .toolGroup[data-group="planta-library"] .tbtn{
+    flex:1 1 calc(50% - 4px);
+  }
+  .toolGroup[data-group="lineas"] .tbtn,
+  .toolGroup[data-group="lineas"] > div[style*="position: relative"]{
+    flex:1 1 calc(16.66% - 4px);
+  }
+  .toolGroup[data-group="lineas"] > div[style*="position: relative"],
+  .toolGroup[data-group="escala"] > div{
+    min-width:0;
+    width:100%;
+  }
+  #lineTabs{
+    padding:4px 8px 3px;
+  }
+  .lineTab{
+    flex:1 1 0;
+    min-width:0;
+    height:32px;
+    padding:0 6px;
+  }
+  #bbarLines{
+    padding:4px 6px 2px;
+    gap:4px;
+  }
+  .styleChip{
+    min-width:64px;
+    height:40px;
+    padding:0 7px;
+  }
 }
 @media (max-width:640px) and (orientation:landscape){
   .logo{display:none;}
