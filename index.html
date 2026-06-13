@@ -12425,13 +12425,36 @@ function isCompactPortraitViewport(){
   return window.matchMedia('(max-width: 640px) and (orientation: portrait)').matches;
 }
 
+function viewportScreenFrameBounds(vp){
+  if(!vp) return null;
+  const pad=isCompactPortraitViewport()?10:7;
+  const b={
+    minX:vp.x-pad,
+    minY:vp.y-pad,
+    maxX:vp.x+vp.w+pad,
+    maxY:vp.y+vp.h+pad
+  };
+  for(const d of detailList()){
+    if(!d||!d.visible) continue;
+    const extra=pad+(d.autoId?18:4);
+    b.minX=Math.min(b.minX,d.x-d.r-extra);
+    b.minY=Math.min(b.minY,d.y-d.r-extra);
+    b.maxX=Math.max(b.maxX,d.x+d.r+extra);
+    b.maxY=Math.max(b.maxY,d.y+d.r+extra);
+  }
+  b.w=Math.max(1,b.maxX-b.minX);
+  b.h=Math.max(1,b.maxY-b.minY);
+  return b;
+}
+
 function fitViewportFrame(doRedraw=true){
   const vp=syncFixedViewportRect(); if(!vp) return;
   const area=visibleCanvasWorkArea();
+  const frame=viewportScreenFrameBounds(vp)||{minX:vp.x,minY:vp.y,w:vp.w,h:vp.h};
   const padScale=isCompactPortraitViewport()?0.98:0.95;
-  S.zoom=Math.min(area.w/vp.w,area.h/vp.h) * padScale;
-  S.px=area.x+(area.w-vp.w*S.zoom)/2-vp.x*S.zoom;
-  S.py=area.y+(area.h-vp.h*S.zoom)/2-vp.y*S.zoom;
+  S.zoom=Math.min(area.w/frame.w,area.h/frame.h) * padScale;
+  S.px=area.x+(area.w-frame.w*S.zoom)/2-frame.minX*S.zoom;
+  S.py=area.y+(area.h-frame.h*S.zoom)/2-frame.minY*S.zoom;
   S.viewFit='vp';
   if(doRedraw) redraw();
 }
