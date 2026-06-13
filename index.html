@@ -2469,11 +2469,13 @@ PLANTA_FORMAT_IMG.src=PLANTA_FORMAT_SVG_SRC;
 // â”€â”€ RESIZE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function visibleCanvasSize(){
   const rect=CW.getBoundingClientRect();
-  const vw=window.visualViewport?.width || window.innerWidth || rect.width || CW.clientWidth || 1;
-  const vh=window.visualViewport?.height || window.innerHeight || rect.height || CW.clientHeight || 1;
+  const vw=window.innerWidth || window.visualViewport?.width || rect.width || CW.clientWidth || 1;
+  const vh=window.innerHeight || window.visualViewport?.height || rect.height || CW.clientHeight || 1;
+  const rectW=rect.width || CW.clientWidth || vw;
+  const rectH=rect.height || CW.clientHeight || vh;
   return {
-    w:Math.max(1,Math.round(Math.min(rect.width || vw, CW.clientWidth || vw, vw))),
-    h:Math.max(1,Math.round(Math.min(rect.height || vh, CW.clientHeight || vh, vh)))
+    w:Math.max(1,Math.round(rectW)),
+    h:Math.max(1,Math.round(rectH))
   };
 }
 function visibleCanvasWorkArea(){
@@ -2542,6 +2544,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 window.addEventListener('resize',resize);
+if(window.visualViewport) window.visualViewport.addEventListener('resize',resize);
 setTimeout(resize,80);
 
 // â”€â”€ COORDS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
