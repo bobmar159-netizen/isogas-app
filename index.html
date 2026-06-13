@@ -12455,6 +12455,12 @@ function fitViewportFrame(doRedraw=true){
   S.zoom=Math.min(area.w/frame.w,area.h/frame.h) * padScale;
   S.px=area.x+(area.w-frame.w*S.zoom)/2-frame.minX*S.zoom;
   S.py=area.y+(area.h-frame.h*S.zoom)/2-frame.minY*S.zoom;
+  if(isCompactPortraitViewport()){
+    const bottom=frame.maxY*S.zoom+S.py;
+    const bottomRoom=area.y+area.h-bottom;
+    const drop=Math.min(44,Math.max(0,bottomRoom-8));
+    S.py+=drop;
+  }
   S.viewFit='vp';
   if(doRedraw) redraw();
 }
