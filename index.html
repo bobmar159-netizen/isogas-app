@@ -2476,6 +2476,34 @@ function visibleCanvasSize(){
     h:Math.max(1,Math.round(Math.min(rect.height || vh, CW.clientHeight || vh, vh)))
   };
 }
+function visibleCanvasWorkArea(){
+  const size=visibleCanvasSize();
+  const cwRect=CW.getBoundingClientRect();
+  let left=0,top=0,right=size.w,bottom=size.h;
+  const reserveFromOverlay=id=>{
+    const el=document.getElementById(id);
+    if(!el) return;
+    const st=getComputedStyle(el);
+    if(st.display==='none'||st.visibility==='hidden') return;
+    const r=el.getBoundingClientRect();
+    const overlapX=Math.min(cwRect.right,r.right)-Math.max(cwRect.left,r.left);
+    const overlapY=Math.min(cwRect.bottom,r.bottom)-Math.max(cwRect.top,r.top);
+    if(overlapX<=0||overlapY<=0) return;
+    const midX=(r.left+r.right)/2-cwRect.left;
+    const midY=(r.top+r.bottom)/2-cwRect.top;
+    const margin=8;
+    if(midY<size.h*0.35) top=Math.max(top,Math.min(size.h,r.bottom-cwRect.top+margin));
+    else if(midY>size.h*0.65) bottom=Math.min(bottom,Math.max(0,r.top-cwRect.top-margin));
+    else if(midX<size.w*0.35) left=Math.max(left,Math.min(size.w,r.right-cwRect.left+margin));
+    else if(midX>size.w*0.65) right=Math.min(right,Math.max(0,r.left-cwRect.left-margin));
+  };
+  reserveFromOverlay('topbar');
+  reserveFromOverlay('bbar');
+  reserveFromOverlay('lbar');
+  reserveFromOverlay('rbar');
+  if(right-left<80||bottom-top<80) return {x:0,y:0,w:size.w,h:size.h};
+  return {x:left,y:top,w:right-left,h:bottom-top};
+}
 function resize(){
   const {w:W,h:H}=visibleCanvasSize();
   [GC,MC,DC,OC,LC].forEach(c=>{c.width=W;c.height=H;});
@@ -7165,13 +7193,14 @@ function placeDimText(ctx,txt,p0,p1,fs,occupied=[],opts={}){
   const th=fs*1.12;
   const guard=Math.max(tw+fs*.45,fs*2.2);
   const short=len<Math.max(MIN_LINE_PX,tw+fs*1.4);
-  const base=short?DIM_SHORT_OFFSET+fs*.28:DIM_OFFSET+fs*.18;
+  const base=short?DIM_SHORT_OFFSET+fs*.18:DIM_OFFSET+fs*.10;
   const offsets=short
-    ? [base,base+fs*.55,base+fs*1.1,base+fs*1.85,base+fs*2.7]
-    : [base,base+fs*.42,base+fs*.82,base+fs*1.35,base+fs*2.0];
-  const nearShift=Math.min(len*.22,tw*.34);
-  const farShift=Math.max(len*.58,tw*.62);
-  const shifts=short?[0,farShift,-farShift,farShift*1.65,-farShift*1.65]:[0,nearShift,-nearShift];
+    ? [base,base+fs*.34,base+fs*.68,base+fs*.96]
+    : [base,base+fs*.26,base+fs*.54,base+fs*.82];
+  const maxShift=short
+    ? Math.min(Math.max(fs*.9,tw*.32),Math.max(fs*1.25,len*.52))
+    : Math.min(Math.max(fs*.55,tw*.18),len*.22);
+  const shifts=maxShift>1?[0,maxShift,-maxShift]:[0];
   const bounds=opts.bounds||null;
   const candidates=[];
   for(const off of offsets){
@@ -7184,7 +7213,10 @@ function placeDimText(ctx,txt,p0,p1,fs,occupied=[],opts={}){
     const ty=midY+uy*cand.shift+ny*cand.off*cand.side;
     const box=dimTextBox(tx,ty,textAngle,tw,th,short?4:3);
     const textHits=occupied.reduce((n,ob)=>n+(boxesOverlap(box,ob.box||ob)?1:0),0);
-    const lineHits=(opts.obstacles||[]).reduce((n,seg)=>n+(segmentHitsBox(seg,box)?1:0),0);
+    const lineHits=(opts.obstacles||[]).reduce((n,seg)=>{
+      if(seg&&opts.line&&seg.line===opts.line) return n;
+      return n+(segmentHitsBox(seg,box)?1:0);
+    },0);
     let circlePenalty=0;
     if(opts.circle){
       const rr=Math.max(1,opts.circle.r-fs*.85);
@@ -7202,17 +7234,25 @@ function placeDimText(ctx,txt,p0,p1,fs,occupied=[],opts={}){
     }
     const sidePenalty=cand.side<0?fs*5:0;
     const score=
-      cand.off+
-      Math.abs(cand.shift)*.38+
+      cand.off*22+
+      Math.abs(cand.shift)*7+
       sidePenalty+
-      textHits*12000+
-      lineHits*9000+
+      textHits*3200+
+      lineHits*1400+
       circlePenalty*180+
-      boundsPenalty*90;
+      boundsPenalty*120;
     if(!best||score<best.score) best={...cand,tx,ty,box,score};
   }
   if(!best) return null;
   let tx=best.tx, ty=best.ty;
+  const relX=(tx-midX)*ux+(ty-midY)*uy;
+  const relY=(tx-midX)*nx+(ty-midY)*ny;
+  const maxOff=short?base+fs*1.04:base+fs*.88;
+  const clampShift=maxShift*1.08;
+  const cxShift=Math.max(-clampShift,Math.min(clampShift,relX));
+  const cyOff=Math.max(-maxOff,Math.min(maxOff,relY));
+  tx=midX+ux*cxShift+nx*cyOff;
+  ty=midY+uy*cxShift+ny*cyOff;
   if(opts.circle){
     const dx2=tx-opts.circle.x, dy2=ty-opts.circle.y;
     const dist=Math.hypot(dx2,dy2);
@@ -7367,6 +7407,18 @@ function drawOneDetailViewport(d){
     } else if (d.autoId.startsWith('auto-reduccion-')) {
       const idx = parseInt(d.autoId.split('-')[2], 10) + 1;
       labelText = `REDUCCION ${idx}`;
+    } else if (d.autoId.startsWith('auto-gab-')) {
+      const idx = parseInt(d.autoId.split('-')[2], 10);
+      labelText = `GAB ${Number.isFinite(idx)?idx:1}`;
+    } else if (d.autoId.startsWith('auto-s22-')) {
+      const idx = parseInt(d.autoId.split('-')[2], 10);
+      labelText = `S22 ${Number.isFinite(idx)?idx:1}`;
+    } else if (d.autoId.startsWith('auto-valvula-')) {
+      const parts=d.autoId.split('-');
+      const diam=(parts[2]||'').replace('1216','12/16').replace('2025','20/25');
+      labelText = `VALVULA ${diam}`;
+    } else if (d.autoId.startsWith('auto-adaptador-')) {
+      labelText = 'ADAPTADOR 12/16';
     } else if (d.autoId === 'auto-gab-1' || d.autoId === 'auto-gabinete-valvula-2025') {
       labelText = 'GAB 1';
     } else if (d.autoId === 'auto-gab-2') {
@@ -7428,7 +7480,7 @@ function fitDetailContent(d,b=contentBounds()){
     d.px=-cx*d.z; d.py=-cy*d.z;
     return;
   }
-  const pad=d.r*0.10;
+  const pad=d.r*0.075;
   const z=Math.min((d.r*2-pad*2)/Math.max(1,b.w),(d.r*2-pad*2)/Math.max(1,b.h));
   d.z=Math.min(VP_Z_MAX,Math.max(VP_Z_MIN,z));
   const cx=(b.minX+b.maxX)/2, cy=(b.minY+b.maxY)/2;
@@ -7476,6 +7528,101 @@ function mergeModelBounds(items){
 
 function modelBoundsCenter(b){
   return b?{x:(b.minX+b.maxX)/2,y:(b.minY+b.maxY)/2}:null;
+}
+
+function boundsFromPoints(points,pad=0){
+  const pts=(points||[]).filter(p=>p&&Number.isFinite(p.x)&&Number.isFinite(p.y));
+  if(!pts.length) return null;
+  return {
+    minX:Math.min(...pts.map(p=>p.x))-pad,
+    minY:Math.min(...pts.map(p=>p.y))-pad,
+    maxX:Math.max(...pts.map(p=>p.x))+pad,
+    maxY:Math.max(...pts.map(p=>p.y))+pad
+  };
+}
+
+function nearestLineContext(pt,opts={}){
+  if(!pt) return null;
+  const diam=opts.diam?String(opts.diam):'';
+  const span=Number.isFinite(opts.span)?opts.span:UNITS_PER_M*0.48;
+  let best=null;
+  const lines=opts.line?[opts.line]:S.lines;
+  for(const l of lines){
+    if(!l||!Array.isArray(l.pts)||l.pts.length<2||isWallLine(l)) continue;
+    if(diam&&lineDiam(l)!==diam) continue;
+    for(let i=0;i<l.pts.length-1;i++){
+      const a=l.pts[i], b=l.pts[i+1];
+      const vx=b.x-a.x, vy=b.y-a.y;
+      const len=Math.hypot(vx,vy);
+      if(len<1e-6) continue;
+      const t=Math.max(0,Math.min(1,((pt.x-a.x)*vx+(pt.y-a.y)*vy)/(len*len)));
+      const q={x:a.x+vx*t,y:a.y+vy*t};
+      const dist=Math.hypot(pt.x-q.x,pt.y-q.y);
+      if(best&&dist>=best.d) continue;
+      const half=Math.min(.5,span/(2*len));
+      const t0=Math.max(0,t-half), t1=Math.min(1,t+half);
+      best={
+        d:dist,
+        line:l,
+        p:q,
+        a:{x:a.x+vx*t0,y:a.y+vy*t0},
+        b:{x:a.x+vx*t1,y:a.y+vy*t1}
+      };
+    }
+  }
+  return best;
+}
+
+function lineContextBoundsAtPoint(pt,opts={}){
+  const ctx=nearestLineContext(pt,opts);
+  return ctx?boundsFromPoints([ctx.a,ctx.b],Number.isFinite(opts.pad)?opts.pad:UNITS_PER_M*0.045):null;
+}
+
+function nearestLineEndpointToPoint(pt,diam=''){
+  if(!pt) return null;
+  let best=null;
+  for(const l of S.lines){
+    if(!l||isWallLine(l)) continue;
+    if(diam&&lineDiam(l)!==String(diam)) continue;
+    const ep=lineEndpoints(l);
+    if(!ep) continue;
+    for(const p of [ep.a,ep.b]){
+      const d=Math.hypot(pt.x-p.x,pt.y-p.y);
+      if(!best||d<best.d) best={p,line:l,d};
+    }
+  }
+  return best;
+}
+
+function detailPointKey(p){
+  return p?`${Math.round(p.x*10)}_${Math.round(p.y*10)}`:'';
+}
+
+function blockDetailKey(b){
+  if(!b) return '';
+  return b.id||`${b.kind||''}_${b.lid||''}_${b.diam||''}_${Math.round((b.x||0)*10)}_${Math.round((b.y||0)*10)}`;
+}
+
+function nearestGasPointForValve(v){
+  const c=blockCenter(v);
+  if(!c) return null;
+  const diam=v.diam?String(v.diam):'';
+  let best=null;
+  const ep=nearestLineEndpointToPoint(c,diam);
+  if(ep) best={p:ep.p,line:ep.line,d:ep.d};
+  if(!diam||diam==='1216'){
+    for(const m of codoAdaptadorMarkers()){
+      const d=Math.hypot(c.x-m.p.x,c.y-m.p.y);
+      if(!best||d<best.d) best={p:m.p,line:null,d};
+    }
+  }
+  return best;
+}
+
+function autoDetailRadius(){
+  const vp=ensureVP();
+  if(!vp) return 72;
+  return Math.max(62,Math.min(94,Math.min(vp.w,vp.h)*0.17));
 }
 
 function blockCenter(b){
@@ -7547,14 +7694,14 @@ function detailPlacementObstacles(){
 }
 
 function scoreDetailCandidate(c,r,others,obstacles,anchor){
-  let score=Math.hypot(c.x-anchor.x,c.y-anchor.y)*0.04;
+  let score=Math.hypot(c.x-anchor.x,c.y-anchor.y)*0.065;
   for(const o of others){
     const gap=Math.hypot(c.x-o.x,c.y-o.y)-(r+o.r+8);
     if(gap<0) score+=40000+Math.abs(gap)*120;
   }
-  for(const b of obstacles.boxes) if(circleHitsBox(c,r+4,b)) score+=18000;
-  for(const s of obstacles.segs) if(circleHitsSegment(c,r+3,s)) score+=9000;
-  return score-r*.18;
+  for(const b of obstacles.boxes) if(circleHitsBox(c,r+4,b)) score+=16000;
+  for(const s of obstacles.segs) if(circleHitsSegment(c,r+2,s)) score+=3600;
+  return score;
 }
 
 function placeAutoDetailViewport(autoId,bounds,anchorPaper,idx){
@@ -7568,19 +7715,21 @@ function placeAutoDetailViewport(autoId,bounds,anchorPaper,idx){
   }
   d.visible=true;
   d.active=false;
-  const maxR=Math.min(vp.w,vp.h)*0.28;
-  const minR=Math.max(46,Math.min(vp.w,vp.h)*0.13);
+  const fixedR=autoDetailRadius();
   const others=detailList().filter(x=>x&&x!==d&&x.visible);
   const obstacles=detailPlacementObstacles();
   let best=null;
   
   // Usar una rejilla más densa (5x5) para maximizar la probabilidad de evitar choques en la hoja
   const cols=[0.15, 0.32, 0.50, 0.68, 0.85], rows=[0.15, 0.32, 0.50, 0.68, 0.85];
+  const nearStep=fixedR*1.25;
   const near=[
-    {x:anchorPaper.x+maxR*1.2,y:anchorPaper.y-maxR*.55},
-    {x:anchorPaper.x-maxR*1.2,y:anchorPaper.y-maxR*.55},
-    {x:anchorPaper.x+maxR*1.2,y:anchorPaper.y+maxR*.55},
-    {x:anchorPaper.x-maxR*1.2,y:anchorPaper.y+maxR*.55}
+    {x:anchorPaper.x+nearStep,y:anchorPaper.y-nearStep*.42},
+    {x:anchorPaper.x-nearStep,y:anchorPaper.y-nearStep*.42},
+    {x:anchorPaper.x+nearStep,y:anchorPaper.y+nearStep*.42},
+    {x:anchorPaper.x-nearStep,y:anchorPaper.y+nearStep*.42},
+    {x:anchorPaper.x,y:anchorPaper.y-nearStep},
+    {x:anchorPaper.x,y:anchorPaper.y+nearStep}
   ];
   const candidates=[
     ...near,
@@ -7588,11 +7737,8 @@ function placeAutoDetailViewport(autoId,bounds,anchorPaper,idx){
   ];
   
   // Limitar el tamaño de los círculos para el caso de Tees y Reducciones
-  const isSmall = autoId.startsWith('auto-tee') || autoId.startsWith('auto-reduccion');
-  const targetRadii = isSmall ? [minR] : [maxR, maxR*.88, maxR*.76, minR];
-
   for(const base of candidates){
-    for(const rr of targetRadii){
+    for(const rr of [fixedR]){
       const c={
         x:Math.min(vp.x+vp.w-rr,Math.max(vp.x+rr,base.x)),
         y:Math.min(vp.y+vp.h-rr,Math.max(vp.y+rr,base.y))
@@ -7603,13 +7749,13 @@ function placeAutoDetailViewport(autoId,bounds,anchorPaper,idx){
   }
   d.x=best?best.x:anchorPaper.x;
   d.y=best?best.y:anchorPaper.y;
-  d.r=best?best.r:minR;
+  d.r=best?best.r:fixedR;
   clampDetailToVP(d);
   fitDetailContent(d,bounds);
   return d;
 }
 
-function syncAutoDetailViewports(){
+function syncAutoDetailViewportsLegacy(){
   const vp=ensureVP();
   if(!vp){
     S.detailVPs=detailList().filter(d=>d&&!d.autoId);
@@ -7689,6 +7835,102 @@ function syncAutoDetailViewports(){
     const b=mergeModelBounds([boundsFromPoint(codo.p,UNITS_PER_M*0.08)]);
     specs.push({autoId:'auto-codo-adaptador-1216',bounds:b,anchor:modelToPaper(codo.p)});
   }
+
+  const keep=new Set(specs.map(s=>s.autoId));
+  S.detailVPs=detailList().filter(d=>d&&(!d.autoId||keep.has(d.autoId)));
+  if(S.activeDetail&&S.activeDetail.autoId&&!keep.has(S.activeDetail.autoId)) S.activeDetail=null;
+  if(S.selDetail&&S.selDetail.autoId&&!keep.has(S.selDetail.autoId)) S.selDetail=null;
+  specs.forEach((s,i)=>placeAutoDetailViewport(s.autoId,s.bounds,s.anchor,i));
+  S.detailVP=S.activeDetail||S.selDetail||S.detailVPs[S.detailVPs.length-1]||null;
+  return specs.length;
+}
+
+function syncAutoDetailViewports(){
+  const vp=ensureVP();
+  if(!vp){
+    S.detailVPs=detailList().filter(d=>d&&!d.autoId);
+    return 0;
+  }
+
+  syncTeesWithLines();
+
+  if(!Array.isArray(S.texts)) S.texts=[];
+  S.texts=S.texts.filter(t=>!t.generatedDetailLabel);
+
+  const specs=[];
+  const usedValveKeys=new Set();
+  const usedGasPoints=new Set();
+  const addSpec=(autoId,bounds,anchor)=>{
+    if(bounds&&anchor) specs.push({autoId,bounds,anchor:modelToPaper(anchor)});
+  };
+
+  let gabIdx=0;
+  ['gabinete','gabinete_doble','gabinete_triple','gabinete_cuadruple','s22'].forEach(lid=>{
+    const cabinets=S.blocks.filter(b=>b&&b.lid===lid);
+    for(const cabinet of cabinets){
+      const c=blockCenter(cabinet);
+      const valve2025=c&&nearestBlockToPoint(b=>isValveBlock(b)&&String(b.diam)==='2025',c);
+      if(!valve2025) continue;
+      const vc=blockCenter(valve2025);
+      const bounds=mergeModelBounds([
+        boundsFromWorldRect(blockWorldRect(cabinet),UNITS_PER_M*0.045),
+        boundsFromWorldRect(blockWorldRect(valve2025),UNITS_PER_M*0.065),
+        vc?lineContextBoundsAtPoint(vc,{diam:'2025',span:UNITS_PER_M*0.72,pad:UNITS_PER_M*0.045}):null
+      ]);
+      gabIdx++;
+      usedValveKeys.add(blockDetailKey(valve2025));
+      addSpec(lid==='s22'?`auto-s22-${gabIdx}`:`auto-gab-${gabIdx}`,bounds,c||vc||modelBoundsCenter(bounds));
+    }
+  });
+
+  const uniqueReds=[];
+  const seenReds=new Set();
+  for(const red of reductionMarkers()){
+    const k=detailPointKey(red.p);
+    if(seenReds.has(k)) continue;
+    seenReds.add(k);
+    uniqueReds.push(red);
+  }
+  uniqueReds.forEach((red,idx)=>{
+    const bounds=mergeModelBounds([
+      boundsFromPoint(red.p,UNITS_PER_M*0.08),
+      lineContextBoundsAtPoint(red.p,{line:red.big,span:UNITS_PER_M*0.55,pad:UNITS_PER_M*0.04}),
+      lineContextBoundsAtPoint(red.p,{line:red.small,span:UNITS_PER_M*0.55,pad:UNITS_PER_M*0.04})
+    ]);
+    addSpec(`auto-reduccion-${idx}`,bounds,red.p);
+  });
+
+  (S.tees||[]).forEach((tee,idx)=>{
+    const bounds=mergeModelBounds([
+      boundsFromPoint(tee,UNITS_PER_M*0.09),
+      lineContextBoundsAtPoint(tee,{span:UNITS_PER_M*0.62,pad:UNITS_PER_M*0.045})
+    ]);
+    addSpec(`auto-tee-${idx}`,bounds,tee);
+  });
+
+  S.blocks.filter(isValveBlock).forEach((valve,idx)=>{
+    if(usedValveKeys.has(blockDetailKey(valve))) return;
+    const c=blockCenter(valve);
+    if(!c) return;
+    const gas=nearestGasPointForValve(valve);
+    if(gas&&gas.p) usedGasPoints.add(detailPointKey(gas.p));
+    const bounds=mergeModelBounds([
+      boundsFromWorldRect(blockWorldRect(valve),UNITS_PER_M*0.07),
+      lineContextBoundsAtPoint(c,{diam:valve.diam,span:UNITS_PER_M*0.66,pad:UNITS_PER_M*0.045}),
+      gas&&gas.p?boundsFromPoint(gas.p,UNITS_PER_M*0.085):null,
+      gas&&gas.p?lineContextBoundsAtPoint(gas.p,{line:gas.line,diam:valve.diam,span:UNITS_PER_M*0.58,pad:UNITS_PER_M*0.045}):null
+    ]);
+    addSpec(`auto-valvula-${valve.diam||'x'}-${idx}`,bounds,c);
+  });
+
+  codoAdaptadorMarkers().forEach((codo,idx)=>{
+    if(!codo||!codo.p||usedGasPoints.has(detailPointKey(codo.p))) return;
+    const bounds=mergeModelBounds([
+      boundsFromPoint(codo.p,UNITS_PER_M*0.09),
+      lineContextBoundsAtPoint(codo.p,{diam:'1216',span:UNITS_PER_M*0.58,pad:UNITS_PER_M*0.045})
+    ]);
+    addSpec(`auto-adaptador-1216-${idx}`,bounds,codo.p);
+  });
 
   const keep=new Set(specs.map(s=>s.autoId));
   S.detailVPs=detailList().filter(d=>d&&(!d.autoId||keep.has(d.autoId)));
@@ -12131,13 +12373,13 @@ function contentBounds(opts={}){
 
 function fitVPContent(){
   const vp=syncFixedViewportRect(); if(!vp) return false;
-  const fitPad=UNITS_PER_M*(isCompactPortraitViewport()?0.06:0.12);
-  const b=contentBounds({pad:fitPad});
+  const fitPad=UNITS_PER_M*(isCompactPortraitViewport()?0.12:0.16);
+  const b=contentBounds({pad:fitPad,includeTexts:true});
   if(!b){
     vp.z=1; vp.px=-vp.x; vp.py=-vp.y; redraw();
     return true;
   }
-  const margin=isCompactPortraitViewport()?0.98:0.94;
+  const margin=isCompactPortraitViewport()?0.91:0.93;
   const z=Math.min(VP_Z_MAX,Math.max(VP_Z_MIN,Math.min(vp.w/b.w,vp.h/b.h)*margin));
   const cx=(b.minX+b.maxX)/2;
   const cy=(b.minY+b.maxY)/2;
@@ -12181,22 +12423,22 @@ function isCompactPortraitViewport(){
 
 function fitViewportFrame(doRedraw=true){
   const vp=syncFixedViewportRect(); if(!vp) return;
-  const {w:W,h:H}=visibleCanvasSize();
-  const padScale=isCompactPortraitViewport()?0.99:0.95;
-  S.zoom=Math.min(W/vp.w,H/vp.h) * padScale;
-  S.px=(W-vp.w*S.zoom)/2-vp.x*S.zoom;
-  S.py=(H-vp.h*S.zoom)/2-vp.y*S.zoom;
+  const area=visibleCanvasWorkArea();
+  const padScale=isCompactPortraitViewport()?0.98:0.95;
+  S.zoom=Math.min(area.w/vp.w,area.h/vp.h) * padScale;
+  S.px=area.x+(area.w-vp.w*S.zoom)/2-vp.x*S.zoom;
+  S.py=area.y+(area.h-vp.h*S.zoom)/2-vp.y*S.zoom;
   S.viewFit='vp';
   if(doRedraw) redraw();
 }
 
 function fitSheetFrame(doRedraw=true){
-  const {w:W,h:H}=visibleCanvasSize();
+  const area=visibleCanvasWorkArea();
   const padScale=isCompactPortraitViewport()?0.98:0.92;
-  const zx=W/A4W*padScale, zy=H/A4H*padScale;
+  const zx=area.w/A4W*padScale, zy=area.h/A4H*padScale;
   S.zoom=Math.min(zx,zy);
-  S.px=(W-A4W*S.zoom)/2;
-  S.py=(H-A4H*S.zoom)/2;
+  S.px=area.x+(area.w-A4W*S.zoom)/2;
+  S.py=area.y+(area.h-A4H*S.zoom)/2;
   S.viewFit='sheet';
   if(doRedraw) redraw();
 }
@@ -12209,8 +12451,8 @@ function zoomAt(factor){
     hideAutoDetailViewports();
     return;
   }
-  const {w:W,h:H}=visibleCanvasSize();
-  const cx=W/2,cy=H/2;
+  const area=visibleCanvasWorkArea();
+  const cx=area.x+area.w/2,cy=area.y+area.h/2;
   const nz=Math.min(8,Math.max(0.08,S.zoom*factor));
   S.px=cx-(cx-S.px)*(nz/S.zoom);
   S.py=cy-(cy-S.py)*(nz/S.zoom);
@@ -12768,7 +13010,10 @@ document.getElementById('bzin').addEventListener('click',()=>zoomAt(1.3));
 document.getElementById('bzout').addEventListener('click',()=>zoomAt(0.77));
 document.getElementById('bdetail').addEventListener('click',()=>{
   pushH();
+  setViewportWorkMode(true,{fit:false});
+  fitVPContent();
   const n=syncAutoDetailViewports();
+  fitViewportFrame(false);
   redraw();
   toast(n?('Detalles generados: '+n):'No hay detalles detectados');
 });
