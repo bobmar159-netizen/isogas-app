@@ -1872,6 +1872,7 @@ const DIM_OFFSET  = 6; // fixed screen px offset for dimension text (closer to l
 const DIM_SHORT_OFFSET = 9; // modest extra separation when the segment is too short
 const DIM_TEXT_STEP = 0.1;
 const VP_MIN    = 54;   // touch-friendly minimum viewport size
+const DETAIL_VP_SAFE_PAD = 10;
 const VP_Z_MIN  = 0.08, VP_Z_MAX = 42;
 const GUIDE_R   = 210;  // screen px projection guide reach
 
@@ -2471,9 +2472,11 @@ function visibleCanvasSize(){
   const rect=CW.getBoundingClientRect();
   const vw=window.visualViewport?.width || window.innerWidth || rect.width || CW.clientWidth || 1;
   const vh=window.visualViewport?.height || window.innerHeight || rect.height || CW.clientHeight || 1;
+  const dw=document.documentElement?.clientWidth || vw;
+  const dh=document.documentElement?.clientHeight || vh;
   return {
-    w:Math.max(1,Math.round(Math.min(rect.width || vw, CW.clientWidth || vw, vw))),
-    h:Math.max(1,Math.round(Math.min(rect.height || vh, CW.clientHeight || vh, vh)))
+    w:Math.max(1,Math.round(Math.min(rect.width || vw, CW.clientWidth || vw, vw, dw))),
+    h:Math.max(1,Math.round(Math.min(rect.height || vh, CW.clientHeight || vh, vh, dh)))
   };
 }
 function visibleCanvasWorkArea(){
@@ -7622,7 +7625,8 @@ function nearestGasPointForValve(v){
 function autoDetailRadius(){
   const vp=ensureVP();
   if(!vp) return 72;
-  return Math.max(62,Math.min(94,Math.min(vp.w,vp.h)*0.17));
+  const safeMin=Math.max(38,(Math.min(vp.w,vp.h)-DETAIL_VP_SAFE_PAD*2)/2-2);
+  return Math.max(56,Math.min(88,safeMin,Math.min(vp.w,vp.h)*0.155));
 }
 
 function blockCenter(b){
@@ -7740,8 +7744,8 @@ function placeAutoDetailViewport(autoId,bounds,anchorPaper,idx){
   for(const base of candidates){
     for(const rr of [fixedR]){
       const c={
-        x:Math.min(vp.x+vp.w-rr,Math.max(vp.x+rr,base.x)),
-        y:Math.min(vp.y+vp.h-rr,Math.max(vp.y+rr,base.y))
+        x:Math.min(vp.x+vp.w-rr-DETAIL_VP_SAFE_PAD,Math.max(vp.x+rr+DETAIL_VP_SAFE_PAD,base.x)),
+        y:Math.min(vp.y+vp.h-rr-DETAIL_VP_SAFE_PAD,Math.max(vp.y+rr+DETAIL_VP_SAFE_PAD,base.y))
       };
       const score=scoreDetailCandidate(c,rr,others,obstacles,anchorPaper);
       if(!best||score<best.score) best={...c,r:rr,score};
@@ -7966,10 +7970,11 @@ function hideAutoDetailViewports(){
 function clampDetailToVP(d){
   const vp=ensureVP();
   if(!d||!vp) return;
-  const maxR=Math.max(38,Math.min(vp.w,vp.h)*0.32);
+  const safe=DETAIL_VP_SAFE_PAD;
+  const maxR=Math.max(38,(Math.min(vp.w,vp.h)-safe*2)/2-2);
   d.r=Math.min(maxR,Math.max(38,d.r||70));
-  d.x=Math.min(vp.x+vp.w-d.r,Math.max(vp.x+d.r,d.x));
-  d.y=Math.min(vp.y+vp.h-d.r,Math.max(vp.y+d.r,d.y));
+  d.x=Math.min(vp.x+vp.w-d.r-safe,Math.max(vp.x+d.r+safe,d.x));
+  d.y=Math.min(vp.y+vp.h-d.r-safe,Math.max(vp.y+d.r+safe,d.y));
 }
 
 function detailAt(px,py,activeOnly=false){
@@ -11739,7 +11744,7 @@ document.getElementById('mlen').addEventListener('keydown',e=>{
 });
 
 function buildExportCanvas(sc){
-  const vp=ensureVP();
+  const vp=syncFixedViewportRect();
   const cv=document.createElement('canvas');
   cv.width=A4W*sc; cv.height=A4H*sc;
   const ctx=cv.getContext('2d');
@@ -12424,8 +12429,10 @@ function isCompactPortraitViewport(){
 function fitViewportFrame(doRedraw=true){
   const vp=syncFixedViewportRect(); if(!vp) return;
   const area=visibleCanvasWorkArea();
-  const padScale=isCompactPortraitViewport()?0.98:0.95;
-  S.zoom=Math.min(area.w/vp.w,area.h/vp.h) * padScale;
+  const screenPad=isCompactPortraitViewport()?28:22;
+  const fitW=Math.max(80,area.w-screenPad*2);
+  const fitH=Math.max(80,area.h-screenPad*2);
+  S.zoom=Math.min(fitW/vp.w,fitH/vp.h);
   S.px=area.x+(area.w-vp.w*S.zoom)/2-vp.x*S.zoom;
   S.py=area.y+(area.h-vp.h*S.zoom)/2-vp.y*S.zoom;
   S.viewFit='vp';
