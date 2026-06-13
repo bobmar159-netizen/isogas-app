@@ -2469,13 +2469,11 @@ PLANTA_FORMAT_IMG.src=PLANTA_FORMAT_SVG_SRC;
 // â”€â”€ RESIZE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function visibleCanvasSize(){
   const rect=CW.getBoundingClientRect();
-  const vw=window.innerWidth || window.visualViewport?.width || rect.width || CW.clientWidth || 1;
-  const vh=window.innerHeight || window.visualViewport?.height || rect.height || CW.clientHeight || 1;
-  const rectW=rect.width || CW.clientWidth || vw;
-  const rectH=rect.height || CW.clientHeight || vh;
+  const vw=window.visualViewport?.width || window.innerWidth || rect.width || CW.clientWidth || 1;
+  const vh=window.visualViewport?.height || window.innerHeight || rect.height || CW.clientHeight || 1;
   return {
-    w:Math.max(1,Math.round(rectW)),
-    h:Math.max(1,Math.round(rectH))
+    w:Math.max(1,Math.round(Math.min(rect.width || vw, CW.clientWidth || vw, vw))),
+    h:Math.max(1,Math.round(Math.min(rect.height || vh, CW.clientHeight || vh, vh)))
   };
 }
 function visibleCanvasWorkArea(){
@@ -2544,7 +2542,6 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 window.addEventListener('resize',resize);
-if(window.visualViewport) window.visualViewport.addEventListener('resize',resize);
 setTimeout(resize,80);
 
 // â”€â”€ COORDS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -4809,7 +4806,6 @@ function ensureCabinetTexts(){
 
 // ╔══ MAIN REDRAW ╔═════════════════════════════
 function redraw(){
-  syncFixedViewportRect();
   syncTeesWithLines();
   drawGrid();
   mx.clearRect(0,0,MC.width,MC.height);
@@ -12377,13 +12373,13 @@ function contentBounds(opts={}){
 
 function fitVPContent(){
   const vp=syncFixedViewportRect(); if(!vp) return false;
-  const fitPad=UNITS_PER_M*(isCompactPortraitViewport()?0.12:0.16);
-  const b=contentBounds({pad:fitPad,includeTexts:true});
+  const fitPad=UNITS_PER_M*(isCompactPortraitViewport()?0.06:0.12);
+  const b=contentBounds({pad:fitPad});
   if(!b){
     vp.z=1; vp.px=-vp.x; vp.py=-vp.y; redraw();
     return true;
   }
-  const margin=isCompactPortraitViewport()?0.91:0.93;
+  const margin=isCompactPortraitViewport()?0.98:0.94;
   const z=Math.min(VP_Z_MAX,Math.max(VP_Z_MIN,Math.min(vp.w/b.w,vp.h/b.h)*margin));
   const cx=(b.minX+b.maxX)/2;
   const cy=(b.minY+b.maxY)/2;
@@ -12425,53 +12421,24 @@ function isCompactPortraitViewport(){
   return window.matchMedia('(max-width: 640px) and (orientation: portrait)').matches;
 }
 
-function viewportScreenFrameBounds(vp){
-  if(!vp) return null;
-  const pad=isCompactPortraitViewport()?10:7;
-  const b={
-    minX:vp.x-pad,
-    minY:vp.y-pad,
-    maxX:vp.x+vp.w+pad,
-    maxY:vp.y+vp.h+pad
-  };
-  for(const d of detailList()){
-    if(!d||!d.visible) continue;
-    const extra=pad+(d.autoId?18:4);
-    b.minX=Math.min(b.minX,d.x-d.r-extra);
-    b.minY=Math.min(b.minY,d.y-d.r-extra);
-    b.maxX=Math.max(b.maxX,d.x+d.r+extra);
-    b.maxY=Math.max(b.maxY,d.y+d.r+extra);
-  }
-  b.w=Math.max(1,b.maxX-b.minX);
-  b.h=Math.max(1,b.maxY-b.minY);
-  return b;
-}
-
 function fitViewportFrame(doRedraw=true){
   const vp=syncFixedViewportRect(); if(!vp) return;
-  const area=visibleCanvasWorkArea();
-  const frame=viewportScreenFrameBounds(vp)||{minX:vp.x,minY:vp.y,w:vp.w,h:vp.h};
-  const padScale=isCompactPortraitViewport()?0.98:0.95;
-  S.zoom=Math.min(area.w/frame.w,area.h/frame.h) * padScale;
-  S.px=area.x+(area.w-frame.w*S.zoom)/2-frame.minX*S.zoom;
-  S.py=area.y+(area.h-frame.h*S.zoom)/2-frame.minY*S.zoom;
-  if(isCompactPortraitViewport()){
-    const bottom=frame.maxY*S.zoom+S.py;
-    const bottomRoom=area.y+area.h-bottom;
-    const drop=Math.min(44,Math.max(0,bottomRoom-8));
-    S.py+=drop;
-  }
+  const {w:W,h:H}=visibleCanvasSize();
+  const padScale=isCompactPortraitViewport()?0.99:0.95;
+  S.zoom=Math.min(W/vp.w,H/vp.h) * padScale;
+  S.px=(W-vp.w*S.zoom)/2-vp.x*S.zoom;
+  S.py=(H-vp.h*S.zoom)/2-vp.y*S.zoom;
   S.viewFit='vp';
   if(doRedraw) redraw();
 }
 
 function fitSheetFrame(doRedraw=true){
-  const area=visibleCanvasWorkArea();
+  const {w:W,h:H}=visibleCanvasSize();
   const padScale=isCompactPortraitViewport()?0.98:0.92;
-  const zx=area.w/A4W*padScale, zy=area.h/A4H*padScale;
+  const zx=W/A4W*padScale, zy=H/A4H*padScale;
   S.zoom=Math.min(zx,zy);
-  S.px=area.x+(area.w-A4W*S.zoom)/2;
-  S.py=area.y+(area.h-A4H*S.zoom)/2;
+  S.px=(W-A4W*S.zoom)/2;
+  S.py=(H-A4H*S.zoom)/2;
   S.viewFit='sheet';
   if(doRedraw) redraw();
 }
@@ -12484,8 +12451,8 @@ function zoomAt(factor){
     hideAutoDetailViewports();
     return;
   }
-  const area=visibleCanvasWorkArea();
-  const cx=area.x+area.w/2,cy=area.y+area.h/2;
+  const {w:W,h:H}=visibleCanvasSize();
+  const cx=W/2,cy=H/2;
   const nz=Math.min(8,Math.max(0.08,S.zoom*factor));
   S.px=cx-(cx-S.px)*(nz/S.zoom);
   S.py=cy-(cy-S.py)*(nz/S.zoom);
