@@ -11084,13 +11084,18 @@ function insertPasamuroBlock(){
     x:center.x,
     y:center.y,
     sc:PASAMURO_DEFAULT_SCALE,
-    vi:pickPasamuroViewForVec(vec).id
+    vi:pickPasamuroViewForVec(vec).id,
+    free:true,
+    hostLineId:null,
+    hostSeg:null,
+    hostVec:null
   };
   pushH();
-  movePasamuroWithSnap(block,center.x,center.y);
   S.blocks.push(block);
   S.selBlock=block; S.selLine=null; S.selOpening=null;
   setTool('sel');
+  DOT.style.display='none';
+  clearSnapHint();
   redraw();
   toast('Pasamuro: arrastralo sobre una linea');
 }
