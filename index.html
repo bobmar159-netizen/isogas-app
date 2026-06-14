@@ -6191,8 +6191,9 @@ function pasamuroRoleLabel(role){
   return '';
 }
 
-function nearestLinePointForPasamuro(wx,wy){
-  const tol=PASAMURO_SNAP_R/modelZoom();
+function nearestLinePointForPasamuro(wx,wy,opts={}){
+  const requireRadius=opts.requireRadius!==false;
+  const tol=(opts.tol||PASAMURO_SNAP_R)/modelZoom();
   const pointTol=PASAMURO_POINT_R/modelZoom();
   let best=null;
   for(const l of S.lines){
@@ -6204,7 +6205,7 @@ function nearestLinePointForPasamuro(wx,wy){
       const t=Math.max(0,Math.min(1,((wx-a.x)*dx+(wy-a.y)*dy)/len2));
       const proj={x:a.x+dx*t,y:a.y+dy*t};
       const projD=Math.hypot(wx-proj.x,wy-proj.y);
-      if(projD>tol) continue;
+      if(requireRadius&&projD>tol) continue;
       const special=[];
       if(i===1) special.push({role:'start',pt:{x:a.x,y:a.y}});
       if(i===l.pts.length-1) special.push({role:'end',pt:{x:b.x,y:b.y}});
@@ -11073,24 +11074,53 @@ function insertValveBlock(diam){
   toast((diam==='2025'?'Valvula 20/25':'Valvula 12/16')+': arrastrala sobre su linea');
 }
 
+function clearPasamuroInsertState(){
+  if(DI.style.display==='block') hideDimInput(true);
+  closeDrops();
+  if(S.canvasLongPressTimeout){
+    clearTimeout(S.canvasLongPressTimeout);
+    S.canvasLongPressTimeout=null;
+  }
+  dragBlk=null; dragBlkStart=null; dragBlkMoved=false; dragBlkEverMoved=false; dragBlkGrip=null;
+  dragLabel=null; dragLabelStart=null; dragLabelMoved=false; dragOpening=null; resizeText=null;
+  S.drag=false; S.ds=null; S.de=null; S.snapS=false; S.snapE=false; S.drawDetail=null;
+  S.selDown=null; S.lineEditLine=null; S.pendingDimensionPick=false;
+  clearLoupe();
+  DOT.style.display='none';
+  clearSnapHint();
+  ox.clearRect(0,0,OC.width,OC.height);
+}
+
 function insertPasamuroBlock(){
+  ensureVP();
   const view=viewportVisibleModelRect();
   const center={x:view.minX+view.w*0.5,y:view.minY+view.h*0.52};
-  const firstLine=S.lines.find(l=>!isWallLine(l)&&Array.isArray(l.pts)&&l.pts.length>1);
-  const vec=firstLine?{x:firstLine.pts[1].x-firstLine.pts[0].x,y:firstLine.pts[1].y-firstLine.pts[0].y}:{x:1,y:0};
+  const snap=nearestLinePointForPasamuro(center.x,center.y,{requireRadius:false});
+  if(!snap){
+    clearPasamuroInsertState();
+    toast('Dibuja una linea primero para colocar pasamuro');
+    return;
+  }
   const block={
     kind:'pasamuro',
     lid:'pasamuro',
-    x:center.x,
-    y:center.y,
+    x:snap.p.x,
+    y:snap.p.y,
     sc:PASAMURO_DEFAULT_SCALE,
-    vi:pickPasamuroViewForVec(vec).id
+    vi:pickPasamuroViewForVec(snap.vec).id,
+    hostLineId:snap.line.id||null,
+    hostSeg:snap.seg,
+    hostVec:{...snap.vec},
+    free:false
   };
   pushH();
-  movePasamuroWithSnap(block,center.x,center.y);
+  clearPasamuroInsertState();
   S.blocks.push(block);
   S.selBlock=block; S.selLine=null; S.selOpening=null;
+  S.scaleMode='block';
   setTool('sel');
+  DOT.style.display='none';
+  clearSnapHint();
   redraw();
   toast('Pasamuro: arrastralo sobre una linea');
 }
