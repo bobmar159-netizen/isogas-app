@@ -6324,11 +6324,16 @@ function drawPasamuroBlock(ctx,b,sel,zoomScale=modelZoom()){
   const clearHostLine=()=>{
     const angle=Math.atan2(hostAxis.y,hostAxis.x);
     ctx.save();
-    ctx.globalCompositeOperation='destination-out';
     ctx.translate(b.x,b.y);
     ctx.rotate(angle);
-    ctx.fillStyle='#000';
-    ctx.fillRect(-clearLen*0.5,-clearThick*0.5,clearLen,clearThick);
+    ctx.strokeStyle='rgba(255,255,255,0.98)';
+    ctx.lineWidth=clearThick;
+    ctx.lineCap='round';
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.moveTo(-clearLen*0.5,0);
+    ctx.lineTo(clearLen*0.5,0);
+    ctx.stroke();
     ctx.restore();
   };
   const drawLines=(strokeStyle,lineWidth,shadow=0)=>{
@@ -6352,7 +6357,7 @@ function drawPasamuroBlock(ctx,b,sel,zoomScale=modelZoom()){
     }
     ctx.restore();
   };
-  clearHostLine();
+  if(!b.free&&b.hostVec) clearHostLine();
   if(sel) drawLines('rgba(79,168,232,0.98)',5.5/zoomScale,7/zoomScale);
   drawLines(PASAMURO_COLOR,2.3/zoomScale);
 }
