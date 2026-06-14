@@ -236,13 +236,6 @@ canvas{position:absolute;inset:0;}
   opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap;
   backdrop-filter:blur(10px);}
 #toast.show{opacity:1;}
-#snapHint{position:fixed;bottom:calc(106px + var(--safe-bottom));left:50%;
-  transform:translateX(-50%);
-  background:rgba(13,18,28,0.88);border:1px solid rgba(239,29,29,.24);color:#fecaca;
-  font-size:10px;padding:5px 11px;border-radius:999px;z-index:795;
-  opacity:0;transition:opacity .18s;pointer-events:none;white-space:nowrap;
-  backdrop-filter:blur(8px);letter-spacing:.2px;}
-#snapHint.show{opacity:1;}
 /* ══ PORTRAIT MOBILE (≤640px) ══ */
 @media (max-width:640px) and (orientation:portrait){
   .logo{display:none;}
@@ -252,7 +245,7 @@ canvas{position:absolute;inset:0;}
     flex-wrap: wrap;
     overflow-x: hidden;
     overflow-y: visible;
-    padding: calc(14px + var(--safe-top)) calc(6px + var(--safe-right)) 5px calc(6px + var(--safe-left));
+    padding: 5px 6px;
     gap: 5px 4px;
     width: 100%;
     min-height: auto;
@@ -296,9 +289,76 @@ canvas{position:absolute;inset:0;}
   /* styleStrip sigue oculto (está en bottom bar) */
   .toolGroup[data-group="lineas"] .styleStrip{display:none!important;}
   /* Bottom bar visible en portrait */
-  #bbar{display:flex;}
-  #bbarLeft{display:none;}
-  #bbarRight{display:none;}
+  #app{
+    grid-template-rows:1fr;
+    grid-template-columns:1fr;
+    grid-template-areas:"canvas";
+  }
+  #cw{grid-area:canvas;}
+  #topbar{
+    position:absolute;
+    top:0;
+    left:0;
+    right:0;
+    z-index:120;
+    display:flex;
+    flex-wrap:wrap;
+    overflow-x:hidden;
+    overflow-y:visible;
+    padding:calc(5px + var(--safe-top)) calc(6px + var(--safe-right)) 5px calc(6px + var(--safe-left));
+    gap:5px 4px;
+    width:100%;
+    min-height:auto;
+    max-height:none;
+    justify-content:flex-start;
+  }
+  .toolGroup{
+    display:flex;
+    flex-wrap:nowrap;
+    align-items:center;
+    gap:3px;
+    padding:4px 5px;
+    border-radius:8px;
+    background:rgba(255,255,255,.03);
+    border:1px solid rgba(255,255,255,.09);
+    flex-shrink:0;
+  }
+  .tbtn{
+    width:auto;
+    min-width:32px;
+    height:32px;
+    font-size:10px;
+    border-radius:6px;
+    padding:0 6px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .tbtn.txt{
+    width:auto;
+    min-width:32px;
+    font-size:9px;
+    padding:0 5px;
+    line-height:1.05;
+  }
+  #bbar{
+    position:absolute;
+    left:0;
+    right:0;
+    bottom:0;
+    z-index:120;
+    display:flex;
+    min-height:calc(92px + var(--safe-bottom));
+    max-height:calc(92px + var(--safe-bottom));
+    padding:4px calc(0px + var(--safe-right)) calc(4px + var(--safe-bottom)) calc(0px + var(--safe-left));
+    overflow:hidden;
+  }
+  #vpchip{
+    position:absolute;
+    left:8px;
+    bottom:6px;
+    margin:0;
+  }
 }
 @media (max-width:640px) and (orientation:landscape){
   .logo{display:none;}
@@ -325,6 +385,7 @@ canvas{position:absolute;inset:0;}
   .styleStrip{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:4px;width:100%;}
   .styleBtn{width:100%;min-width:0;height:30px;font-size:8px;padding:0 2px;}
   .styleBtn:before{width:13px;}
+  #vpchip{grid-column:1/-1;text-align:center;}
 }
 /* ═══ CLASES REQUERIDAS POR EL JS ═══ */
 /* Profile dropdown extras */
@@ -674,6 +735,7 @@ canvas{position:absolute;inset:0;}
 .styleBtn[data-dash="dashed"]:before{border-top-style:dashed;}
 .styleBtn.on{background:rgba(26,127,212,.16);border-color:var(--acc2);color:#fff;}
 .sp{flex:1;}
+#vpchip{font-size:9px;font-weight:700;background:rgba(239,68,68,.2);color:var(--red);border:1px solid rgba(239,68,68,.3);padding:2px 7px;border-radius:12px;display:none;white-space:nowrap;}
 /* Left/Right bars */
 #lbar{grid-area:left;display:none;flex-direction:column;align-items:center;gap:4px;padding:8px 4px;background:rgba(24,30,40,0.95);border-right:1px solid var(--bdr);}
 #rbar{grid-area:right;display:none;flex-direction:column;align-items:center;gap:4px;padding:8px 4px;background:rgba(24,30,40,0.95);border-left:1px solid var(--bdr);}
@@ -824,7 +886,6 @@ canvas{position:absolute;inset:0;}
     <span class="groupLabel">Accesorios</span>
     <div class="tbtn txt" id="bval2025" title="Valvula 20/25">V20</div>
     <div class="tbtn txt" id="bval1216" title="Valvula 12/16">V12</div>
-    <div class="tbtn txt" id="bpasamuro" title="Pasamuro">PM</div>
     <div class="tbtn" id="badd" title="Agregar Bloque Personalizado">+</div>
     <div class="tbtn txt" id="bcaj" title="Referencia / Cajetín">Ref</div>
   </div>
@@ -844,6 +905,7 @@ canvas{position:absolute;inset:0;}
     <div class="tbtn go txt" id="bsave" title="Guardar o Exportar dibujo">Guardar</div>
     <div class="tbtn txt" id="bshr" title="Enviar / Compartir">Env</div>
   </div>
+<div id="vpchip">VP</div>
 </div>
 
 <div id="gabJoinPanel" class="cabinet-join-panel" aria-hidden="true">
@@ -1414,7 +1476,6 @@ canvas{position:absolute;inset:0;}
 </div>
 
 <div id="toast"></div>
-<div id="snapHint"></div>
 
 <script>
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -1855,12 +1916,6 @@ const VALVE_COLOR = '#ef1d1d';
 const VALVE_SNAP_R = 34;
 const VALVE_DEFAULT_SCALE = 1;
 const VALVE_TARGET_LEN_M = 0.15;
-const PASAMURO_COLOR = '#ef1d1d';
-const PASAMURO_SNAP_R = 34;
-const PASAMURO_POINT_R = 20;
-const PASAMURO_DEFAULT_SCALE = 1;
-const PASAMURO_TARGET_LEN_M = 1.2;
-const PASAMURO_ROTATE_TAP_MS = 120;
 const CABINET_LABEL_TEXT = 'C.M';
 const CABINET_LABEL_H_M = 0.25;
 const CABINET_LABEL_OFFSET_M = 0.04;
@@ -1890,12 +1945,6 @@ const VALVE_VIEWS = [
   {id:'inf_izq',family:'flat',l:[[[0.0353553391,0.0489897949],[0.0353553391,-0.0081649658]],[[-0.0353553391,-0.0489897949],[-0.0353553391,0.0081649658]],[[0,0],[-0.0353553391,-0.0489897949]],[[0.0353553391,0.0489897949],[0,0]],[[0,0],[-0.0353553391,0.0081649658]],[[0.0353553391,-0.0081649658],[0,0]]]},
   {id:'ver_der',family:'vertical',l:[[[0.0247487373,0.0551135192],[-0.0247487373,0.0265361389]],[[-0.0247487373,-0.0551135192],[0.0247487373,-0.0265361389]],[[0,0],[-0.0247487373,-0.0551135192]],[[0.0247487373,0.0551135192],[0,0]],[[0,0],[0.0247487373,-0.0265361389]],[[-0.0247487373,0.0265361389],[0,0]]]},
   {id:'ver_izq',family:'vertical',l:[[[0.0247487373,0.0265361389],[-0.0247487373,0.0551135192]],[[-0.0247487373,-0.0265361389],[0.0247487373,-0.0551135192]],[[0,0],[-0.0247487373,-0.0265361389]],[[0.0247487373,0.0265361389],[0,0]],[[0,0],[0.0247487373,-0.0551135192]],[[-0.0247487373,0.0551135192],[0,0]]]}
-];
-const PASAMURO_VIEWS = [
-  {id:'hor_izq',family:'flat',l:[[[-0.1060660172,0.0204124145],[0.0353553391,-0.0612372436]],[[0.1060660172,-0.0204124145],[-0.0353553391,0.0612372436]]]},
-  {id:'hor_der',family:'flat',l:[[[-0.0353553391,-0.0612372436],[0.1060660172,0.0204124145]],[[0.0353553391,0.0612372436],[-0.1060660172,-0.0204124145]]]},
-  {id:'ver_izq',family:'vertical',l:[[[-0.0707106781,0.0288395958],[0.0707106781,-0.0528100623]],[[0.0707106781,0.0288395958],[-0.0707106781,0.1104892539]]]},
-  {id:'ver_der',family:'vertical',l:[[[-0.0707106781,-0.0816496581],[0.0707106781,0]],[[0.0707106781,0.0816496581],[-0.0707106781,0]]]}
 ];
 
 const S = {
@@ -2426,34 +2475,6 @@ function visibleCanvasSize(){
     w:Math.max(1,Math.round(Math.min(rect.width || vw, CW.clientWidth || vw, vw))),
     h:Math.max(1,Math.round(Math.min(rect.height || vh, CW.clientHeight || vh, vh)))
   };
-}
-function visibleCanvasWorkArea(){
-  const size=visibleCanvasSize();
-  const cwRect=CW.getBoundingClientRect();
-  let left=0,top=0,right=size.w,bottom=size.h;
-  const reserveFromOverlay=id=>{
-    const el=document.getElementById(id);
-    if(!el) return;
-    const st=getComputedStyle(el);
-    if(st.display==='none'||st.visibility==='hidden') return;
-    const r=el.getBoundingClientRect();
-    const overlapX=Math.min(cwRect.right,r.right)-Math.max(cwRect.left,r.left);
-    const overlapY=Math.min(cwRect.bottom,r.bottom)-Math.max(cwRect.top,r.top);
-    if(overlapX<=0||overlapY<=0) return;
-    const midX=(r.left+r.right)/2-cwRect.left;
-    const midY=(r.top+r.bottom)/2-cwRect.top;
-    const margin=8;
-    if(midY<size.h*0.35) top=Math.max(top,Math.min(size.h,r.bottom-cwRect.top+margin));
-    else if(midY>size.h*0.65) bottom=Math.min(bottom,Math.max(0,r.top-cwRect.top-margin));
-    else if(midX<size.w*0.35) left=Math.max(left,Math.min(size.w,r.right-cwRect.left+margin));
-    else if(midX>size.w*0.65) right=Math.min(right,Math.max(0,r.left-cwRect.left-margin));
-  };
-  reserveFromOverlay('topbar');
-  reserveFromOverlay('bbar');
-  reserveFromOverlay('lbar');
-  reserveFromOverlay('rbar');
-  if(right-left<80||bottom-top<80) return {x:0,y:0,w:size.w,h:size.h};
-  return {x:left,y:top,w:right-left,h:bottom-top};
 }
 function resize(){
   const {w:W,h:H}=visibleCanvasSize();
@@ -4762,14 +4783,13 @@ function redraw(){
   mx.clearRect(0,0,MC.width,MC.height);
 
   withModelTransform(mx,(zs)=>{
-    drawBlockGroup(mx,blocksForDraw(b=>!isValveBlock(b)&&!isPasamuroBlock(b)),S.selBlock,zs,true);
+    drawBlockGroup(mx,blocksForDraw(b=>!isValveBlock(b)),S.selBlock,zs,true);
     drawWallsBatch(mx,zs);
     for(const l of S.lines) if(!isWallLine(l)) drawLine(mx,l,l===S.selLine,zs);
     drawLineEditGrips(mx,zs);
     drawReductions(mx,zs);
     drawTees(mx,zs);
     drawCodoAdaptadorMarkers(mx,zs);
-    drawBlockGroup(mx,blocksForDraw(b=>isPasamuroBlock(b)),S.selBlock,zs,true);
     drawBlockGroup(mx,blocksForDraw(b=>isValveBlock(b)),S.selBlock,zs,true);
     drawPipeLabels(mx,zs);
   });
@@ -6055,16 +6075,8 @@ function isValveBlock(b){
   return b&&b.kind==='valve';
 }
 
-function isPasamuroBlock(b){
-  return b&&b.kind==='pasamuro';
-}
-
 function valveViewById(id){
   return VALVE_VIEWS.find(v=>v.id===id)||VALVE_VIEWS[0];
-}
-
-function pasamuroViewById(id){
-  return PASAMURO_VIEWS.find(v=>v.id===id)||PASAMURO_VIEWS[0];
 }
 
 function valveViewGeometry(view){
@@ -6088,38 +6100,6 @@ function valveViewGeometry(view){
   return view._geom;
 }
 
-function pasamuroViewGeometry(view){
-  if(view._geom) return view._geom;
-  const rawLines=view.l.map(seg=>seg.map(p=>({x:p[0]*UNITS_PER_M,y:-p[1]*UNITS_PER_M})));
-  const verts=rawLines.flat();
-  let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
-  for(const p of verts){
-    minX=Math.min(minX,p.x); minY=Math.min(minY,p.y);
-    maxX=Math.max(maxX,p.x); maxY=Math.max(maxY,p.y);
-  }
-  const cx=(minX+maxX)/2;
-  const cy=(minY+maxY)/2;
-  const lines=rawLines.map(seg=>seg.map(p=>({x:p.x-cx,y:p.y-cy})));
-  const centeredVerts=lines.flat();
-  minX=Infinity; minY=Infinity; maxX=-Infinity; maxY=-Infinity;
-  let axis={x:1,y:0}, longest=-1;
-  for(const p of centeredVerts){
-    minX=Math.min(minX,p.x); minY=Math.min(minY,p.y);
-    maxX=Math.max(maxX,p.x); maxY=Math.max(maxY,p.y);
-  }
-  for(const seg of lines){
-    const dx=seg[1].x-seg[0].x;
-    const dy=seg[1].y-seg[0].y;
-    const len=Math.hypot(dx,dy);
-    if(len>longest){
-      longest=len;
-      axis=unitVec({x:dx,y:dy})||axis;
-    }
-  }
-  view._geom={lines,verts:centeredVerts,axis,bounds:{x:minX,y:minY,w:maxX-minX,h:maxY-minY}};
-  return view._geom;
-}
-
 function pickValveViewForVec(vec,currentId=null){
   const u=unitVec(vec);
   if(!u) return valveViewById(currentId);
@@ -6132,20 +6112,6 @@ function pickValveViewForVec(vec,currentId=null){
     if(!best||score<best.score) best={view,score};
   }
   return best?best.view:(views[0]||VALVE_VIEWS[0]);
-}
-
-function pickPasamuroViewForVec(vec,currentId=null){
-  const u=unitVec(vec);
-  if(!u) return pasamuroViewById(currentId);
-  const family=isVerticalIsoVec(vec)?'vertical':'flat';
-  const views=PASAMURO_VIEWS.filter(v=>v.family===family);
-  let best=null;
-  for(const view of views){
-    const axis=pasamuroViewGeometry(view).axis;
-    const score=1-Math.abs(axis.x*u.x+axis.y*u.y);
-    if(!best||score<best.score) best={view,score};
-  }
-  return best?best.view:(views[0]||PASAMURO_VIEWS[0]);
 }
 
 function nearestLinePointForValve(wx,wy,diam){
@@ -6161,65 +6127,6 @@ function nearestLinePointForValve(wx,wy,diam){
       const p={x:a.x+dx*t,y:a.y+dy*t};
       const d=Math.hypot(wx-p.x,wy-p.y);
       if(d<=tol&&(!best||d<best.d)) best={line:l,seg:i-1,a,b,p,t,d,vec:{x:dx,y:dy}};
-    }
-  }
-  return best;
-}
-
-function setSnapHint(msg){
-  const hint=document.getElementById('snapHint');
-  if(!hint) return;
-  if(!msg){
-    hint.dataset.key='';
-    hint.classList.remove('show');
-    return;
-  }
-  if(hint.dataset.key===msg&&hint.classList.contains('show')) return;
-  hint.dataset.key=msg;
-  hint.textContent=msg;
-  hint.classList.add('show');
-}
-
-function clearSnapHint(){
-  setSnapHint('');
-}
-
-function pasamuroRoleLabel(role){
-  if(role==='start') return 'Punto inicial';
-  if(role==='end') return 'Punto final';
-  if(role==='mid') return 'Punto medio';
-  return '';
-}
-
-function nearestLinePointForPasamuro(wx,wy,opts={}){
-  const requireRadius=opts.requireRadius!==false;
-  const tol=(opts.tol||PASAMURO_SNAP_R)/modelZoom();
-  const pointTol=PASAMURO_POINT_R/modelZoom();
-  let best=null;
-  for(const l of S.lines){
-    if(isWallLine(l)||!Array.isArray(l.pts)||l.pts.length<2) continue;
-    for(let i=1;i<l.pts.length;i++){
-      const a=l.pts[i-1], b=l.pts[i];
-      const dx=b.x-a.x, dy=b.y-a.y, len2=dx*dx+dy*dy;
-      if(len2<1e-6) continue;
-      const t=Math.max(0,Math.min(1,((wx-a.x)*dx+(wy-a.y)*dy)/len2));
-      const proj={x:a.x+dx*t,y:a.y+dy*t};
-      const projD=Math.hypot(wx-proj.x,wy-proj.y);
-      if(requireRadius&&projD>tol) continue;
-      const special=[];
-      if(i===1) special.push({role:'start',pt:{x:a.x,y:a.y}});
-      if(i===l.pts.length-1) special.push({role:'end',pt:{x:b.x,y:b.y}});
-      special.push({role:'mid',pt:{x:(a.x+b.x)/2,y:(a.y+b.y)/2}});
-      let chosen={role:'body',pt:proj,d:projD};
-      for(const item of special){
-        const d=Math.hypot(wx-item.pt.x,wy-item.pt.y);
-        if(d<=pointTol&&d<=chosen.d){
-          chosen={role:item.role,pt:item.pt,d};
-        }
-      }
-      if(!best||chosen.d<best.d){
-        best={line:l,seg:i-1,a,b,p:chosen.pt,t,role:chosen.role,d:chosen.d,vec:{x:dx,y:dy}};
-      }
     }
   }
   return best;
@@ -6243,27 +6150,6 @@ function moveValveWithSnap(block,wx,wy,screenPt=null){
   return null;
 }
 
-function movePasamuroWithSnap(block,wx,wy,screenPt=null){
-  const snap=nearestLinePointForPasamuro(wx,wy);
-  if(snap){
-    block.x=snap.p.x; block.y=snap.p.y;
-    block.hostLineId=snap.line.id||null;
-    block.hostSeg=snap.seg;
-    block.hostVec={...snap.vec};
-    block.free=false;
-    block.vi=pickPasamuroViewForVec(snap.vec,block.vi).id;
-    const ss=screenPt||modelToScreen(snap.p);
-    showSnapDot(ss.x,ss.y,snap.role==='mid'?'int':(snap.role==='body'?'ol':'ep'));
-    setSnapHint(pasamuroRoleLabel(snap.role));
-    return snap;
-  }
-  block.x=wx; block.y=wy;
-  block.free=true; block.hostLineId=null; block.hostSeg=null; block.hostVec=null;
-  DOT.style.display='none';
-  clearSnapHint();
-  return null;
-}
-
 function cycleValveView(block){
   if(!isValveBlock(block)) return false;
   pushH();
@@ -6273,18 +6159,6 @@ function cycleValveView(block){
   block.vi=ids[(idx+1)%ids.length];
   redraw();
   toast((block.diam==='2025'?'Valvula 20/25':'Valvula 12/16')+' vista '+(idx+2>ids.length?1:idx+2));
-  return true;
-}
-
-function cyclePasamuroView(block){
-  if(!isPasamuroBlock(block)) return false;
-  pushH();
-  const cur=pasamuroViewById(block.vi);
-  const ids=PASAMURO_VIEWS.filter(v=>v.family===cur.family).map(v=>v.id);
-  const idx=Math.max(0,ids.indexOf(block.vi));
-  block.vi=ids[(idx+1)%ids.length];
-  redraw();
-  toast('Pasamuro vista '+(idx+2>ids.length?1:idx+2));
   return true;
 }
 
@@ -6318,53 +6192,6 @@ function drawValveBlock(ctx,b,sel,zoomScale=modelZoom()){
   }
 }
 
-function drawPasamuroBlock(ctx,b,sel,zoomScale=modelZoom()){
-  const geom=pasamuroViewGeometry(pasamuroViewById(b.vi));
-  const sc=pasamuroRenderScale(b);
-  const hostAxis=unitVec(b.hostVec)||geom.axis||{x:1,y:0};
-  const clearLen=Math.max(geom.bounds.w,geom.bounds.h)*sc+Math.max(18/zoomScale,16*sc);
-  const clearThick=Math.max(Math.min(geom.bounds.w,geom.bounds.h)*sc*0.95,14/zoomScale);
-  const clearHostLine=()=>{
-    const angle=Math.atan2(hostAxis.y,hostAxis.x);
-    ctx.save();
-    ctx.translate(b.x,b.y);
-    ctx.rotate(angle);
-    ctx.strokeStyle='rgba(255,255,255,0.98)';
-    ctx.lineWidth=clearThick;
-    ctx.lineCap='round';
-    ctx.setLineDash([]);
-    ctx.beginPath();
-    ctx.moveTo(-clearLen*0.5,0);
-    ctx.lineTo(clearLen*0.5,0);
-    ctx.stroke();
-    ctx.restore();
-  };
-  const drawLines=(strokeStyle,lineWidth,shadow=0)=>{
-    ctx.save();
-    ctx.translate(b.x,b.y);
-    ctx.scale(sc,sc);
-    ctx.strokeStyle=strokeStyle;
-    ctx.lineWidth=lineWidth/sc;
-    ctx.lineCap='round';
-    ctx.lineJoin='round';
-    ctx.setLineDash([]);
-    if(shadow){
-      ctx.shadowColor=strokeStyle;
-      ctx.shadowBlur=shadow/sc;
-    }
-    for(const seg of geom.lines){
-      ctx.beginPath();
-      ctx.moveTo(seg[0].x,seg[0].y);
-      ctx.lineTo(seg[1].x,seg[1].y);
-      ctx.stroke();
-    }
-    ctx.restore();
-  };
-  if(!b.free&&b.hostVec) clearHostLine();
-  if(sel) drawLines('rgba(79,168,232,0.98)',5.5/zoomScale,7/zoomScale);
-  drawLines(PASAMURO_COLOR,2.3/zoomScale);
-}
-
 function valveWorldRect(b,pad=0){
   const geom=valveViewGeometry(valveViewById(b.vi));
   const target=VALVE_TARGET_LEN_M*UNITS_PER_M;
@@ -6373,33 +6200,6 @@ function valveWorldRect(b,pad=0){
   const x=b.x+geom.bounds.x*sc-pad, y=b.y+geom.bounds.y*sc-pad;
   const w=geom.bounds.w*sc+pad*2, h=geom.bounds.h*sc+pad*2;
   return {x,y,w,h,x1:x,y1:y,x2:x+w,y2:y+h};
-}
-
-function pasamuroWorldRect(b,pad=0){
-  const geom=pasamuroViewGeometry(pasamuroViewById(b.vi));
-  const sc=pasamuroRenderScale(b);
-  const x=b.x+geom.bounds.x*sc-pad, y=b.y+geom.bounds.y*sc-pad;
-  const w=geom.bounds.w*sc+pad*2, h=geom.bounds.h*sc+pad*2;
-  return {x,y,w,h,x1:x,y1:y,x2:x+w,y2:y+h};
-}
-
-function hitPasamuroGeometry(block,wx,wy,pad=12/modelZoom()){
-  const geom=pasamuroViewGeometry(pasamuroViewById(block.vi));
-  const sc=pasamuroRenderScale(block);
-  const pt={x:wx,y:wy};
-  for(const seg of geom.lines){
-    const a={x:block.x+seg[0].x*sc,y:block.y+seg[0].y*sc};
-    const b={x:block.x+seg[1].x*sc,y:block.y+seg[1].y*sc};
-    if(dSeg(pt,a,b)<=pad) return true;
-  }
-  return false;
-}
-
-function pasamuroRenderScale(block){
-  const geom=pasamuroViewGeometry(pasamuroViewById(block?.vi));
-  const target=PASAMURO_TARGET_LEN_M*UNITS_PER_M;
-  const baseLen=Math.max(geom.bounds.w,geom.bounds.h)||target;
-  return (block?.sc||PASAMURO_DEFAULT_SCALE)*(target/baseLen);
 }
 
 function drawCabinetLabel(ctx,b,zoomScale=modelZoom()){
@@ -6588,7 +6388,6 @@ function drawBlockGroup(ctx,blocks,selectedBlock=null,zoomScale=modelZoom(),show
 
 function drawBlock(ctx,b,sel,zoomScale=modelZoom()){
   if(isValveBlock(b)){drawValveBlock(ctx,b,sel,zoomScale);return;}
-  if(isPasamuroBlock(b)){drawPasamuroBlock(ctx,b,sel,zoomScale);return;}
   const lib=S.lib.find(l=>l.id===b.lid); if(!lib) return;
   const img=blockRenderImage(lib,b.vi||0);
   const raw=lib.imgs[b.vi||0];
@@ -6851,10 +6650,6 @@ function blockWorldRectAt(b,x,y,pad=0){
   if(isValveBlock(b)){
     const clone={...b,x,y};
     return valveWorldRect(clone,pad);
-  }
-  if(isPasamuroBlock(b)){
-    const clone={...b,x,y};
-    return pasamuroWorldRect(clone,pad);
   }
   const lib=S.lib.find(l=>l.id===b.lid);
   if(!lib) return {x:x-pad,y:y-pad,w:0,h:0,x1:x-pad,y1:y-pad,x2:x+pad,y2:y+pad};
@@ -7190,7 +6985,6 @@ function hiddenIntervalsForSegment(a,b){
   const items=[];
   // 1. Existing blocks masking
   for(const block of S.blocks){
-    if(isPasamuroBlock(block)) continue;
     if(isCabinetBlock(block)){
       const hits=cabinetSegmentIntervals(a,b,block);
       for(const hit of hits){
@@ -7371,14 +7165,13 @@ function placeDimText(ctx,txt,p0,p1,fs,occupied=[],opts={}){
   const th=fs*1.12;
   const guard=Math.max(tw+fs*.45,fs*2.2);
   const short=len<Math.max(MIN_LINE_PX,tw+fs*1.4);
-  const base=short?DIM_SHORT_OFFSET+fs*.18:DIM_OFFSET+fs*.10;
+  const base=short?DIM_SHORT_OFFSET+fs*.28:DIM_OFFSET+fs*.18;
   const offsets=short
-    ? [base,base+fs*.34,base+fs*.68,base+fs*.96]
-    : [base,base+fs*.26,base+fs*.54,base+fs*.82];
-  const maxShift=short
-    ? Math.min(Math.max(fs*.9,tw*.32),Math.max(fs*1.25,len*.52))
-    : Math.min(Math.max(fs*.55,tw*.18),len*.22);
-  const shifts=maxShift>1?[0,maxShift,-maxShift]:[0];
+    ? [base,base+fs*.55,base+fs*1.1,base+fs*1.85,base+fs*2.7]
+    : [base,base+fs*.42,base+fs*.82,base+fs*1.35,base+fs*2.0];
+  const nearShift=Math.min(len*.22,tw*.34);
+  const farShift=Math.max(len*.58,tw*.62);
+  const shifts=short?[0,farShift,-farShift,farShift*1.65,-farShift*1.65]:[0,nearShift,-nearShift];
   const bounds=opts.bounds||null;
   const candidates=[];
   for(const off of offsets){
@@ -7391,10 +7184,7 @@ function placeDimText(ctx,txt,p0,p1,fs,occupied=[],opts={}){
     const ty=midY+uy*cand.shift+ny*cand.off*cand.side;
     const box=dimTextBox(tx,ty,textAngle,tw,th,short?4:3);
     const textHits=occupied.reduce((n,ob)=>n+(boxesOverlap(box,ob.box||ob)?1:0),0);
-    const lineHits=(opts.obstacles||[]).reduce((n,seg)=>{
-      if(seg&&opts.line&&seg.line===opts.line) return n;
-      return n+(segmentHitsBox(seg,box)?1:0);
-    },0);
+    const lineHits=(opts.obstacles||[]).reduce((n,seg)=>n+(segmentHitsBox(seg,box)?1:0),0);
     let circlePenalty=0;
     if(opts.circle){
       const rr=Math.max(1,opts.circle.r-fs*.85);
@@ -7412,25 +7202,17 @@ function placeDimText(ctx,txt,p0,p1,fs,occupied=[],opts={}){
     }
     const sidePenalty=cand.side<0?fs*5:0;
     const score=
-      cand.off*22+
-      Math.abs(cand.shift)*7+
+      cand.off+
+      Math.abs(cand.shift)*.38+
       sidePenalty+
-      textHits*3200+
-      lineHits*1400+
+      textHits*12000+
+      lineHits*9000+
       circlePenalty*180+
-      boundsPenalty*120;
+      boundsPenalty*90;
     if(!best||score<best.score) best={...cand,tx,ty,box,score};
   }
   if(!best) return null;
   let tx=best.tx, ty=best.ty;
-  const relX=(tx-midX)*ux+(ty-midY)*uy;
-  const relY=(tx-midX)*nx+(ty-midY)*ny;
-  const maxOff=short?base+fs*1.04:base+fs*.88;
-  const clampShift=maxShift*1.08;
-  const cxShift=Math.max(-clampShift,Math.min(clampShift,relX));
-  const cyOff=Math.max(-maxOff,Math.min(maxOff,relY));
-  tx=midX+ux*cxShift+nx*cyOff;
-  ty=midY+uy*cxShift+ny*cyOff;
   if(opts.circle){
     const dx2=tx-opts.circle.x, dy2=ty-opts.circle.y;
     const dist=Math.hypot(dx2,dy2);
@@ -7533,13 +7315,12 @@ function drawOneDetailViewport(d){
   mx.restore();
   withDetailTransform(mx,d,(zs)=>{
     // Presentation view: drawing details do NOT show selection borders or highlights!
-    drawBlockGroup(mx,blocksForDraw(b=>!isValveBlock(b)&&!isPasamuroBlock(b)),null,zs,false);
+    drawBlockGroup(mx,blocksForDraw(b=>!isValveBlock(b)),null,zs,false);
     drawWallsBatch(mx,zs);
     for(const l of S.lines) if(!isWallLine(l)) drawLine(mx,l,false,zs);
     drawReductions(mx,zs);
     drawTees(mx,zs);
     drawCodoAdaptadorMarkers(mx,zs);
-    drawBlockGroup(mx,blocksForDraw(b=>isPasamuroBlock(b)),null,zs,false);
     drawBlockGroup(mx,blocksForDraw(b=>isValveBlock(b)),null,zs,false);
     drawPipeLabels(mx,zs,true);
   });
@@ -7586,18 +7367,6 @@ function drawOneDetailViewport(d){
     } else if (d.autoId.startsWith('auto-reduccion-')) {
       const idx = parseInt(d.autoId.split('-')[2], 10) + 1;
       labelText = `REDUCCION ${idx}`;
-    } else if (d.autoId.startsWith('auto-gab-')) {
-      const idx = parseInt(d.autoId.split('-')[2], 10);
-      labelText = `GAB ${Number.isFinite(idx)?idx:1}`;
-    } else if (d.autoId.startsWith('auto-s22-')) {
-      const idx = parseInt(d.autoId.split('-')[2], 10);
-      labelText = `S22 ${Number.isFinite(idx)?idx:1}`;
-    } else if (d.autoId.startsWith('auto-valvula-')) {
-      const parts=d.autoId.split('-');
-      const diam=(parts[2]||'').replace('1216','12/16').replace('2025','20/25');
-      labelText = `VALVULA ${diam}`;
-    } else if (d.autoId.startsWith('auto-adaptador-')) {
-      labelText = 'ADAPTADOR 12/16';
     } else if (d.autoId === 'auto-gab-1' || d.autoId === 'auto-gabinete-valvula-2025') {
       labelText = 'GAB 1';
     } else if (d.autoId === 'auto-gab-2') {
@@ -7659,7 +7428,7 @@ function fitDetailContent(d,b=contentBounds()){
     d.px=-cx*d.z; d.py=-cy*d.z;
     return;
   }
-  const pad=d.r*0.09;
+  const pad=d.r*0.10;
   const z=Math.min((d.r*2-pad*2)/Math.max(1,b.w),(d.r*2-pad*2)/Math.max(1,b.h));
   d.z=Math.min(VP_Z_MAX,Math.max(VP_Z_MIN,z));
   const cx=(b.minX+b.maxX)/2, cy=(b.minY+b.maxY)/2;
@@ -7707,128 +7476,6 @@ function mergeModelBounds(items){
 
 function modelBoundsCenter(b){
   return b?{x:(b.minX+b.maxX)/2,y:(b.minY+b.maxY)/2}:null;
-}
-
-function boundsFromPoints(points,pad=0){
-  const pts=(points||[]).filter(p=>p&&Number.isFinite(p.x)&&Number.isFinite(p.y));
-  if(!pts.length) return null;
-  return {
-    minX:Math.min(...pts.map(p=>p.x))-pad,
-    minY:Math.min(...pts.map(p=>p.y))-pad,
-    maxX:Math.max(...pts.map(p=>p.x))+pad,
-    maxY:Math.max(...pts.map(p=>p.y))+pad
-  };
-}
-
-function nearestLineContext(pt,opts={}){
-  if(!pt) return null;
-  const diam=opts.diam?String(opts.diam):'';
-  const span=Number.isFinite(opts.span)?opts.span:UNITS_PER_M*0.48;
-  let best=null;
-  const lines=opts.line?[opts.line]:S.lines;
-  for(const l of lines){
-    if(!l||!Array.isArray(l.pts)||l.pts.length<2||isWallLine(l)) continue;
-    if(diam&&lineDiam(l)!==diam) continue;
-    for(let i=0;i<l.pts.length-1;i++){
-      const a=l.pts[i], b=l.pts[i+1];
-      const vx=b.x-a.x, vy=b.y-a.y;
-      const len=Math.hypot(vx,vy);
-      if(len<1e-6) continue;
-      const t=Math.max(0,Math.min(1,((pt.x-a.x)*vx+(pt.y-a.y)*vy)/(len*len)));
-      const q={x:a.x+vx*t,y:a.y+vy*t};
-      const dist=Math.hypot(pt.x-q.x,pt.y-q.y);
-      if(best&&dist>=best.d) continue;
-      const half=Math.min(.5,span/(2*len));
-      const t0=Math.max(0,t-half), t1=Math.min(1,t+half);
-      best={
-        d:dist,
-        line:l,
-        p:q,
-        a:{x:a.x+vx*t0,y:a.y+vy*t0},
-        b:{x:a.x+vx*t1,y:a.y+vy*t1}
-      };
-    }
-  }
-  return best;
-}
-
-function lineContextBoundsAtPoint(pt,opts={}){
-  const ctx=nearestLineContext(pt,opts);
-  return ctx?boundsFromPoints([ctx.a,ctx.b],Number.isFinite(opts.pad)?opts.pad:UNITS_PER_M*0.045):null;
-}
-
-function nearestLineEndpointToPoint(pt,diam=''){
-  if(!pt) return null;
-  let best=null;
-  for(const l of S.lines){
-    if(!l||isWallLine(l)) continue;
-    if(diam&&lineDiam(l)!==String(diam)) continue;
-    const ep=lineEndpoints(l);
-    if(!ep) continue;
-    for(const p of [ep.a,ep.b]){
-      const d=Math.hypot(pt.x-p.x,pt.y-p.y);
-      if(!best||d<best.d) best={p,line:l,d};
-    }
-  }
-  return best;
-}
-
-function detailPointKey(p){
-  return p?`${Math.round(p.x*10)}_${Math.round(p.y*10)}`:'';
-}
-
-function blockDetailKey(b){
-  if(!b) return '';
-  return b.id||`${b.kind||''}_${b.lid||''}_${b.diam||''}_${Math.round((b.x||0)*10)}_${Math.round((b.y||0)*10)}`;
-}
-
-function nearestGasPointForValve(v){
-  const c=blockCenter(v);
-  if(!c) return null;
-  const diam=v.diam?String(v.diam):'';
-  let best=null;
-  const ep=nearestLineEndpointToPoint(c,diam);
-  if(ep) best={p:ep.p,line:ep.line,d:ep.d};
-  if(!diam||diam==='1216'){
-    for(const m of codoAdaptadorMarkers()){
-      const d=Math.hypot(c.x-m.p.x,c.y-m.p.y);
-      if(!best||d<best.d) best={p:m.p,line:null,d};
-    }
-  }
-  return best;
-}
-
-function autoDetailRadius(){
-  const vp=ensureVP();
-  if(!vp) return 72;
-  return Math.max(58,Math.min(88,Math.min(vp.w,vp.h)*0.155));
-}
-
-function detailCandidatePoints(vp,r,anchorPaper){
-  if(!vp) return [];
-  const inset=Math.max(r+6,Math.min(vp.w,vp.h)*0.05);
-  const x0=vp.x+inset, x1=vp.x+vp.w-inset;
-  const y0=vp.y+inset, y1=vp.y+vp.h-inset;
-  const cols=[0,0.18,0.38,0.62,0.82,1].map(t=>x0+(x1-x0)*t);
-  const rows=[0,0.2,0.38,0.62,0.8,1].map(t=>y0+(y1-y0)*t);
-  const pts=[];
-  for(let yi=0;yi<rows.length;yi++){
-    for(let xi=0;xi<cols.length;xi++){
-      const onEdge=xi===0||xi===cols.length-1||yi===0||yi===rows.length-1;
-      if(!onEdge) continue;
-      pts.push({x:cols[xi],y:rows[yi]});
-    }
-  }
-  const nearStep=r*1.15;
-  pts.push(
-    {x:anchorPaper.x+nearStep,y:anchorPaper.y-nearStep*0.42},
-    {x:anchorPaper.x-nearStep,y:anchorPaper.y-nearStep*0.42},
-    {x:anchorPaper.x+nearStep,y:anchorPaper.y+nearStep*0.42},
-    {x:anchorPaper.x-nearStep,y:anchorPaper.y+nearStep*0.42},
-    {x:anchorPaper.x,y:anchorPaper.y-nearStep},
-    {x:anchorPaper.x,y:anchorPaper.y+nearStep}
-  );
-  return pts;
 }
 
 function blockCenter(b){
@@ -7899,30 +7546,15 @@ function detailPlacementObstacles(){
   return {boxes,segs};
 }
 
-function scoreDetailCandidate(c,r,others,obstacles,anchor,vp){
-  let score=Math.hypot(c.x-anchor.x,c.y-anchor.y)*0.065;
+function scoreDetailCandidate(c,r,others,obstacles,anchor){
+  let score=Math.hypot(c.x-anchor.x,c.y-anchor.y)*0.04;
   for(const o of others){
     const gap=Math.hypot(c.x-o.x,c.y-o.y)-(r+o.r+8);
     if(gap<0) score+=40000+Math.abs(gap)*120;
   }
-  for(const b of obstacles.boxes) if(circleHitsBox(c,r+4,b)) score+=16000;
-  for(const s of obstacles.segs) if(circleHitsSegment(c,r+2,s)) score+=3600;
-  if(vp){
-    const edgeGap=Math.min(
-      c.x-(vp.x+r),
-      vp.x+vp.w-r-c.x,
-      c.y-(vp.y+r),
-      vp.y+vp.h-r-c.y
-    );
-    const centerX=vp.x+vp.w/2;
-    const centerY=vp.y+vp.h/2;
-    const normX=Math.abs(c.x-centerX)/Math.max(1,vp.w/2-r);
-    const normY=Math.abs(c.y-centerY)/Math.max(1,vp.h/2-r);
-    const centralPenalty=1-Math.max(normX,normY);
-    score+=Math.max(0,edgeGap)*1.35;
-    if(centralPenalty>0) score+=centralPenalty*centralPenalty*900;
-  }
-  return score;
+  for(const b of obstacles.boxes) if(circleHitsBox(c,r+4,b)) score+=18000;
+  for(const s of obstacles.segs) if(circleHitsSegment(c,r+3,s)) score+=9000;
+  return score-r*.18;
 }
 
 function placeAutoDetailViewport(autoId,bounds,anchorPaper,idx){
@@ -7936,34 +7568,48 @@ function placeAutoDetailViewport(autoId,bounds,anchorPaper,idx){
   }
   d.visible=true;
   d.active=false;
-  const fixedR=autoDetailRadius();
+  const maxR=Math.min(vp.w,vp.h)*0.28;
+  const minR=Math.max(46,Math.min(vp.w,vp.h)*0.13);
   const others=detailList().filter(x=>x&&x!==d&&x.visible);
   const obstacles=detailPlacementObstacles();
   let best=null;
   
   // Usar una rejilla más densa (5x5) para maximizar la probabilidad de evitar choques en la hoja
-  const candidates=detailCandidatePoints(vp,fixedR,anchorPaper);
+  const cols=[0.15, 0.32, 0.50, 0.68, 0.85], rows=[0.15, 0.32, 0.50, 0.68, 0.85];
+  const near=[
+    {x:anchorPaper.x+maxR*1.2,y:anchorPaper.y-maxR*.55},
+    {x:anchorPaper.x-maxR*1.2,y:anchorPaper.y-maxR*.55},
+    {x:anchorPaper.x+maxR*1.2,y:anchorPaper.y+maxR*.55},
+    {x:anchorPaper.x-maxR*1.2,y:anchorPaper.y+maxR*.55}
+  ];
+  const candidates=[
+    ...near,
+    ...cols.flatMap(x=>rows.map(y=>({x:vp.x+vp.w*x,y:vp.y+vp.h*y})))
+  ];
   
   // Limitar el tamaño de los círculos para el caso de Tees y Reducciones
+  const isSmall = autoId.startsWith('auto-tee') || autoId.startsWith('auto-reduccion');
+  const targetRadii = isSmall ? [minR] : [maxR, maxR*.88, maxR*.76, minR];
+
   for(const base of candidates){
-    for(const rr of [fixedR]){
+    for(const rr of targetRadii){
       const c={
         x:Math.min(vp.x+vp.w-rr,Math.max(vp.x+rr,base.x)),
         y:Math.min(vp.y+vp.h-rr,Math.max(vp.y+rr,base.y))
       };
-      const score=scoreDetailCandidate(c,rr,others,obstacles,anchorPaper,vp);
+      const score=scoreDetailCandidate(c,rr,others,obstacles,anchorPaper);
       if(!best||score<best.score) best={...c,r:rr,score};
     }
   }
   d.x=best?best.x:anchorPaper.x;
   d.y=best?best.y:anchorPaper.y;
-  d.r=best?best.r:fixedR;
+  d.r=best?best.r:minR;
   clampDetailToVP(d);
   fitDetailContent(d,bounds);
   return d;
 }
 
-function syncAutoDetailViewportsLegacy(){
+function syncAutoDetailViewports(){
   const vp=ensureVP();
   if(!vp){
     S.detailVPs=detailList().filter(d=>d&&!d.autoId);
@@ -8043,102 +7689,6 @@ function syncAutoDetailViewportsLegacy(){
     const b=mergeModelBounds([boundsFromPoint(codo.p,UNITS_PER_M*0.08)]);
     specs.push({autoId:'auto-codo-adaptador-1216',bounds:b,anchor:modelToPaper(codo.p)});
   }
-
-  const keep=new Set(specs.map(s=>s.autoId));
-  S.detailVPs=detailList().filter(d=>d&&(!d.autoId||keep.has(d.autoId)));
-  if(S.activeDetail&&S.activeDetail.autoId&&!keep.has(S.activeDetail.autoId)) S.activeDetail=null;
-  if(S.selDetail&&S.selDetail.autoId&&!keep.has(S.selDetail.autoId)) S.selDetail=null;
-  specs.forEach((s,i)=>placeAutoDetailViewport(s.autoId,s.bounds,s.anchor,i));
-  S.detailVP=S.activeDetail||S.selDetail||S.detailVPs[S.detailVPs.length-1]||null;
-  return specs.length;
-}
-
-function syncAutoDetailViewports(){
-  const vp=ensureVP();
-  if(!vp){
-    S.detailVPs=detailList().filter(d=>d&&!d.autoId);
-    return 0;
-  }
-
-  syncTeesWithLines();
-
-  if(!Array.isArray(S.texts)) S.texts=[];
-  S.texts=S.texts.filter(t=>!t.generatedDetailLabel);
-
-  const specs=[];
-  const usedValveKeys=new Set();
-  const usedGasPoints=new Set();
-  const addSpec=(autoId,bounds,anchor)=>{
-    if(bounds&&anchor) specs.push({autoId,bounds,anchor:modelToPaper(anchor)});
-  };
-
-  let gabIdx=0;
-  ['gabinete','gabinete_doble','gabinete_triple','gabinete_cuadruple','s22'].forEach(lid=>{
-    const cabinets=S.blocks.filter(b=>b&&b.lid===lid);
-    for(const cabinet of cabinets){
-      const c=blockCenter(cabinet);
-      const valve2025=c&&nearestBlockToPoint(b=>isValveBlock(b)&&String(b.diam)==='2025',c);
-      if(!valve2025) continue;
-      const vc=blockCenter(valve2025);
-      const bounds=mergeModelBounds([
-        boundsFromWorldRect(blockWorldRect(cabinet),UNITS_PER_M*0.045),
-        boundsFromWorldRect(blockWorldRect(valve2025),UNITS_PER_M*0.065),
-        vc?lineContextBoundsAtPoint(vc,{diam:'2025',span:UNITS_PER_M*0.72,pad:UNITS_PER_M*0.045}):null
-      ]);
-      gabIdx++;
-      usedValveKeys.add(blockDetailKey(valve2025));
-      addSpec(lid==='s22'?`auto-s22-${gabIdx}`:`auto-gab-${gabIdx}`,bounds,c||vc||modelBoundsCenter(bounds));
-    }
-  });
-
-  const uniqueReds=[];
-  const seenReds=new Set();
-  for(const red of reductionMarkers()){
-    const k=detailPointKey(red.p);
-    if(seenReds.has(k)) continue;
-    seenReds.add(k);
-    uniqueReds.push(red);
-  }
-  uniqueReds.forEach((red,idx)=>{
-    const bounds=mergeModelBounds([
-      boundsFromPoint(red.p,UNITS_PER_M*0.08),
-      lineContextBoundsAtPoint(red.p,{line:red.big,span:UNITS_PER_M*0.55,pad:UNITS_PER_M*0.04}),
-      lineContextBoundsAtPoint(red.p,{line:red.small,span:UNITS_PER_M*0.55,pad:UNITS_PER_M*0.04})
-    ]);
-    addSpec(`auto-reduccion-${idx}`,bounds,red.p);
-  });
-
-  (S.tees||[]).forEach((tee,idx)=>{
-    const bounds=mergeModelBounds([
-      boundsFromPoint(tee,UNITS_PER_M*0.09),
-      lineContextBoundsAtPoint(tee,{span:UNITS_PER_M*0.62,pad:UNITS_PER_M*0.045})
-    ]);
-    addSpec(`auto-tee-${idx}`,bounds,tee);
-  });
-
-  S.blocks.filter(isValveBlock).forEach((valve,idx)=>{
-    if(usedValveKeys.has(blockDetailKey(valve))) return;
-    const c=blockCenter(valve);
-    if(!c) return;
-    const gas=nearestGasPointForValve(valve);
-    if(gas&&gas.p) usedGasPoints.add(detailPointKey(gas.p));
-    const bounds=mergeModelBounds([
-      boundsFromWorldRect(blockWorldRect(valve),UNITS_PER_M*0.07),
-      lineContextBoundsAtPoint(c,{diam:valve.diam,span:UNITS_PER_M*0.66,pad:UNITS_PER_M*0.045}),
-      gas&&gas.p?boundsFromPoint(gas.p,UNITS_PER_M*0.085):null,
-      gas&&gas.p?lineContextBoundsAtPoint(gas.p,{line:gas.line,diam:valve.diam,span:UNITS_PER_M*0.58,pad:UNITS_PER_M*0.045}):null
-    ]);
-    addSpec(`auto-valvula-${valve.diam||'x'}-${idx}`,bounds,c);
-  });
-
-  codoAdaptadorMarkers().forEach((codo,idx)=>{
-    if(!codo||!codo.p||usedGasPoints.has(detailPointKey(codo.p))) return;
-    const bounds=mergeModelBounds([
-      boundsFromPoint(codo.p,UNITS_PER_M*0.09),
-      lineContextBoundsAtPoint(codo.p,{diam:'1216',span:UNITS_PER_M*0.58,pad:UNITS_PER_M*0.045})
-    ]);
-    addSpec(`auto-adaptador-1216-${idx}`,bounds,codo.p);
-  });
 
   const keep=new Set(specs.map(s=>s.autoId));
   S.detailVPs=detailList().filter(d=>d&&(!d.autoId||keep.has(d.autoId)));
@@ -8661,12 +8211,11 @@ function hitB(wx,wy){
   const ordered=blocksForDraw().reverse();
   for(let i=0;i<ordered.length;i++){
     const b=ordered[i];
-    const lib=S.lib.find(l=>l.id===b.lid); if(!isValveBlock(b)&&!isPasamuroBlock(b)&&!lib) continue;
+    const lib=S.lib.find(l=>l.id===b.lid); if(!isValveBlock(b)&&!lib) continue;
     if(isCabinetBlock(b)&&b===S.selBlock&&hitCabinetGrip(b,wx,wy)) return b;
     const pad=12/modelZoom();
     const r=blockWorldRect(b,pad);
     if(wx>=r.x1&&wx<=r.x2&&wy>=r.y1&&wy<=r.y2){
-      if(isPasamuroBlock(b)&&!hitPasamuroGeometry(b,wx,wy,Math.max(pad,14/modelZoom()))) continue;
       if(isCabinetBlock(b)&&!pointInCabinetOpaqueArea(b,wx,wy,6)) continue;
       return b;
     }
@@ -9137,7 +8686,7 @@ initAccessoryControls();
 // â”€â”€ INPUT SYSTEM â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const aPtr={};
 let isPinch=false;
-let dragBlk=null,dbOX=0,dbOY=0,dragBlkEverMoved=false;
+let dragBlk=null,dbOX=0,dbOY=0;
 let dragBlkStart=null,dragBlkMoved=false;
 let cabinetJoinPreview=null;
 let cabinetJoinPending=null;
@@ -9486,9 +9035,8 @@ function onDn(e){
         dragBlkGrip=isCabinetBlock(b)?hitCabinetGrip(b,w.x,w.y):null;
         dbOX=dragBlkGrip?dragBlkGrip.ox:(w.x-b.x);
         dbOY=dragBlkGrip?dragBlkGrip.oy:(w.y-b.y);
-        dragBlkStart={sx:sc.x,sy:sc.y,x:b.x,y:b.y,t:Date.now()};
+        dragBlkStart={sx:sc.x,sy:sc.y,x:b.x,y:b.y};
         dragBlkMoved=false;
-        dragBlkEverMoved=false;
       }
       S.selDown=sc;
       return;
@@ -9770,16 +9318,9 @@ function onMv(e){
   }
   // Block drag
   if(dragBlk){
-    if(dragBlkStart&&Math.hypot(sc.x-dragBlkStart.sx,sc.y-dragBlkStart.sy)>1.5) dragBlkEverMoved=true;
     if(dragBlkStart&&Math.hypot(sc.x-dragBlkStart.sx,sc.y-dragBlkStart.sy)>8) dragBlkMoved=true;
     if(isValveBlock(dragBlk)){
       moveValveWithSnap(dragBlk,w.x,w.y,sc);
-      redraw();
-      drawLoupe(sc.x,sc.y);
-      return;
-    }
-    if(isPasamuroBlock(dragBlk)){
-      movePasamuroWithSnap(dragBlk,w.x,w.y,sc);
       redraw();
       drawLoupe(sc.x,sc.y);
       return;
@@ -9978,7 +9519,6 @@ function onUp(e){
   if(Object.keys(aPtr).length===0){S.panPt=null;}
   if(Object.keys(aPtr).length===0){S.detailPan=null;S.detailMove=null;S.detailResize=null;resizeText=null;}
   clearLoupe(); DOT.style.display='none'; S.guideSnap=null;
-  clearSnapHint();
   if(hadTextResize){redraw();return;}
   if(hadDetailAdjust){redraw();return;}
 
@@ -9999,9 +9539,7 @@ function onUp(e){
   if(dragBlk){
     const b=dragBlk;
     const wasTap=!dragBlkMoved&&dragBlkStart&&Math.hypot(sc.x-dragBlkStart.sx,sc.y-dragBlkStart.sy)<10;
-    const pressMs=dragBlkStart&&Number.isFinite(dragBlkStart.t)?(Date.now()-dragBlkStart.t):0;
-    const hadMotion=dragBlkEverMoved;
-    dragBlk=null; dragBlkStart=null; dragBlkMoved=false; dragBlkGrip=null; dragBlkEverMoved=false;
+    dragBlk=null; dragBlkStart=null; dragBlkMoved=false; dragBlkGrip=null;
     if(isValveBlock(b)){
       if(wasTap){
         cycleValveView(b);
@@ -10009,14 +9547,6 @@ function onUp(e){
       }
       invalidatePipeLabels();
       syncAutoAccessories();
-      redraw();return;
-    }
-    if(isPasamuroBlock(b)){
-      if(wasTap&&!hadMotion&&pressMs<=PASAMURO_ROTATE_TAP_MS){
-        cyclePasamuroView(b);
-        return;
-      }
-      invalidatePipeLabels();
       redraw();return;
     }
     if(wasTap&&isCabinetBlock(b)){
@@ -10305,7 +9835,9 @@ function setViewportWorkMode(on,opts={}){
     for(const item of detailList()) if(item) item.active=false;
     S.activeDetail=null; S.selDetail=null; S.detailPan=null; S.detailMove=null; S.detailResize=null;
   }
+  const chip=document.getElementById('vpchip');
   const btn=document.getElementById('bwork');
+  if(chip) chip.style.display=on?'block':'none';
   if(btn) btn.classList.toggle('on',!!on);
   if(on){
     if(fit) fitViewportFrame(false);
@@ -10320,12 +9852,14 @@ function enterVPEdit(){
   if(S.fixedVP){setViewportWorkMode(true);setTool('line');return;}
   S.vpEdit=true; S.vpSel=false;
   VP_KEYS.forEach(k=>vpH[k].style.display='none');
+  document.getElementById('vpchip').style.display='block';
   setTool('line');
   toast('Modo dibujo en viewport - doble toque para salir');
 }
 function exitVPEdit(){
   if(S.fixedVP){setViewportWorkMode(false);setTool('pan');return;}
   S.vpEdit=false; S.vpSel=true;
+  document.getElementById('vpchip').style.display='none';
   setTool('sel'); redraw();
 }
 
@@ -10357,6 +9891,7 @@ function erase(){
     pushH();
     S.vp=null; S.vpSel=false; S.vpEdit=false;
     S.lines=[]; S.blocks=[]; S.pipeLabels=[]; S.detailVP=null; S.detailVPs=[]; S.activeDetail=null; S.selDetail=null; S.polyAnchor=null; S.selLine=null; S.selBlock=null;
+    document.getElementById('vpchip').style.display='none';
     setTool('sel'); redraw(); toast('Viewport y dibujo eliminados');
   } else {
     toast('Selecciona una linea, bloque o texto para borrar');
@@ -10901,13 +10436,6 @@ function scaleSelectedBlock(factor){
     toast((block.diam==='2025'?'Valvula 20/25':'Valvula 12/16')+' '+Math.round(block.sc*100)+'%');
     return;
   }
-  if(isPasamuroBlock(block)){
-    pushH();
-    block.sc=Math.max(0.55,Math.min(2.4,(block.sc||PASAMURO_DEFAULT_SCALE)*factor));
-    redraw();
-    toast('Pasamuro '+Math.round(block.sc*100)+'%');
-    return;
-  }
   const lib=S.lib.find(l=>l.id===block.lid);
   const cp=isCabinetBlock(block)
     ? cabinetAnchorCp(lib&&blockCpts(lib,block.vi||0))
@@ -11072,57 +10600,6 @@ function insertValveBlock(diam){
   syncAutoAccessories();
   redraw();
   toast((diam==='2025'?'Valvula 20/25':'Valvula 12/16')+': arrastrala sobre su linea');
-}
-
-function clearPasamuroInsertState(){
-  if(DI.style.display==='block') hideDimInput(true);
-  closeDrops();
-  if(S.canvasLongPressTimeout){
-    clearTimeout(S.canvasLongPressTimeout);
-    S.canvasLongPressTimeout=null;
-  }
-  dragBlk=null; dragBlkStart=null; dragBlkMoved=false; dragBlkEverMoved=false; dragBlkGrip=null;
-  dragLabel=null; dragLabelStart=null; dragLabelMoved=false; dragOpening=null; resizeText=null;
-  S.drag=false; S.ds=null; S.de=null; S.snapS=false; S.snapE=false; S.drawDetail=null;
-  S.selDown=null; S.lineEditLine=null; S.pendingDimensionPick=false;
-  clearLoupe();
-  DOT.style.display='none';
-  clearSnapHint();
-  ox.clearRect(0,0,OC.width,OC.height);
-}
-
-function insertPasamuroBlock(){
-  ensureVP();
-  const view=viewportVisibleModelRect();
-  const center={x:view.minX+view.w*0.5,y:view.minY+view.h*0.52};
-  const snap=nearestLinePointForPasamuro(center.x,center.y,{requireRadius:false});
-  if(!snap){
-    clearPasamuroInsertState();
-    toast('Dibuja una linea primero para colocar pasamuro');
-    return;
-  }
-  const block={
-    kind:'pasamuro',
-    lid:'pasamuro',
-    x:snap.p.x,
-    y:snap.p.y,
-    sc:PASAMURO_DEFAULT_SCALE,
-    vi:pickPasamuroViewForVec(snap.vec).id,
-    hostLineId:snap.line.id||null,
-    hostSeg:snap.seg,
-    hostVec:{...snap.vec},
-    free:false
-  };
-  pushH();
-  clearPasamuroInsertState();
-  S.blocks.push(block);
-  S.selBlock=block; S.selLine=null; S.selOpening=null;
-  S.scaleMode='block';
-  setTool('sel');
-  DOT.style.display='none';
-  clearSnapHint();
-  redraw();
-  toast('Pasamuro: arrastralo sobre una linea');
 }
 
 function openM(id){document.getElementById(id).classList.add('open');}
@@ -11800,6 +11277,8 @@ function loadProjectData(data){
   }else{
     fitSheetFrame(false);
   }
+  const vpChip=document.getElementById('vpchip');
+  if(vpChip) vpChip.style.display=S.vpEdit?'block':'none';
   updateToolButtons();
   redraw();
 }
@@ -12080,13 +11559,12 @@ function buildExportCanvas(sc){
     ctx.beginPath(); ctx.rect(vp.x,vp.y,vp.w,vp.h); ctx.clip();
     ctx.translate(vp.x+vp.px,vp.y+vp.py);
     ctx.scale(vp.z,vp.z);
-    drawBlockGroup(ctx,blocksForDraw(b=>!isValveBlock(b)&&!isPasamuroBlock(b)),null,vp.z,false);
+    drawBlockGroup(ctx,blocksForDraw(b=>!isValveBlock(b)),null,vp.z,false);
     drawWallsBatch(ctx,vp.z);
     for(const l of S.lines) if(!isWallLine(l)) drawLine(ctx,l,false,vp.z);
     drawReductions(ctx,vp.z);
     drawTees(ctx,vp.z);
     drawCodoAdaptadorMarkers(ctx,vp.z);
-    drawBlockGroup(ctx,blocksForDraw(b=>isPasamuroBlock(b)),null,vp.z,false);
     drawBlockGroup(ctx,blocksForDraw(b=>isValveBlock(b)),null,vp.z,false);
     drawPipeLabels(ctx,vp.z,false,S.vpEdit ? 1.0 : vp.z);
     ctx.restore();
@@ -12094,13 +11572,12 @@ function buildExportCanvas(sc){
     ctx.lineWidth=1;
     ctx.strokeRect(vp.x,vp.y,vp.w,vp.h);
   } else {
-    drawBlockGroup(ctx,blocksForDraw(b=>!isValveBlock(b)&&!isPasamuroBlock(b)),null,1,false);
+    drawBlockGroup(ctx,blocksForDraw(b=>!isValveBlock(b)),null,1,false);
     drawWallsBatch(ctx,1);
     for(const l of S.lines) if(!isWallLine(l)) drawLine(ctx,l,false,1);
     drawReductions(ctx,1);
     drawTees(ctx,1);
     drawCodoAdaptadorMarkers(ctx,1);
-    drawBlockGroup(ctx,blocksForDraw(b=>isPasamuroBlock(b)),null,1,false);
     drawBlockGroup(ctx,blocksForDraw(b=>isValveBlock(b)),null,1,false);
     drawPipeLabels(ctx,1,false,1.0);
   }
@@ -12115,7 +11592,7 @@ function buildExportCanvas(sc){
     if(!shouldDrawWallDimension(l)) continue;
     const p0=modelToPaper(l.pts[0]);
     const p1=modelToPaper(l.pts[l.pts.length-1]);
-    const fs=Math.max(7.5,Math.min(12.5,8.6*S.textScale));
+    const fs=Math.max(7,Math.min(12,8*S.textScale));
     placeDimText(ctx,lineDisplayLabel(l),p0,p1,fs,exportOccupied,{export:true,obstacles:exportObstacles,line:l,bounds:exportBounds});
   }
   ctx.restore();
@@ -12146,13 +11623,12 @@ function buildExportCanvas(sc){
     ctx.save();
     ctx.translate(d.x+d.px,d.y+d.py);
     ctx.scale(d.z,d.z);
-    drawBlockGroup(ctx,blocksForDraw(b=>!isValveBlock(b)&&!isPasamuroBlock(b)),null,d.z,false);
+    drawBlockGroup(ctx,blocksForDraw(b=>!isValveBlock(b)),null,d.z,false);
     drawWallsBatch(ctx,d.z);
     for(const l of S.lines) if(!isWallLine(l)) drawLine(ctx,l,false,d.z);
     drawReductions(ctx,d.z);
     drawTees(ctx,d.z);
     drawCodoAdaptadorMarkers(ctx,d.z);
-    drawBlockGroup(ctx,blocksForDraw(b=>isPasamuroBlock(b)),null,d.z,false);
     drawBlockGroup(ctx,blocksForDraw(b=>isValveBlock(b)),null,d.z,false);
     drawPipeLabels(ctx,d.z,false,S.activeDetail === d ? 1.0 : d.z);
     ctx.restore();
@@ -12162,7 +11638,7 @@ function buildExportCanvas(sc){
       if(!shouldDrawWallDimension(l)) continue;
       const p0={x:d.x+d.px+l.pts[0].x*d.z,y:d.y+d.py+l.pts[0].y*d.z};
       const p1={x:d.x+d.px+l.pts[l.pts.length-1].x*d.z,y:d.y+d.py+l.pts[l.pts.length-1].y*d.z};
-      const fs=Math.max(7,Math.min(11.5,8*S.textScale));
+      const fs=Math.max(6.5,Math.min(11,7.5*S.textScale));
       const r=Math.max(1,d.r-fs*1.8);
       const clipped=clipSegmentToCircle(p0,p1,{x:d.x,y:d.y},r);
       if(!clipped) continue;
@@ -12655,13 +12131,13 @@ function contentBounds(opts={}){
 
 function fitVPContent(){
   const vp=syncFixedViewportRect(); if(!vp) return false;
-  const fitPad=UNITS_PER_M*(isCompactPortraitViewport()?0.05:0.09);
+  const fitPad=UNITS_PER_M*(isCompactPortraitViewport()?0.06:0.12);
   const b=contentBounds({pad:fitPad});
   if(!b){
     vp.z=1; vp.px=-vp.x; vp.py=-vp.y; redraw();
     return true;
   }
-  const margin=isCompactPortraitViewport()?0.985:0.965;
+  const margin=isCompactPortraitViewport()?0.98:0.94;
   const z=Math.min(VP_Z_MAX,Math.max(VP_Z_MIN,Math.min(vp.w/b.w,vp.h/b.h)*margin));
   const cx=(b.minX+b.maxX)/2;
   const cy=(b.minY+b.maxY)/2;
@@ -13051,7 +12527,7 @@ function makeLegoReorderable(container, itemSelector, storageKey, anchorId = nul
 }
 
 function initToolbarDrag() {
-  makeLegoReorderable(document.getElementById('topbar'), '.toolGroup', 'isogas.toolbar.order.v1');
+  makeLegoReorderable(document.getElementById('topbar'), '.toolGroup', 'isogas.toolbar.order.v1', 'vpchip');
   makeLegoReorderable(document.getElementById('bbarLines'), '.styleChip', 'isogas.bbar.order.v1');
 }
 
@@ -13201,7 +12677,6 @@ document.getElementById('bgab4').addEventListener('click',()=>{closeGabinetesDro
 document.getElementById('bs22').addEventListener('click',()=>{closeGabinetesDrop();insertOrRotateS22();});
 document.getElementById('bval2025').addEventListener('click',()=>insertValveBlock('2025'));
 document.getElementById('bval1216').addEventListener('click',()=>insertValveBlock('1216'));
-document.getElementById('bpasamuro').addEventListener('click',()=>insertPasamuroBlock());
 document.getElementById('badd').addEventListener('click',()=>openM('blockmod'));
 document.getElementById('baddtext').addEventListener('click', (e) => {
   e.stopPropagation();
@@ -13293,10 +12768,7 @@ document.getElementById('bzin').addEventListener('click',()=>zoomAt(1.3));
 document.getElementById('bzout').addEventListener('click',()=>zoomAt(0.77));
 document.getElementById('bdetail').addEventListener('click',()=>{
   pushH();
-  setViewportWorkMode(true,{fit:false});
-  fitVPContent();
   const n=syncAutoDetailViewports();
-  fitViewportFrame(false);
   redraw();
   toast(n?('Detalles generados: '+n):'No hay detalles detectados');
 });
