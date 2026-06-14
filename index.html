@@ -1859,6 +1859,7 @@ const PASAMURO_COLOR = '#ef1d1d';
 const PASAMURO_SNAP_R = 34;
 const PASAMURO_POINT_R = 20;
 const PASAMURO_DEFAULT_SCALE = 1;
+const PASAMURO_TARGET_LEN_M = 1.2;
 const PASAMURO_ROTATE_TAP_MS = 120;
 const CABINET_LABEL_TEXT = 'C.M';
 const CABINET_LABEL_H_M = 0.25;
@@ -6318,7 +6319,7 @@ function drawValveBlock(ctx,b,sel,zoomScale=modelZoom()){
 
 function drawPasamuroBlock(ctx,b,sel,zoomScale=modelZoom()){
   const geom=pasamuroViewGeometry(pasamuroViewById(b.vi));
-  const sc=b.sc||PASAMURO_DEFAULT_SCALE;
+  const sc=pasamuroRenderScale(b);
   const hostAxis=unitVec(b.hostVec)||geom.axis||{x:1,y:0};
   const clearLen=Math.max(geom.bounds.w,geom.bounds.h)*sc+Math.max(18/zoomScale,16*sc);
   const clearThick=Math.max(Math.min(geom.bounds.w,geom.bounds.h)*sc*0.95,14/zoomScale);
@@ -6375,7 +6376,7 @@ function valveWorldRect(b,pad=0){
 
 function pasamuroWorldRect(b,pad=0){
   const geom=pasamuroViewGeometry(pasamuroViewById(b.vi));
-  const sc=b.sc||PASAMURO_DEFAULT_SCALE;
+  const sc=pasamuroRenderScale(b);
   const x=b.x+geom.bounds.x*sc-pad, y=b.y+geom.bounds.y*sc-pad;
   const w=geom.bounds.w*sc+pad*2, h=geom.bounds.h*sc+pad*2;
   return {x,y,w,h,x1:x,y1:y,x2:x+w,y2:y+h};
@@ -6383,7 +6384,7 @@ function pasamuroWorldRect(b,pad=0){
 
 function hitPasamuroGeometry(block,wx,wy,pad=12/modelZoom()){
   const geom=pasamuroViewGeometry(pasamuroViewById(block.vi));
-  const sc=block.sc||PASAMURO_DEFAULT_SCALE;
+  const sc=pasamuroRenderScale(block);
   const pt={x:wx,y:wy};
   for(const seg of geom.lines){
     const a={x:block.x+seg[0].x*sc,y:block.y+seg[0].y*sc};
@@ -6391,6 +6392,13 @@ function hitPasamuroGeometry(block,wx,wy,pad=12/modelZoom()){
     if(dSeg(pt,a,b)<=pad) return true;
   }
   return false;
+}
+
+function pasamuroRenderScale(block){
+  const geom=pasamuroViewGeometry(pasamuroViewById(block?.vi));
+  const target=PASAMURO_TARGET_LEN_M*UNITS_PER_M;
+  const baseLen=Math.max(geom.bounds.w,geom.bounds.h)||target;
+  return (block?.sc||PASAMURO_DEFAULT_SCALE)*(target/baseLen);
 }
 
 function drawCabinetLabel(ctx,b,zoomScale=modelZoom()){
@@ -7181,6 +7189,7 @@ function hiddenIntervalsForSegment(a,b){
   const items=[];
   // 1. Existing blocks masking
   for(const block of S.blocks){
+    if(isPasamuroBlock(block)) continue;
     if(isCabinetBlock(block)){
       const hits=cabinetSegmentIntervals(a,b,block);
       for(const hit of hits){
