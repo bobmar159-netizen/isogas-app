@@ -1868,6 +1868,9 @@ const SNAP_R    = 24;   // world px snap radius
 const PROJ_SNAP_R = 16; // projection snap is softer than direct snap
 const LOUPE_R   = 108;  // screen px loupe radius
 const LOUPE_Z   = 3.6;  // loupe zoom
+const MOBILE_LOUPE_TOP_OFFSET = 126;
+const AUTO_PAN_EDGE_PX = 82;
+const AUTO_PAN_MAX_STEP = 18;
 const MIN_LINE_PX = 60; // short line threshold (screen)
 const DIM_OFFSET  = 6; // fixed screen px offset for dimension text (closer to line)
 const DIM_SHORT_OFFSET = 9; // modest extra separation when the segment is too short
@@ -2006,6 +2009,7 @@ const S = {
   lib:[],
   // last double-tap
   lastTap:0, lastTapPt:{x:0,y:0},
+  lastPointerType:'',
 };
 
 function svgDataUrl(width,height,body){
@@ -2780,20 +2784,46 @@ function fmtCount(v){
   return Number.isFinite(n)&&n>0?String(n):'';
 }
 
+function blockConnectionWorldPoints(block){
+  if(!block) return [];
+  const lib=S.lib.find(l=>l.id===block.lid);
+  if(!lib) return [];
+  const sc=Number.isFinite(block.sc)?block.sc:1;
+  return blockCpts(lib,block.vi||0).map(cp=>({
+    x:block.x+cp.x*sc,
+    y:block.y+cp.y*sc
+  }));
+}
+
+function cabinetOutletConnectedTo2025(pt,tol=0.22){
+  if(!pt) return false;
+  for(const line of S.lines){
+    if(lineDiam(line)!=='2025') continue;
+    for(const seg of lineSegmentsForSnap(line)){
+      const a=seg[0], b=seg[1];
+      if(!a||!b) continue;
+      const pr=projectPointToSegment(pt,a,b);
+      if(pr.d<=tol) return true;
+    }
+  }
+  return false;
+}
+
+function connectedCabinetOutletCount(){
+  let total=0;
+  for(const block of S.blocks){
+    if(!block||!isCabinetBlock(block)) continue;
+    for(const pt of blockConnectionWorldPoints(block)){
+      if(cabinetOutletConnectedTo2025(pt)) total++;
+    }
+  }
+  return total;
+}
+
 function autoAccessoryCount(key){
   if(key==='valvula_1216') return S.blocks.filter(b=>isValveBlock(b)&&b.diam==='1216').length;
   if(key==='valvula_2025') return S.blocks.filter(b=>isValveBlock(b)&&b.diam==='2025').length;
-  if(key==='meter_2025'){
-    return S.blocks.reduce((n,b)=>{
-      if(!b) return n;
-      if(b.lid==='gabinete') return n+1;
-      if(b.lid==='gabinete_doble') return n+2;
-      if(b.lid==='gabinete_triple') return n+3;
-      if(b.lid==='gabinete_cuadruple') return n+4;
-      if(b.lid==='s22') return n+1;
-      return n;
-    },0);
-  }
+  if(key==='meter_2025') return connectedCabinetOutletCount();
   if(key==='codo_adaptador_12') return codoAdaptadorMarkers().length;
   if(key==='tee_2025_2025_2025') return Array.isArray(S.tees)?S.tees.filter(t=>t&&t.type==='2025*2025*2025').length:0;
   if(key==='tee_2025_1216_2025') return Array.isArray(S.tees)?S.tees.filter(t=>t&&(t.type==='2025*1216*2025' || t.type==='2025*2025*1216')).length:0;
@@ -7350,6 +7380,18 @@ function segmentHitsBox(seg,box){
   return false;
 }
 
+function clampDimTextPointToCircle(x,y,circle,guard){
+  if(!circle) return {x,y};
+  const dx=x-circle.x, dy=y-circle.y;
+  const dist=Math.hypot(dx,dy);
+  const r=Math.max(1,circle.r-guard*.45);
+  if(dist<=r||dist<=1) return {x,y};
+  return {
+    x:circle.x+dx/dist*r,
+    y:circle.y+dy/dist*r
+  };
+}
+
 function placeDimText(ctx,txt,p0,p1,fs,occupied=[],opts={}){
   const vx=p1.x-p0.x, vy=p1.y-p0.y;
   const len=Math.hypot(vx,vy);
@@ -7373,7 +7415,13 @@ function placeDimText(ctx,txt,p0,p1,fs,occupied=[],opts={}){
     : [base,base+fs*.42,base+fs*.82,base+fs*1.35,base+fs*2.0];
   const nearShift=Math.min(len*.22,tw*.34);
   const farShift=Math.max(len*.58,tw*.62);
-  const shifts=short?[0,farShift,-farShift,farShift*1.65,-farShift*1.65]:[0,nearShift,-nearShift];
+  const longShiftSeeds=[0,nearShift,len*.28,len*.38,Math.max(0,len*.46-tw*.18)];
+  const shifts=short
+    ? [0,farShift,-farShift,farShift*1.65,-farShift*1.65]
+    : [...new Set(longShiftSeeds
+      .filter(v=>Number.isFinite(v)&&v>=0)
+      .map(v=>Math.round(v*100)/100)
+      .flatMap(v=>v===0?[0]:[v,-v]))];
   const bounds=opts.bounds||null;
   const candidates=[];
   for(const off of offsets){
@@ -7382,8 +7430,10 @@ function placeDimText(ctx,txt,p0,p1,fs,occupied=[],opts={}){
   }
   let best=null;
   for(const cand of candidates){
-    const tx=midX+ux*cand.shift+nx*cand.off*cand.side;
-    const ty=midY+uy*cand.shift+ny*cand.off*cand.side;
+    const rawX=midX+ux*cand.shift+nx*cand.off*cand.side;
+    const rawY=midY+uy*cand.shift+ny*cand.off*cand.side;
+    const clamped=clampDimTextPointToCircle(rawX,rawY,opts.circle,guard);
+    const tx=clamped.x, ty=clamped.y;
     const box=dimTextBox(tx,ty,textAngle,tw,th,short?4:3);
     const textHits=occupied.reduce((n,ob)=>n+(boxesOverlap(box,ob.box||ob)?1:0),0);
     const lineHits=(opts.obstacles||[]).reduce((n,seg)=>n+(segmentHitsBox(seg,box)?1:0),0);
@@ -7402,10 +7452,10 @@ function placeDimText(ctx,txt,p0,p1,fs,occupied=[],opts={}){
       if(box.minY<bounds.minY) boundsPenalty+=bounds.minY-box.minY;
       if(box.maxY>bounds.maxY) boundsPenalty+=box.maxY-bounds.maxY;
     }
-    const sidePenalty=cand.side<0?fs*5:0;
+    const sidePenalty=cand.side<0?(short?fs*1.4:fs*.75):0;
     const score=
       cand.off+
-      Math.abs(cand.shift)*.38+
+      Math.abs(cand.shift)*.24+
       sidePenalty+
       textHits*12000+
       lineHits*9000+
@@ -7414,13 +7464,7 @@ function placeDimText(ctx,txt,p0,p1,fs,occupied=[],opts={}){
     if(!best||score<best.score) best={...cand,tx,ty,box,score};
   }
   if(!best) return null;
-  let tx=best.tx, ty=best.ty;
-  if(opts.circle){
-    const dx2=tx-opts.circle.x, dy2=ty-opts.circle.y;
-    const dist=Math.hypot(dx2,dy2);
-    const r=Math.max(1,opts.circle.r-guard*.45);
-    if(dist>r&&dist>1){tx=opts.circle.x+dx2/dist*r;ty=opts.circle.y+dy2/dist*r;}
-  }
+  const tx=best.tx, ty=best.ty;
   const bestBox=dimTextBox(tx,ty,textAngle,tw,th,short?4:3);
   occupied.push({x:tx,y:ty,w:guard,h:fs*1.35,box:bestBox,minX:bestBox.minX,maxX:bestBox.maxX,minY:bestBox.minY,maxY:bestBox.maxY});
   renderDimText(ctx,txt,fs,tx,ty,textAngle,{technical:true});
@@ -8231,19 +8275,67 @@ function drawOverlay(curW,detail=null){
 }
 
 // â”€â”€ LOUPE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+function useMobileLoupeLayout(){
+  return S.lastPointerType==='touch'
+    || (navigator.maxTouchPoints||0)>0
+    || window.innerWidth<=900;
+}
+
+function autoPanDrawingViewport(sc){
+  if(!CW) return false;
+  const rect=CW.getBoundingClientRect();
+  if(!rect.width||!rect.height) return false;
+  const margin=Math.min(AUTO_PAN_EDGE_PX,Math.max(54,Math.min(rect.width,rect.height)*0.14));
+  let dx=0, dy=0;
+  if(sc.x<rect.left+margin) dx=(rect.left+margin)-sc.x;
+  else if(sc.x>rect.right-margin) dx=(rect.right-margin)-sc.x;
+  if(sc.y<rect.top+margin) dy=(rect.top+margin)-sc.y;
+  else if(sc.y>rect.bottom-margin) dy=(rect.bottom-margin)-sc.y;
+  if(Math.abs(dx)<0.5&&Math.abs(dy)<0.5) return false;
+  const stepX=Math.sign(dx)*Math.min(AUTO_PAN_MAX_STEP,Math.max(2,Math.abs(dx)*0.22));
+  const stepY=Math.sign(dy)*Math.min(AUTO_PAN_MAX_STEP,Math.max(2,Math.abs(dy)*0.22));
+  if(S.drawDetail){
+    S.drawDetail.px+=stepX/S.zoom;
+    S.drawDetail.py+=stepY/S.zoom;
+  }else if(S.vpEdit&&S.vp){
+    const vp=ensureVP();
+    vp.px+=stepX/S.zoom;
+    vp.py+=stepY/S.zoom;
+    hideAutoDetailViewports();
+  }else{
+    S.px+=stepX;
+    S.py+=stepY;
+  }
+  return true;
+}
+
 function drawLoupe(sx,sy){
   lx.clearRect(0,0,LC.width,LC.height);
   const srcR=LOUPE_R/LOUPE_Z;
   const sideOffset=LOUPE_R+58;
-  const verticalOffset=S.tool==='wall' ? 0 : Math.round(LOUPE_R*0.42);
+  const preferTop=useMobileLoupeLayout();
+  const topOffset=MOBILE_LOUPE_TOP_OFFSET;
+  const verticalOffset=S.tool==='wall' ? Math.round(LOUPE_R*0.2) : Math.round(LOUPE_R*0.42);
   let lcx=sx+sideOffset, lcy=sy-verticalOffset;
+  if(preferTop){
+    lcx=sx;
+    lcy=sy-topOffset;
+    if(lcy<LOUPE_R+8) lcy=sy+Math.round(topOffset*0.68);
+    if(lcy>LC.height-LOUPE_R-8) lcy=sy-topOffset;
+    if(lcy<LOUPE_R+8){
+      lcx=sx+sideOffset;
+      lcy=sy-verticalOffset;
+    }
+  }
   if(lcx>LC.width-LOUPE_R-8) lcx=sx-sideOffset;
   if(lcx<LOUPE_R+8) lcx=sx+Math.min(sideOffset,LOUPE_R+26);
   if(lcx>LC.width-LOUPE_R-8) lcx=sx;
-  if(S.tool==='wall'){
-    lcy=sy;
-  }else if(lcy<LOUPE_R+8){
-    lcy=sy+verticalOffset;
+  if(!preferTop){
+    if(S.tool==='wall'){
+      lcy=sy;
+    }else if(lcy<LOUPE_R+8){
+      lcy=sy+verticalOffset;
+    }
   }
   lcx=Math.min(Math.max(lcx,LOUPE_R+4),LC.width-LOUPE_R-4);
   lcy=Math.min(Math.max(lcy,LOUPE_R+4),LC.height-LOUPE_R-4);
@@ -8942,9 +9034,11 @@ function drawLineEditGrips(ctx, zoomScale=modelZoom()){
 
 function onDn(e){
   e.preventDefault();
+  S.lastPointerType=e.pointerType||S.lastPointerType||'';
   if(DI.style.display==='block'){
     hideDimInput(true);
     closeDrops();
+    return;
   }
   OC.setPointerCapture(e.pointerId);
   const sc=gpp(e);
@@ -9365,6 +9459,7 @@ function updateLineLengthFromCoords(line) {
 function onMv(e){
   e.preventDefault();
   const sc=gpp(e);
+  S.lastPointerType=e.pointerType||S.lastPointerType||'';
   aPtr[e.pointerId]=sc;
 
   if (S.canvasLongPressTimeout && S.canvasLongPressStart) {
@@ -9377,6 +9472,12 @@ function onMv(e){
 
   if(Object.keys(aPtr).length>=2){pinch();clearLoupe();return;}
   if(isPinch) return;
+
+  const shouldAutoPan=
+    ((S.tool==='line'||S.tool==='wall')&&S.drag&&S.ds)
+    || (S.tool==='wall'&&!!S.wallTapStart)
+    || (S.lineEditLine&&!!S.lineDragGrip);
+  if(shouldAutoPan) autoPanDrawingViewport(sc);
 
   const paper=tw(sc.x,sc.y);
   const w=screenToModel(sc.x,sc.y);
@@ -12442,13 +12543,18 @@ function isCompactPortraitViewport(){
   return window.matchMedia('(max-width: 640px) and (orientation: portrait)').matches;
 }
 
+function compactViewportVerticalBias(H){
+  return isCompactPortraitViewport()?H*0.05:0;
+}
+
 function fitViewportFrame(doRedraw=true){
   const vp=syncFixedViewportRect(); if(!vp) return;
   const {w:W,h:H}=visibleCanvasSize();
   const padScale=isCompactPortraitViewport()?0.99:0.95;
+  const yBias=compactViewportVerticalBias(H);
   S.zoom=Math.min(W/vp.w,H/vp.h) * padScale;
   S.px=(W-vp.w*S.zoom)/2-vp.x*S.zoom;
-  S.py=(H-vp.h*S.zoom)/2-vp.y*S.zoom;
+  S.py=(H-vp.h*S.zoom)/2-vp.y*S.zoom+yBias;
   S.viewFit='vp';
   if(doRedraw) redraw();
 }
@@ -12456,10 +12562,11 @@ function fitViewportFrame(doRedraw=true){
 function fitSheetFrame(doRedraw=true){
   const {w:W,h:H}=visibleCanvasSize();
   const padScale=isCompactPortraitViewport()?0.98:0.92;
+  const yBias=compactViewportVerticalBias(H);
   const zx=W/A4W*padScale, zy=H/A4H*padScale;
   S.zoom=Math.min(zx,zy);
   S.px=(W-A4W*S.zoom)/2;
-  S.py=(H-A4H*S.zoom)/2;
+  S.py=(H-A4H*S.zoom)/2+yBias;
   S.viewFit='sheet';
   if(doRedraw) redraw();
 }
