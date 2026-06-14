@@ -4761,13 +4761,14 @@ function redraw(){
   mx.clearRect(0,0,MC.width,MC.height);
 
   withModelTransform(mx,(zs)=>{
-    drawBlockGroup(mx,blocksForDraw(b=>!isValveBlock(b)),S.selBlock,zs,true);
+    drawBlockGroup(mx,blocksForDraw(b=>!isValveBlock(b)&&!isPasamuroBlock(b)),S.selBlock,zs,true);
     drawWallsBatch(mx,zs);
     for(const l of S.lines) if(!isWallLine(l)) drawLine(mx,l,l===S.selLine,zs);
     drawLineEditGrips(mx,zs);
     drawReductions(mx,zs);
     drawTees(mx,zs);
     drawCodoAdaptadorMarkers(mx,zs);
+    drawBlockGroup(mx,blocksForDraw(b=>isPasamuroBlock(b)),S.selBlock,zs,true);
     drawBlockGroup(mx,blocksForDraw(b=>isValveBlock(b)),S.selBlock,zs,true);
     drawPipeLabels(mx,zs);
   });
@@ -7522,12 +7523,13 @@ function drawOneDetailViewport(d){
   mx.restore();
   withDetailTransform(mx,d,(zs)=>{
     // Presentation view: drawing details do NOT show selection borders or highlights!
-    drawBlockGroup(mx,blocksForDraw(b=>!isValveBlock(b)),null,zs,false);
+    drawBlockGroup(mx,blocksForDraw(b=>!isValveBlock(b)&&!isPasamuroBlock(b)),null,zs,false);
     drawWallsBatch(mx,zs);
     for(const l of S.lines) if(!isWallLine(l)) drawLine(mx,l,false,zs);
     drawReductions(mx,zs);
     drawTees(mx,zs);
     drawCodoAdaptadorMarkers(mx,zs);
+    drawBlockGroup(mx,blocksForDraw(b=>isPasamuroBlock(b)),null,zs,false);
     drawBlockGroup(mx,blocksForDraw(b=>isValveBlock(b)),null,zs,false);
     drawPipeLabels(mx,zs,true);
   });
@@ -12039,12 +12041,13 @@ function buildExportCanvas(sc){
     ctx.beginPath(); ctx.rect(vp.x,vp.y,vp.w,vp.h); ctx.clip();
     ctx.translate(vp.x+vp.px,vp.y+vp.py);
     ctx.scale(vp.z,vp.z);
-    drawBlockGroup(ctx,blocksForDraw(b=>!isValveBlock(b)),null,vp.z,false);
+    drawBlockGroup(ctx,blocksForDraw(b=>!isValveBlock(b)&&!isPasamuroBlock(b)),null,vp.z,false);
     drawWallsBatch(ctx,vp.z);
     for(const l of S.lines) if(!isWallLine(l)) drawLine(ctx,l,false,vp.z);
     drawReductions(ctx,vp.z);
     drawTees(ctx,vp.z);
     drawCodoAdaptadorMarkers(ctx,vp.z);
+    drawBlockGroup(ctx,blocksForDraw(b=>isPasamuroBlock(b)),null,vp.z,false);
     drawBlockGroup(ctx,blocksForDraw(b=>isValveBlock(b)),null,vp.z,false);
     drawPipeLabels(ctx,vp.z,false,S.vpEdit ? 1.0 : vp.z);
     ctx.restore();
@@ -12052,12 +12055,13 @@ function buildExportCanvas(sc){
     ctx.lineWidth=1;
     ctx.strokeRect(vp.x,vp.y,vp.w,vp.h);
   } else {
-    drawBlockGroup(ctx,blocksForDraw(b=>!isValveBlock(b)),null,1,false);
+    drawBlockGroup(ctx,blocksForDraw(b=>!isValveBlock(b)&&!isPasamuroBlock(b)),null,1,false);
     drawWallsBatch(ctx,1);
     for(const l of S.lines) if(!isWallLine(l)) drawLine(ctx,l,false,1);
     drawReductions(ctx,1);
     drawTees(ctx,1);
     drawCodoAdaptadorMarkers(ctx,1);
+    drawBlockGroup(ctx,blocksForDraw(b=>isPasamuroBlock(b)),null,1,false);
     drawBlockGroup(ctx,blocksForDraw(b=>isValveBlock(b)),null,1,false);
     drawPipeLabels(ctx,1,false,1.0);
   }
@@ -12103,12 +12107,13 @@ function buildExportCanvas(sc){
     ctx.save();
     ctx.translate(d.x+d.px,d.y+d.py);
     ctx.scale(d.z,d.z);
-    drawBlockGroup(ctx,blocksForDraw(b=>!isValveBlock(b)),null,d.z,false);
+    drawBlockGroup(ctx,blocksForDraw(b=>!isValveBlock(b)&&!isPasamuroBlock(b)),null,d.z,false);
     drawWallsBatch(ctx,d.z);
     for(const l of S.lines) if(!isWallLine(l)) drawLine(ctx,l,false,d.z);
     drawReductions(ctx,d.z);
     drawTees(ctx,d.z);
     drawCodoAdaptadorMarkers(ctx,d.z);
+    drawBlockGroup(ctx,blocksForDraw(b=>isPasamuroBlock(b)),null,d.z,false);
     drawBlockGroup(ctx,blocksForDraw(b=>isValveBlock(b)),null,d.z,false);
     drawPipeLabels(ctx,d.z,false,S.activeDetail === d ? 1.0 : d.z);
     ctx.restore();
