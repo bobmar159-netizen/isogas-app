@@ -886,6 +886,7 @@ canvas{position:absolute;inset:0;}
     <span class="groupLabel">Accesorios</span>
     <div class="tbtn txt" id="bval2025" title="Valvula 20/25">V20</div>
     <div class="tbtn txt" id="bval1216" title="Valvula 12/16">V12</div>
+    <div class="tbtn txt" id="bpasamuro" title="Pasamuro">PM</div>
     <div class="tbtn" id="badd" title="Agregar Bloque Personalizado">+</div>
     <div class="tbtn txt" id="bcaj" title="Referencia / Cajetín">Ref</div>
   </div>
@@ -1916,6 +1917,10 @@ const VALVE_COLOR = '#ef1d1d';
 const VALVE_SNAP_R = 34;
 const VALVE_DEFAULT_SCALE = 1;
 const VALVE_TARGET_LEN_M = 0.15;
+const PASAMURO_COLOR = '#ef1d1d';
+const PASAMURO_SNAP_R = 34;
+const PASAMURO_DEFAULT_SCALE = 1;
+const BLOCK_ROTATE_TAP_MS = 260;
 const CABINET_LABEL_TEXT = 'C.M';
 const CABINET_LABEL_H_M = 0.25;
 const CABINET_LABEL_OFFSET_M = 0.04;
@@ -1945,6 +1950,12 @@ const VALVE_VIEWS = [
   {id:'inf_izq',family:'flat',l:[[[0.0353553391,0.0489897949],[0.0353553391,-0.0081649658]],[[-0.0353553391,-0.0489897949],[-0.0353553391,0.0081649658]],[[0,0],[-0.0353553391,-0.0489897949]],[[0.0353553391,0.0489897949],[0,0]],[[0,0],[-0.0353553391,0.0081649658]],[[0.0353553391,-0.0081649658],[0,0]]]},
   {id:'ver_der',family:'vertical',l:[[[0.0247487373,0.0551135192],[-0.0247487373,0.0265361389]],[[-0.0247487373,-0.0551135192],[0.0247487373,-0.0265361389]],[[0,0],[-0.0247487373,-0.0551135192]],[[0.0247487373,0.0551135192],[0,0]],[[0,0],[0.0247487373,-0.0265361389]],[[-0.0247487373,0.0265361389],[0,0]]]},
   {id:'ver_izq',family:'vertical',l:[[[0.0247487373,0.0265361389],[-0.0247487373,0.0551135192]],[[-0.0247487373,-0.0265361389],[0.0247487373,-0.0551135192]],[[0,0],[-0.0247487373,-0.0265361389]],[[0.0247487373,0.0265361389],[0,0]],[[0,0],[0.0247487373,-0.0551135192]],[[-0.0247487373,0.0551135192],[0,0]]]}
+];
+const PASAMURO_VIEWS = [
+  {id:'ver_izq',family:'vertical',l:[[[-0.0707106781,0.0288395958],[0.0707106781,-0.0528100623]],[[0.0707106781,0.0288395958],[-0.0707106781,0.1104892539]]]},
+  {id:'ver_der',family:'vertical',l:[[[-0.0707106781,-0.0816496581],[0.0707106781,0]],[[0.0707106781,0.0816496581],[-0.0707106781,0]]]},
+  {id:'hor_izq',family:'horizontal',l:[[[-0.1060660172,0.0204124145],[0.0353553391,-0.0612372436]],[[0.1060660172,-0.0204124145],[-0.0353553391,0.0612372436]]]},
+  {id:'hor_der',family:'horizontal',l:[[[-0.0353553391,-0.0612372436],[0.1060660172,0.0204124145]],[[0.0353553391,0.0612372436],[-0.1060660172,-0.0204124145]]]}
 ];
 
 const S = {
@@ -2469,11 +2480,9 @@ PLANTA_FORMAT_IMG.src=PLANTA_FORMAT_SVG_SRC;
 // â”€â”€ RESIZE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function visibleCanvasSize(){
   const rect=CW.getBoundingClientRect();
-  const vw=window.visualViewport?.width || window.innerWidth || rect.width || CW.clientWidth || 1;
-  const vh=window.visualViewport?.height || window.innerHeight || rect.height || CW.clientHeight || 1;
   return {
-    w:Math.max(1,Math.round(Math.min(rect.width || vw, CW.clientWidth || vw, vw))),
-    h:Math.max(1,Math.round(Math.min(rect.height || vh, CW.clientHeight || vh, vh)))
+    w:Math.max(1,Math.round(rect.width || CW.clientWidth || window.innerWidth || 1)),
+    h:Math.max(1,Math.round(rect.height || CW.clientHeight || window.innerHeight || 1))
   };
 }
 function resize(){
@@ -4523,19 +4532,23 @@ function insertWallRectanglePreset(widthM=7,heightM=15){
 }
 
 // Snap dot color by type
-const SNAP_COLORS={ep:'#00ffa3',int:'#f59e0b',ol:'#4fa8e8',proj:'#00d5ff'};
-const SNAP_SIZES ={ep:8,int:9,ol:7,proj:8};
+const SNAP_COLORS={ep:'#00ffa3',int:'#f59e0b',ol:'#4fa8e8',proj:'#00d5ff',pm:'#7dd3fc'};
+const SNAP_SIZES ={ep:8,int:9,ol:7,proj:8,pm:6};
 
 function showSnapDot(screenX,screenY,type){
   const col=SNAP_COLORS[type]||'#00ffa3';
   S.snapPreview={x:screenX,y:screenY,type,col};
   DOT.style.left=screenX+'px'; DOT.style.top=screenY+'px';
   DOT.style.display='block';
-  DOT.style.background=type==='proj'?'rgba(0,213,255,.18)':col;
-  DOT.style.border=type==='proj'?`3px solid ${col}`:'2px solid rgba(255,255,255,.72)';
+  DOT.style.background=type==='proj'
+    ?'rgba(0,213,255,.18)'
+    :(type==='pm'?'rgba(125,211,252,.18)':col);
+  DOT.style.border=type==='proj'
+    ?`3px solid ${col}`
+    :(type==='pm'?'1.5px solid rgba(125,211,252,.85)':'2px solid rgba(255,255,255,.72)');
   const sz=SNAP_SIZES[type]||12;
   DOT.style.width=sz+'px'; DOT.style.height=sz+'px';
-  DOT.style.boxShadow=`0 0 10px ${col}`;
+  DOT.style.boxShadow=type==='pm'?`0 0 7px rgba(125,211,252,.55)`: `0 0 10px ${col}`;
 }
 
 // â”€â”€ REFERENCE LINES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -4783,14 +4796,14 @@ function redraw(){
   mx.clearRect(0,0,MC.width,MC.height);
 
   withModelTransform(mx,(zs)=>{
-    drawBlockGroup(mx,blocksForDraw(b=>!isValveBlock(b)),S.selBlock,zs,true);
+    drawBlockGroup(mx,blocksForDraw(b=>!isInlineAttachmentBlock(b)),S.selBlock,zs,true);
     drawWallsBatch(mx,zs);
     for(const l of S.lines) if(!isWallLine(l)) drawLine(mx,l,l===S.selLine,zs);
     drawLineEditGrips(mx,zs);
     drawReductions(mx,zs);
     drawTees(mx,zs);
     drawCodoAdaptadorMarkers(mx,zs);
-    drawBlockGroup(mx,blocksForDraw(b=>isValveBlock(b)),S.selBlock,zs,true);
+    drawBlockGroup(mx,blocksForDraw(b=>isInlineAttachmentBlock(b)),S.selBlock,zs,true);
     drawPipeLabels(mx,zs);
   });
 
@@ -5120,11 +5133,17 @@ function sameWorldPoint(a,b,eps=REDUCTION_JOIN_TOL){
 }
 
 function codoEndpointIsConnected(pt,sourceLine){
+  if(Array.isArray(S.tees) && S.tees.some(t=>Math.hypot(pt.x-t.x,pt.y-t.y)<=0.6)) return true;
   for(const l of S.lines){
     if(l===sourceLine) continue;
     const ep=lineEndpoints(l);
     if(!ep) continue;
     if(sameWorldPoint(pt,ep.a)||sameWorldPoint(pt,ep.b)) return true;
+    if(!Array.isArray(l.pts)||l.pts.length<2) continue;
+    for(let i=1;i<l.pts.length;i++){
+      const pr=projectPointToSegment(pt,l.pts[i-1],l.pts[i]);
+      if(pr.d<=0.5 && pr.t>0.05 && pr.t<0.95) return true;
+    }
   }
   return false;
 }
@@ -6075,8 +6094,20 @@ function isValveBlock(b){
   return b&&b.kind==='valve';
 }
 
+function isPasamuroBlock(b){
+  return b&&b.kind==='pasamuro';
+}
+
+function isInlineAttachmentBlock(b){
+  return isValveBlock(b)||isPasamuroBlock(b);
+}
+
 function valveViewById(id){
   return VALVE_VIEWS.find(v=>v.id===id)||VALVE_VIEWS[0];
+}
+
+function pasamuroViewById(id){
+  return PASAMURO_VIEWS.find(v=>v.id===id)||PASAMURO_VIEWS[0];
 }
 
 function valveViewGeometry(view){
@@ -6112,6 +6143,80 @@ function pickValveViewForVec(vec,currentId=null){
     if(!best||score<best.score) best={view,score};
   }
   return best?best.view:(views[0]||VALVE_VIEWS[0]);
+}
+
+function pasamuroViewGeometry(view){
+  if(view._geom) return view._geom;
+  const rawLines=view.l.map(seg=>seg.map(p=>({x:p[0]*UNITS_PER_M,y:-p[1]*UNITS_PER_M})));
+  const rawVerts=[];
+  for(const seg of rawLines) for(const p of seg) rawVerts.push(p);
+  let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+  for(const p of rawVerts){
+    minX=Math.min(minX,p.x); minY=Math.min(minY,p.y);
+    maxX=Math.max(maxX,p.x); maxY=Math.max(maxY,p.y);
+  }
+  const center={x:(minX+maxX)*0.5,y:(minY+maxY)*0.5};
+  const lines=rawLines.map(seg=>seg.map(p=>({x:p.x-center.x,y:p.y-center.y})));
+  const verts=lines.flatMap(seg=>seg.map(p=>({x:p.x,y:p.y})));
+  minX=Infinity; minY=Infinity; maxX=-Infinity; maxY=-Infinity;
+  for(const p of verts){
+    minX=Math.min(minX,p.x); minY=Math.min(minY,p.y);
+    maxX=Math.max(maxX,p.x); maxY=Math.max(maxY,p.y);
+  }
+  const axis=unitVec({
+    x:lines[0][1].x-lines[0][0].x,
+    y:lines[0][1].y-lines[0][0].y
+  })||{x:1,y:0};
+  const bounds={x:minX,y:minY,w:maxX-minX,h:maxY-minY};
+  const maskLen=Math.max(bounds.w,bounds.h)+UNITS_PER_M*0.08;
+  view._geom={lines,verts,axis,bounds,maskLen};
+  return view._geom;
+}
+
+function pickPasamuroViewForVec(vec,currentId=null){
+  const family=isVerticalIsoVec(vec)?'vertical':'horizontal';
+  const current=pasamuroViewById(currentId);
+  if(current&&current.family===family) return current;
+  return PASAMURO_VIEWS.find(v=>v.family===family)||PASAMURO_VIEWS[0];
+}
+
+function nearestLinePointForPasamuro(wx,wy){
+  const tol=PASAMURO_SNAP_R/modelZoom();
+  const specialTol=Math.max(12/modelZoom(),tol*0.48);
+  let best=null;
+  for(const l of S.lines){
+    if(isWallLine(l)) continue;
+    for(let i=1;i<l.pts.length;i++){
+      const a=l.pts[i-1], b=l.pts[i];
+      const dx=b.x-a.x, dy=b.y-a.y, len2=dx*dx+dy*dy;
+      if(len2<1e-6) continue;
+      const t=Math.max(0,Math.min(1,((wx-a.x)*dx+(wy-a.y)*dy)/len2));
+      const proj={x:a.x+dx*t,y:a.y+dy*t};
+      const d=Math.hypot(wx-proj.x,wy-proj.y);
+      if(d>tol) continue;
+      const mid={x:(a.x+b.x)*0.5,y:(a.y+b.y)*0.5};
+      const specials=[
+        {role:'start',label:'Inicio',type:'ep',p:a,d:Math.hypot(wx-a.x,wy-a.y)},
+        {role:'end',label:'Fin',type:'ep',p:b,d:Math.hypot(wx-b.x,wy-b.y)},
+        {role:'mid',label:'Medio',type:'int',p:mid,d:Math.hypot(wx-mid.x,wy-mid.y)}
+      ].filter(item=>item.d<=specialTol)
+       .sort((m,n)=>m.d-n.d);
+      const exact=specials[0]||null;
+      const candidate={
+        line:l,
+        seg:i-1,
+        a,b,
+        p:exact?exact.p:proj,
+        d:exact?exact.d:d,
+        vec:{x:dx,y:dy},
+        type:exact?exact.type:'ol',
+        role:exact?exact.role:'line',
+        label:exact?exact.label:''
+      };
+      if(!best||candidate.d<best.d) best=candidate;
+    }
+  }
+  return best;
 }
 
 function nearestLinePointForValve(wx,wy,diam){
@@ -6150,6 +6255,45 @@ function moveValveWithSnap(block,wx,wy,screenPt=null){
   return null;
 }
 
+let lastPasamuroSnapHint='';
+let lastPasamuroSnapHintAt=0;
+function showPasamuroSnapHint(label){
+  if(!label){
+    lastPasamuroSnapHint='';
+    return;
+  }
+  const now=Date.now();
+  if(label!==lastPasamuroSnapHint||now-lastPasamuroSnapHintAt>700){
+    toast(label);
+    lastPasamuroSnapHint=label;
+    lastPasamuroSnapHintAt=now;
+  }
+}
+
+function movePasamuroWithSnap(block,wx,wy,screenPt=null){
+  const snap=nearestLinePointForPasamuro(wx,wy);
+  if(snap){
+    block.x=snap.p.x;
+    block.y=snap.p.y;
+    block.hostLineId=snap.line.id||null;
+    block.hostSeg=snap.seg;
+    block.free=false;
+    block.vi=pickPasamuroViewForVec(snap.vec,block.vi).id;
+    const ss=screenPt||modelToScreen(snap.p);
+    showSnapDot(ss.x,ss.y,'pm');
+    showPasamuroSnapHint(snap.label);
+    return snap;
+  }
+  block.x=wx;
+  block.y=wy;
+  block.free=true;
+  block.hostLineId=null;
+  block.hostSeg=null;
+  showPasamuroSnapHint('');
+  DOT.style.display='none';
+  return null;
+}
+
 function cycleValveView(block){
   if(!isValveBlock(block)) return false;
   pushH();
@@ -6159,6 +6303,18 @@ function cycleValveView(block){
   block.vi=ids[(idx+1)%ids.length];
   redraw();
   toast((block.diam==='2025'?'Valvula 20/25':'Valvula 12/16')+' vista '+(idx+2>ids.length?1:idx+2));
+  return true;
+}
+
+function cyclePasamuroView(block){
+  if(!isPasamuroBlock(block)) return false;
+  pushH();
+  const cur=pasamuroViewById(block.vi);
+  const ids=PASAMURO_VIEWS.filter(v=>v.family===cur.family).map(v=>v.id);
+  const idx=Math.max(0,ids.indexOf(block.vi));
+  block.vi=ids[(idx+1)%ids.length];
+  redraw();
+  toast('Pasamuro rotado');
   return true;
 }
 
@@ -6192,6 +6348,36 @@ function drawValveBlock(ctx,b,sel,zoomScale=modelZoom()){
   }
 }
 
+function drawPasamuroBlock(ctx,b,sel,zoomScale=modelZoom()){
+  const view=pasamuroViewById(b.vi);
+  const geom=pasamuroViewGeometry(view);
+  const sc=b.sc||PASAMURO_DEFAULT_SCALE;
+  ctx.save();
+  ctx.translate(b.x,b.y);
+  ctx.scale(sc,sc);
+  ctx.lineCap='round';
+  ctx.lineJoin='round';
+  if(sel){
+    ctx.strokeStyle='rgba(0,213,255,.88)';
+    ctx.lineWidth=3.1/Math.max(sc,0.001)/zoomScale;
+    for(const seg of geom.lines){
+      ctx.beginPath();
+      ctx.moveTo(seg[0].x,seg[0].y);
+      ctx.lineTo(seg[1].x,seg[1].y);
+      ctx.stroke();
+    }
+  }
+  ctx.strokeStyle=PASAMURO_COLOR;
+  ctx.lineWidth=1.7/Math.max(sc,0.001)/zoomScale;
+  for(const seg of geom.lines){
+    ctx.beginPath();
+    ctx.moveTo(seg[0].x,seg[0].y);
+    ctx.lineTo(seg[1].x,seg[1].y);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
 function valveWorldRect(b,pad=0){
   const geom=valveViewGeometry(valveViewById(b.vi));
   const target=VALVE_TARGET_LEN_M*UNITS_PER_M;
@@ -6199,6 +6385,16 @@ function valveWorldRect(b,pad=0){
   const sc=(b.sc||VALVE_DEFAULT_SCALE)*(target/baseLen);
   const x=b.x+geom.bounds.x*sc-pad, y=b.y+geom.bounds.y*sc-pad;
   const w=geom.bounds.w*sc+pad*2, h=geom.bounds.h*sc+pad*2;
+  return {x,y,w,h,x1:x,y1:y,x2:x+w,y2:y+h};
+}
+
+function pasamuroWorldRect(b,pad=0){
+  const geom=pasamuroViewGeometry(pasamuroViewById(b.vi));
+  const sc=b.sc||PASAMURO_DEFAULT_SCALE;
+  const x=b.x+geom.bounds.x*sc-pad;
+  const y=b.y+geom.bounds.y*sc-pad;
+  const w=geom.bounds.w*sc+pad*2;
+  const h=geom.bounds.h*sc+pad*2;
   return {x,y,w,h,x1:x,y1:y,x2:x+w,y2:y+h};
 }
 
@@ -6388,6 +6584,7 @@ function drawBlockGroup(ctx,blocks,selectedBlock=null,zoomScale=modelZoom(),show
 
 function drawBlock(ctx,b,sel,zoomScale=modelZoom()){
   if(isValveBlock(b)){drawValveBlock(ctx,b,sel,zoomScale);return;}
+  if(isPasamuroBlock(b)){drawPasamuroBlock(ctx,b,sel,zoomScale);return;}
   const lib=S.lib.find(l=>l.id===b.lid); if(!lib) return;
   const img=blockRenderImage(lib,b.vi||0);
   const raw=lib.imgs[b.vi||0];
@@ -6650,6 +6847,10 @@ function blockWorldRectAt(b,x,y,pad=0){
   if(isValveBlock(b)){
     const clone={...b,x,y};
     return valveWorldRect(clone,pad);
+  }
+  if(isPasamuroBlock(b)){
+    const clone={...b,x,y};
+    return pasamuroWorldRect(clone,pad);
   }
   const lib=S.lib.find(l=>l.id===b.lid);
   if(!lib) return {x:x-pad,y:y-pad,w:0,h:0,x1:x-pad,y1:y-pad,x2:x+pad,y2:y+pad};
@@ -6985,6 +7186,7 @@ function hiddenIntervalsForSegment(a,b){
   const items=[];
   // 1. Existing blocks masking
   for(const block of S.blocks){
+    if(isPasamuroBlock(block)) continue;
     if(isCabinetBlock(block)){
       const hits=cabinetSegmentIntervals(a,b,block);
       for(const hit of hits){
@@ -7315,13 +7517,13 @@ function drawOneDetailViewport(d){
   mx.restore();
   withDetailTransform(mx,d,(zs)=>{
     // Presentation view: drawing details do NOT show selection borders or highlights!
-    drawBlockGroup(mx,blocksForDraw(b=>!isValveBlock(b)),null,zs,false);
+    drawBlockGroup(mx,blocksForDraw(b=>!isInlineAttachmentBlock(b)),null,zs,false);
     drawWallsBatch(mx,zs);
     for(const l of S.lines) if(!isWallLine(l)) drawLine(mx,l,false,zs);
     drawReductions(mx,zs);
     drawTees(mx,zs);
     drawCodoAdaptadorMarkers(mx,zs);
-    drawBlockGroup(mx,blocksForDraw(b=>isValveBlock(b)),null,zs,false);
+    drawBlockGroup(mx,blocksForDraw(b=>isInlineAttachmentBlock(b)),null,zs,false);
     drawPipeLabels(mx,zs,true);
   });
   dx.save();
@@ -8211,7 +8413,7 @@ function hitB(wx,wy){
   const ordered=blocksForDraw().reverse();
   for(let i=0;i<ordered.length;i++){
     const b=ordered[i];
-    const lib=S.lib.find(l=>l.id===b.lid); if(!isValveBlock(b)&&!lib) continue;
+    const lib=S.lib.find(l=>l.id===b.lid); if(!isInlineAttachmentBlock(b)&&!lib) continue;
     if(isCabinetBlock(b)&&b===S.selBlock&&hitCabinetGrip(b,wx,wy)) return b;
     const pad=12/modelZoom();
     const r=blockWorldRect(b,pad);
@@ -9028,14 +9230,19 @@ function onDn(e){
     }
     const b=(S.vp&&!hitVP(paper.x,paper.y))?null:hitB(w.x,w.y);
     if(b){
-      if(b === S.selBlock) {
+      if (S.canvasLongPressTimeout) {
+        clearTimeout(S.canvasLongPressTimeout);
+        S.canvasLongPressTimeout = null;
+      }
+      S.canvasLongPressStart = null;
+      if(b === S.selBlock || isPasamuroBlock(b)) {
         closeCabinetJoinPanel();
         cabinetJoinPreview=null;
         dragBlk=b;
         dragBlkGrip=isCabinetBlock(b)?hitCabinetGrip(b,w.x,w.y):null;
         dbOX=dragBlkGrip?dragBlkGrip.ox:(w.x-b.x);
         dbOY=dragBlkGrip?dragBlkGrip.oy:(w.y-b.y);
-        dragBlkStart={sx:sc.x,sy:sc.y,x:b.x,y:b.y};
+        dragBlkStart={sx:sc.x,sy:sc.y,x:b.x,y:b.y,ts:Date.now(),selected:b===S.selBlock};
         dragBlkMoved=false;
       }
       S.selDown=sc;
@@ -9325,6 +9532,12 @@ function onMv(e){
       drawLoupe(sc.x,sc.y);
       return;
     }
+    if(isPasamuroBlock(dragBlk)){
+      movePasamuroWithSnap(dragBlk,w.x,w.y,sc);
+      redraw();
+      drawLoupe(sc.x,sc.y);
+      return;
+    }
     const freeX=w.x-dbOX;
     const freeY=w.y-dbOY;
     if(isCabinetBlock(dragBlk)){
@@ -9538,18 +9751,35 @@ function onUp(e){
   // Block drop / tap to rotate
   if(dragBlk){
     const b=dragBlk;
-    const wasTap=!dragBlkMoved&&dragBlkStart&&Math.hypot(sc.x-dragBlkStart.sx,sc.y-dragBlkStart.sy)<10;
+    const dragMeta=dragBlkStart;
+    const shortTap=!!(dragMeta&&Date.now()-dragMeta.ts<=BLOCK_ROTATE_TAP_MS);
+    const wasTap=!dragBlkMoved&&dragMeta&&Math.hypot(sc.x-dragMeta.sx,sc.y-dragMeta.sy)<10&&shortTap;
+    const wasSelected=!!(dragMeta&&dragMeta.selected);
     dragBlk=null; dragBlkStart=null; dragBlkMoved=false; dragBlkGrip=null;
     if(isValveBlock(b)){
-      if(wasTap){
+      if(wasTap&&wasSelected){
         cycleValveView(b);
         return;
       }
+      S.selBlock=b; S.selLine=null; S.selLabel=null; S.selDetail=null; S.selOpening=null;
+      S.scaleMode='block';
       invalidatePipeLabels();
       syncAutoAccessories();
       redraw();return;
     }
-    if(wasTap&&isCabinetBlock(b)){
+    if(isPasamuroBlock(b)){
+      if(wasTap&&wasSelected){
+        cyclePasamuroView(b);
+        return;
+      }
+      S.selBlock=b; S.selLine=null; S.selLabel=null; S.selDetail=null; S.selOpening=null;
+      S.scaleMode='block';
+      invalidatePipeLabels();
+      showPasamuroSnapHint('');
+      redraw();
+      return;
+    }
+    if(wasTap&&wasSelected&&isCabinetBlock(b)){
       cabinetJoinPreview=null;
       rotateSelectedCabinet(b.lid);
       return;
@@ -10436,6 +10666,13 @@ function scaleSelectedBlock(factor){
     toast((block.diam==='2025'?'Valvula 20/25':'Valvula 12/16')+' '+Math.round(block.sc*100)+'%');
     return;
   }
+  if(isPasamuroBlock(block)){
+    pushH();
+    block.sc=Math.max(0.55,Math.min(2.4,(block.sc||PASAMURO_DEFAULT_SCALE)*factor));
+    redraw();
+    toast('Pasamuro '+Math.round(block.sc*100)+'%');
+    return;
+  }
   const lib=S.lib.find(l=>l.id===block.lid);
   const cp=isCabinetBlock(block)
     ? cabinetAnchorCp(lib&&blockCpts(lib,block.vi||0))
@@ -10600,6 +10837,32 @@ function insertValveBlock(diam){
   syncAutoAccessories();
   redraw();
   toast((diam==='2025'?'Valvula 20/25':'Valvula 12/16')+': arrastrala sobre su linea');
+}
+
+function insertPasamuroBlock(){
+  const view=viewportVisibleModelRect();
+  const center={x:view.minX+view.w*0.5,y:view.minY+view.h*0.52};
+  const firstLine=S.lines.find(l=>!isWallLine(l)&&l.pts.length>1);
+  const vec=firstLine
+    ? {x:firstLine.pts[1].x-firstLine.pts[0].x,y:firstLine.pts[1].y-firstLine.pts[0].y}
+    : {x:1,y:0};
+  const block={
+    kind:'pasamuro',
+    lid:'pasamuro',
+    x:center.x,
+    y:center.y,
+    sc:PASAMURO_DEFAULT_SCALE,
+    vi:pickPasamuroViewForVec(vec).id
+  };
+  pushH();
+  movePasamuroWithSnap(block,center.x,center.y);
+  S.blocks.push(block);
+  S.selBlock=block;
+  S.selLine=null;
+  S.selOpening=null;
+  setTool('sel');
+  redraw();
+  toast('Pasamuro: arrastralo sobre su linea');
 }
 
 function openM(id){document.getElementById(id).classList.add('open');}
@@ -11559,26 +11822,26 @@ function buildExportCanvas(sc){
     ctx.beginPath(); ctx.rect(vp.x,vp.y,vp.w,vp.h); ctx.clip();
     ctx.translate(vp.x+vp.px,vp.y+vp.py);
     ctx.scale(vp.z,vp.z);
-    drawBlockGroup(ctx,blocksForDraw(b=>!isValveBlock(b)),null,vp.z,false);
+    drawBlockGroup(ctx,blocksForDraw(b=>!isInlineAttachmentBlock(b)),null,vp.z,false);
     drawWallsBatch(ctx,vp.z);
     for(const l of S.lines) if(!isWallLine(l)) drawLine(ctx,l,false,vp.z);
     drawReductions(ctx,vp.z);
     drawTees(ctx,vp.z);
     drawCodoAdaptadorMarkers(ctx,vp.z);
-    drawBlockGroup(ctx,blocksForDraw(b=>isValveBlock(b)),null,vp.z,false);
+    drawBlockGroup(ctx,blocksForDraw(b=>isInlineAttachmentBlock(b)),null,vp.z,false);
     drawPipeLabels(ctx,vp.z,false,S.vpEdit ? 1.0 : vp.z);
     ctx.restore();
     ctx.strokeStyle='rgba(26,127,212,0.55)';
     ctx.lineWidth=1;
     ctx.strokeRect(vp.x,vp.y,vp.w,vp.h);
   } else {
-    drawBlockGroup(ctx,blocksForDraw(b=>!isValveBlock(b)),null,1,false);
+    drawBlockGroup(ctx,blocksForDraw(b=>!isInlineAttachmentBlock(b)),null,1,false);
     drawWallsBatch(ctx,1);
     for(const l of S.lines) if(!isWallLine(l)) drawLine(ctx,l,false,1);
     drawReductions(ctx,1);
     drawTees(ctx,1);
     drawCodoAdaptadorMarkers(ctx,1);
-    drawBlockGroup(ctx,blocksForDraw(b=>isValveBlock(b)),null,1,false);
+    drawBlockGroup(ctx,blocksForDraw(b=>isInlineAttachmentBlock(b)),null,1,false);
     drawPipeLabels(ctx,1,false,1.0);
   }
   
@@ -11623,13 +11886,13 @@ function buildExportCanvas(sc){
     ctx.save();
     ctx.translate(d.x+d.px,d.y+d.py);
     ctx.scale(d.z,d.z);
-    drawBlockGroup(ctx,blocksForDraw(b=>!isValveBlock(b)),null,d.z,false);
+    drawBlockGroup(ctx,blocksForDraw(b=>!isInlineAttachmentBlock(b)),null,d.z,false);
     drawWallsBatch(ctx,d.z);
     for(const l of S.lines) if(!isWallLine(l)) drawLine(ctx,l,false,d.z);
     drawReductions(ctx,d.z);
     drawTees(ctx,d.z);
     drawCodoAdaptadorMarkers(ctx,d.z);
-    drawBlockGroup(ctx,blocksForDraw(b=>isValveBlock(b)),null,d.z,false);
+    drawBlockGroup(ctx,blocksForDraw(b=>isInlineAttachmentBlock(b)),null,d.z,false);
     drawPipeLabels(ctx,d.z,false,S.activeDetail === d ? 1.0 : d.z);
     ctx.restore();
     const dOcc=[];
@@ -12677,6 +12940,7 @@ document.getElementById('bgab4').addEventListener('click',()=>{closeGabinetesDro
 document.getElementById('bs22').addEventListener('click',()=>{closeGabinetesDrop();insertOrRotateS22();});
 document.getElementById('bval2025').addEventListener('click',()=>insertValveBlock('2025'));
 document.getElementById('bval1216').addEventListener('click',()=>insertValveBlock('1216'));
+document.getElementById('bpasamuro').addEventListener('click',()=>insertPasamuroBlock());
 document.getElementById('badd').addEventListener('click',()=>openM('blockmod'));
 document.getElementById('baddtext').addEventListener('click', (e) => {
   e.stopPropagation();
