@@ -413,6 +413,7 @@ canvas{position:absolute;inset:0;}
 #addProfBtn{width:100%;margin-top:8px;padding:7px;background:var(--sur2);border:1px dashed var(--bdr);border-radius:8px;color:var(--tx2);font-size:11px;cursor:pointer;text-align:center;}
 /* Dim input extras */
 #dimInput.dimSelected{background:#0057b0;color:#fff;border-color:#00d5ff;box-shadow:0 0 0 3px rgba(0,213,255,.22),0 4px 14px rgba(0,0,0,.34);}
+#dimShield{position:fixed;inset:0;z-index:1600;display:none;background:transparent;touch-action:none;}
 #dimDel{position:fixed;z-index:1603;display:none;width:30px;height:30px;border-radius:8px;border:1px solid rgba(239,68,68,.55);background:rgba(239,68,68,.96);color:#fff;font-size:18px;font-weight:400;line-height:1;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(0,0,0,.45);touch-action:auto;}
 .numPad{position:fixed;z-index:1601;display:none;grid-template-columns:repeat(3,32px);gap:3px;padding:5px;border:1px solid rgba(255,255,255,.18);border-radius:12px;background:rgba(24,30,40,.96);box-shadow:0 10px 28px rgba(0,0,0,.5);transform:translate(-50%,0);touch-action:none;}
 .numPad button{height:29px;border:0;border-radius:8px;background:var(--sur3);color:var(--tx);font-size:15px;font-weight:700;touch-action:none;}
@@ -597,6 +598,8 @@ canvas{position:absolute;inset:0;}
   border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
 .toolGroup[data-group="gabinetes"]{position:relative;}
+.toolGroup[data-group="gabinetes"].drop-open{z-index:1210;}
+#gabinetesDropdown{position:fixed;z-index:1200;}
 .tool-dropdown{
   position:absolute;
   left:0;
@@ -833,6 +836,7 @@ canvas{position:absolute;inset:0;}
     <span class="groupLabel">Navegar</span>
     <div class="tbtn" id="bpan" title="Panear / Mover lienzo (🖐️)">🖐️</div>
     <div class="tbtn" id="btsel" title="Seleccionar elemento (↖️)">↖️</div>
+    <div class="tbtn mode txt on" id="binputmode" title="Modo de dibujo táctil">Mano</div>
     <div class="tbtn" id="bzin" title="Acercar Zoom (➕)">➕</div>
     <div class="tbtn" id="bzout" title="Alejar Zoom (➖)">➖</div>
   </div>
@@ -899,8 +903,8 @@ canvas{position:absolute;inset:0;}
     <div class="tbtn txt" id="bval2025" title="Valvula 20/25">V20</div>
     <div class="tbtn txt" id="bval1216" title="Valvula 12/16">V12</div>
     <div class="tbtn txt" id="bpasamuro" title="Pasamuro">PM</div>
-    <div class="tbtn" id="badd" title="Agregar Bloque Personalizado">+</div>
-    <div class="tbtn txt" id="bcaj" title="Referencia / Cajetín">Ref</div>
+    <div class="tbtn" id="badd" title="Agregar Bloque Personalizado" style="display:none;">+</div>
+    <div class="tbtn txt" id="bcaj" title="Referencia / Cajetín" style="display:none;">Ref</div>
   </div>
   <div class="toolGroup" data-group="datos">
     <span class="groupLabel">Datos</span>
@@ -949,6 +953,7 @@ canvas{position:absolute;inset:0;}
   <canvas id="oc"></canvas>
   <canvas id="lc"></canvas>
   <div id="sdot"></div>
+  <div id="dimShield" aria-hidden="true"></div>
   <!-- Inline dim input -->
   <div id="dimDragHandle" style="position:fixed; z-index:1603; display:none; width:50px; height:8px; background:rgba(255,255,255,0.45); border-radius:4px; cursor:move;" title="Arrastrar teclado"></div>
   <input type="text" id="dimInput" inputmode="none" placeholder="0.00" readonly/>
@@ -2018,6 +2023,7 @@ const S = {
   drag:false, ds:null, de:null,
   snapS:false, snapE:false, snapType:'ep',
   polyAnchor:null,
+  lineTapStart:null, lineTapPreviewEnd:null, linePointerDown:null,
   wallTapStart:null, wallTapPreviewEnd:null, wallPointerDown:null, wallGesture:null, wallFreehandPts:[], wallFreehandPath:null,
   wallApproachHint:null,
   wallDimsVisible:false,
@@ -2041,6 +2047,7 @@ const S = {
   detailPan:null, detailMove:null, detailResize:null, drawDetail:null,
   vpDrag:null, vpDragStart:null,
   vpMoveDrag:false, vpMoveStart:null,
+  inputMode:'hand',
   guideSnap:null,
   projectionGuide:null,
   snapPreview:null,
@@ -2529,6 +2536,28 @@ function visibleCanvasSize(){
     h:Math.max(1,Math.round(rect.height || CW.clientHeight || window.innerHeight || 1))
   };
 }
+
+function visibleCanvasFitRect(){
+  const {w,h}=visibleCanvasSize();
+  const rect={x:0,y:0,w,h};
+  if(!isCompactPortraitViewport()) return rect;
+  const cwRect=CW.getBoundingClientRect();
+  const topbar=document.getElementById('topbar');
+  const bbar=document.getElementById('bbar');
+  if(topbar){
+    const topRect=topbar.getBoundingClientRect();
+    rect.y=Math.max(0,Math.round(topRect.bottom-cwRect.top));
+  }
+  if(bbar&&bbar.offsetParent!==null){
+    const botRect=bbar.getBoundingClientRect();
+    const bottomInset=Math.max(0,Math.round(cwRect.bottom-botRect.top));
+    rect.h=Math.max(1,h-rect.y-bottomInset);
+  }else{
+    rect.h=Math.max(1,h-rect.y);
+  }
+  return rect;
+}
+
 function resize(){
   const {w:W,h:H}=visibleCanvasSize();
   [GC,MC,DC,OC,LC].forEach(c=>{c.width=W;c.height=H;});
@@ -2904,7 +2933,7 @@ function drawFieldBoxText(ctx,text,x,y,w,h,screen=false,size=10,align='center',c
     ctx.font=`500 ${fs}px Arial,"Helvetica Neue",sans-serif`;
   }
   const tx=align==='left'?p.x-(w*scale/2)+4*scale:p.x;
-  ctx.fillText(text,tx,p.y + (0.2*scale),Math.max(1,maxW));
+  ctx.fillText(text,tx,p.y + (0.55*scale),Math.max(1,maxW));
   ctx.restore();
 }
 
@@ -3737,6 +3766,121 @@ function clearWallInteractionState(clearOverlay=false){
   if(clearOverlay) ox.clearRect(0,0,OC.width,OC.height);
 }
 
+function useHandLineWorkflow(pointerType=S.lastPointerType){
+  if(S.inputMode==='pen') return false;
+  if(S.inputMode==='hand') return true;
+  if(pointerType==='pen'||pointerType==='mouse') return false;
+  return pointerType==='touch'||(navigator.maxTouchPoints||0)>0;
+}
+
+function latestDrawableLine(){
+  for(let i=S.lines.length-1;i>=0;i--){
+    const line=S.lines[i];
+    if(line&&!isWallLine(line)&&Array.isArray(line.pts)&&line.pts.length>1) return line;
+  }
+  return null;
+}
+
+function latestDrawableAnchor(line=latestDrawableLine()){
+  if(S.polyAnchor) return {...S.polyAnchor};
+  if(!line?.pts?.length) return null;
+  return {...line.pts[line.pts.length-1]};
+}
+
+function resetLineGestureState(){
+  S.linePointerDown=null;
+  S.drag=false;
+  S.ds=null;
+  S.de=null;
+  S.drawDetail=null;
+  S.snapS=false;
+  S.snapE=false;
+}
+
+function clearLineTapState(){
+  S.lineTapStart=null;
+  S.lineTapPreviewEnd=null;
+}
+
+function clearLineInteractionState(clearOverlay=false){
+  resetLineGestureState();
+  clearLineTapState();
+  if(clearOverlay) ox.clearRect(0,0,OC.width,OC.height);
+}
+
+function lineInputPointFromScreen(sc,detail=null,anchor=null){
+  const paper=tw(sc.x,sc.y);
+  const drawPaper=detail?clampPaperToDetail(detail,paper):paper;
+  const raw=detail?detailToModel(detail,drawPaper):screenToModel(sc.x,sc.y);
+  const safeRaw=detail?raw:clampToVP(raw);
+  const snap=smartSnap(safeRaw.x,safeRaw.y,anchor,{detail,screen:sc});
+  if(snap) return {pt:{...snap.pt},raw:safeRaw,snap};
+  if(anchor){
+    return {
+      pt:((S.mode==='iso'||S.projectKind==='planta')?isoSnap(anchor.x,anchor.y,safeRaw.x,safeRaw.y):safeRaw),
+      raw:safeRaw,
+      snap:null
+    };
+  }
+  return {pt:{...safeRaw},raw:safeRaw,snap:null};
+}
+
+function commitIsoLineSegment(start,end,detail=null){
+  const dist=Math.hypot(end.x-start.x,end.y-start.y);
+  if(dist<=3/drawingZoom(detail)) return null;
+  pushH();
+  const line={
+    pts:[{...start},{...end}],
+    profId:S.activeProf,
+    label:null,
+    diam:(activeProf().diam||''),
+    kind:(activeProf().kind||'empotrada')
+  };
+  S.lines.push(line);
+  S.polyAnchor={...end};
+  hideAutoLabels();
+  invalidatePipeLabels();
+  clearProjectionGuide();
+  redraw();
+  showMeasureInput(line,true,detail);
+  return line;
+}
+
+function armRecentLineForHandDrawing(opts={}){
+  if(!useHandLineWorkflow(opts.pointerType)) return false;
+  if(S.tool==='line'&&S.lineTapStart) return false;
+  const line=opts.line||latestDrawableLine();
+  if(!line) return false;
+  const anchor=opts.anchor||latestDrawableAnchor(line);
+  if(!anchor) return false;
+  if(line.profId){
+    S.activeProf=line.profId;
+    updateProfBtn();
+  }
+  if(S.tool!=='line'){
+    if(opts.skipTool) return false;
+    setTool('line',{preserveProjection:true});
+  }
+  S.selDown=null;
+  S.selLine=line;
+  S.selBlock=null;
+  S.selLabel=null;
+  S.selOpening=null;
+  S.selDetail=null;
+  S.scaleMode='cota';
+  S.polyAnchor={...anchor};
+  S.lineTapStart={pt:{...anchor},detail:opts.detail||null,lineId:line.id||null};
+  S.lineTapPreviewEnd=null;
+  S.linePointerDown=null;
+  S.drawDetail=opts.detail||null;
+  return true;
+}
+
+function shouldKeepProjectionGuideAfterPointerUp(){
+  if(!S.projectionGuide) return false;
+  return S.tool==='sel';
+}
+
 function lineEndpointArray(l){
   if(!l?.pts?.length) return [];
   return [l.pts[0], l.pts[l.pts.length-1]].filter(Boolean);
@@ -4564,6 +4708,7 @@ function projectionLineSnap(from,wx,wy,state,opts={}){
             best={
               pt:{x:cursorProj.pt.x,y:cursorProj.pt.y},
               type:'proj',
+              snapDotType:'projLine',
               d,
               projection:state,
               anchor:item.ref,
@@ -4583,6 +4728,7 @@ function projectionLineSnap(from,wx,wy,state,opts={}){
       best={
         pt:{x:cross.x,y:cross.y},
         type:'proj',
+        snapDotType:'projLine',
         d,
         projection:state,
         anchor:item.ref,
@@ -4594,10 +4740,40 @@ function projectionLineSnap(from,wx,wy,state,opts={}){
   return best;
 }
 
+function projectionStartSnap(wx,wy,state,opts={}){
+  if(!state) return null;
+  const zoom=modelZoom();
+  const r=(opts.radiusPx||PROJECTION_LINE_SNAP_R)/zoom;
+  let best=null;
+  for(const item of projectionGuideLines(state,{x:wx,y:wy})){
+    const gd={x:Math.cos(item.angle),y:Math.sin(item.angle)};
+    const g1={x:item.ref.x-gd.x*10000,y:item.ref.y-gd.y*10000};
+    const g2={x:item.ref.x+gd.x*10000,y:item.ref.y+gd.y*10000};
+    const proj=projectPointToSegment({x:wx,y:wy},g1,g2);
+    if(proj.d>r) continue;
+    const d=Math.hypot(wx-proj.pt.x,wy-proj.pt.y);
+    if(!best||d<best.d){
+      best={
+        pt:{x:proj.pt.x,y:proj.pt.y},
+        type:'proj',
+        snapDotType:'projLine',
+        d,
+        projection:state,
+        anchor:item.ref,
+        angle:item.angle,
+        mode:'start'
+      };
+    }
+  }
+  return best;
+}
+
 function projectSnap(from,wx,wy,opts={}){
   if(!S.snap) return null;
   const state=updateProjectionGuideState(wx,wy,opts);
-  const lineSnap=projectionLineSnap(from,wx,wy,state,opts);
+  const lineSnap=from
+    ? projectionLineSnap(from,wx,wy,state,opts)
+    : projectionStartSnap(wx,wy,state,opts);
   let crossSnap=null;
   if(state?.intersection){
     const r=(opts.radiusPx||PROJECTION_INTERSECTION_R)/modelZoom();
@@ -4605,6 +4781,7 @@ function projectSnap(from,wx,wy,opts={}){
       crossSnap={
         pt:{...state.intersection.pt},
         type:'proj',
+        snapDotType:'projCross',
         d:state.intersection.d,
         projection:state,
         angleA:state.intersection.angleA,
@@ -4983,28 +5160,38 @@ function insertWallRectanglePreset(widthM=7,heightM=15){
 }
 
 // Snap dot color by type
-const SNAP_COLORS={ep:'#00ffa3',int:'#f59e0b',ol:'#4fa8e8',proj:'#a855f7',pm:'#7dd3fc',guideStart:'#38bdf8',guideMid:'#22c55e',guideEnd:'#ef4444'};
-const SNAP_SIZES ={ep:8,int:9,ol:7,proj:8,pm:6,guideStart:9,guideMid:9,guideEnd:9};
+const SNAP_COLORS={ep:'#00ffa3',int:'#f59e0b',ol:'#4fa8e8',proj:'#a855f7',projLine:'#22d3ee',projCross:'#a855f7',pm:'#7dd3fc',guideStart:'#38bdf8',guideMid:'#22c55e',guideEnd:'#ef4444'};
+const SNAP_SIZES ={ep:8,int:9,ol:7,proj:8,projLine:9,projCross:10,pm:6,guideStart:9,guideMid:9,guideEnd:9};
 
 function showSnapDot(screenX,screenY,type){
   const col=SNAP_COLORS[type]||'#00ffa3';
+  const projLike=type==='proj'||type==='projLine'||type==='projCross';
+  const guidePointLike=type==='guideStart'||type==='guideMid'||type==='guideEnd';
   S.snapPreview={x:screenX,y:screenY,type,col};
   DOT.style.left=screenX+'px'; DOT.style.top=screenY+'px';
   DOT.style.display='block';
-  DOT.style.background=type==='proj'
+  DOT.style.background=type==='projCross'
     ?'rgba(168,85,247,.18)'
-    :(type==='pm'
-      ?'rgba(125,211,252,.18)'
-      :(type==='guideStart'||type==='guideMid'||type==='guideEnd'
-        ?`${col}22`
-        :col));
-  DOT.style.border=type==='proj'
+    :(type==='projLine'
+      ?'rgba(34,211,238,.18)'
+      :(projLike
+        ?'rgba(168,85,247,.18)'
+        :(type==='pm'
+          ?'rgba(125,211,252,.18)'
+          :(guidePointLike
+            ?`${col}22`
+            :col))));
+  DOT.style.border=type==='projCross'
     ?`3px solid ${col}`
-    :(type==='pm'
-      ?'1.5px solid rgba(125,211,252,.85)'
-      :(type==='guideStart'||type==='guideMid'||type==='guideEnd'
-        ?`2px solid ${col}`
-        :'2px solid rgba(255,255,255,.72)'));
+    :(type==='projLine'
+      ?`2.5px solid ${col}`
+      :(projLike
+        ?`3px solid ${col}`
+        :(type==='pm'
+          ?'1.5px solid rgba(125,211,252,.85)'
+          :(guidePointLike
+            ?`2px solid ${col}`
+            :'2px solid rgba(255,255,255,.72)'))));
   const sz=SNAP_SIZES[type]||12;
   DOT.style.width=sz+'px'; DOT.style.height=sz+'px';
   DOT.style.boxShadow=type==='pm'
@@ -5013,6 +5200,65 @@ function showSnapDot(screenX,screenY,type){
 }
 
 // â”€â”€ REFERENCE LINES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+function projectionSnapMarkerType(snap=S.guideSnap){
+  if(!snap||snap.type!=='proj') return null;
+  return Number.isFinite(snap.angleA)&&Number.isFinite(snap.angleB) ? 'cross' : 'line';
+}
+
+function drawProjectionGuideMarker(ctx,snap,zoomScale=modelZoom()){
+  const kind=projectionSnapMarkerType(snap);
+  if(!kind||!snap?.pt) return;
+  const pt=snap.pt;
+  ctx.save();
+  ctx.lineCap='round';
+  ctx.lineJoin='round';
+  if(kind==='cross'){
+    const r=7.4/zoomScale;
+    const inner=3.1/zoomScale;
+    ctx.strokeStyle='rgba(168,85,247,.98)';
+    ctx.fillStyle='rgba(168,85,247,.18)';
+    ctx.lineWidth=1.5/zoomScale;
+    ctx.beginPath();
+    ctx.moveTo(pt.x,pt.y-r);
+    ctx.lineTo(pt.x+r,pt.y);
+    ctx.lineTo(pt.x,pt.y+r);
+    ctx.lineTo(pt.x-r,pt.y);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.strokeStyle='rgba(255,255,255,.9)';
+    ctx.lineWidth=1.15/zoomScale;
+    ctx.beginPath();
+    ctx.moveTo(pt.x-inner,pt.y);
+    ctx.lineTo(pt.x+inner,pt.y);
+    ctx.moveTo(pt.x,pt.y-inner);
+    ctx.lineTo(pt.x,pt.y+inner);
+    ctx.stroke();
+    ctx.restore();
+    return;
+  }
+  const angle=Number.isFinite(snap.angle) ? snap.angle : (Number.isFinite(snap.drawAngle) ? snap.drawAngle : 0);
+  const dir={x:Math.cos(angle),y:Math.sin(angle)};
+  const n={x:-dir.y,y:dir.x};
+  const arm=6.2/zoomScale;
+  const spread=4.4/zoomScale;
+  ctx.strokeStyle='rgba(34,211,238,.98)';
+  ctx.lineWidth=1.7/zoomScale;
+  ctx.beginPath();
+  ctx.moveTo(pt.x-dir.x*arm+n.x*spread,pt.y-dir.y*arm+n.y*spread);
+  ctx.lineTo(pt.x,pt.y);
+  ctx.lineTo(pt.x-dir.x*arm-n.x*spread,pt.y-dir.y*arm-n.y*spread);
+  ctx.stroke();
+  ctx.strokeStyle='rgba(255,255,255,.92)';
+  ctx.lineWidth=0.9/zoomScale;
+  ctx.beginPath();
+  ctx.moveTo(pt.x-dir.x*(arm*0.48)+n.x*(spread*0.52),pt.y-dir.y*(arm*0.48)+n.y*(spread*0.52));
+  ctx.lineTo(pt.x,pt.y);
+  ctx.lineTo(pt.x-dir.x*(arm*0.48)-n.x*(spread*0.52),pt.y-dir.y*(arm*0.48)-n.y*(spread*0.52));
+  ctx.stroke();
+  ctx.restore();
+}
+
 function drawProjectionGuideState(ctx,curW,zoomScale=modelZoom()){
   const guide=S.projectionGuide;
   if(!guide) return false;
@@ -5053,6 +5299,7 @@ function drawProjectionGuideState(ctx,curW,zoomScale=modelZoom()){
     ctx.fill();
     ctx.stroke();
   }
+  drawProjectionGuideMarker(ctx,S.guideSnap,zoomScale);
   ctx.restore();
   return true;
 }
@@ -5624,10 +5871,10 @@ function reductionMarkers(){
       if(isVert){
         const vder = REDUCTION_VIEWS.find(v => v.id === 'ver_der') || REDUCTION_VIEWS[0];
         const vizq = REDUCTION_VIEWS.find(v => v.id === 'ver_izq') || REDUCTION_VIEWS[0];
-        out.push({p:join.p,view:vder,big,small,smallAway:join.smallAway});
-        out.push({p:join.p,view:vizq,big,small,smallAway:join.smallAway});
+        out.push({p:join.p,view:vder,big,small,bigAway:join.bigAway,smallAway:join.smallAway,key});
+        out.push({p:join.p,view:vizq,big,small,bigAway:join.bigAway,smallAway:join.smallAway,key});
       } else {
-        out.push({p:join.p,view:pickReductionView(bv,sv),big,small,smallAway:join.smallAway});
+        out.push({p:join.p,view:pickReductionView(bv,sv),big,small,bigAway:join.bigAway,smallAway:join.smallAway,key});
       }
     }
   }
@@ -8257,8 +8504,11 @@ function fitDetailContent(d,b=contentBounds()){
     d.px=-cx*d.z; d.py=-cy*d.z;
     return;
   }
-  const pad=d.r*0.10;
-  const z=Math.min((d.r*2-pad*2)/Math.max(1,b.w),(d.r*2-pad*2)/Math.max(1,b.h));
+  const family=autoDetailFamily(d.autoId||'');
+  const padRatio=family==='small'?0.06:(family==='medium'?0.08:0.10);
+  const zoomBoost=family==='small'?1.18:(family==='medium'?1.08:1);
+  const pad=d.r*padRatio;
+  const z=Math.min((d.r*2-pad*2)/Math.max(1,b.w),(d.r*2-pad*2)/Math.max(1,b.h))*zoomBoost;
   d.z=Math.min(VP_Z_MAX,Math.max(VP_Z_MIN,z));
   const cx=(b.minX+b.maxX)/2, cy=(b.minY+b.maxY)/2;
   d.px=-cx*d.z; d.py=-cy*d.z;
@@ -8277,6 +8527,19 @@ function boundsFromWorldRect(r,pad=0){
 function boundsFromPoint(p,pad=UNITS_PER_M*0.18){
   if(!p) return null;
   return {minX:p.x-pad,minY:p.y-pad,maxX:p.x+pad,maxY:p.y+pad};
+}
+
+function boundsFromPoints(points,pad=0){
+  const valid=(points||[]).filter(p=>p&&Number.isFinite(p.x)&&Number.isFinite(p.y));
+  if(!valid.length) return null;
+  return {
+    minX:Math.min(...valid.map(p=>p.x))-pad,
+    minY:Math.min(...valid.map(p=>p.y))-pad,
+    maxX:Math.max(...valid.map(p=>p.x))+pad,
+    maxY:Math.max(...valid.map(p=>p.y))+pad,
+    w:Math.max(1,Math.max(...valid.map(p=>p.x))-Math.min(...valid.map(p=>p.x))+pad*2),
+    h:Math.max(1,Math.max(...valid.map(p=>p.y))-Math.min(...valid.map(p=>p.y))+pad*2)
+  };
 }
 
 function boundsFromLine(l,pad=UNITS_PER_M*0.12){
@@ -8305,6 +8568,64 @@ function mergeModelBounds(items){
 
 function modelBoundsCenter(b){
   return b?{x:(b.minX+b.maxX)/2,y:(b.minY+b.maxY)/2}:null;
+}
+
+const AUTO_SMALL_DETAIL_COMBINE_DIST = UNITS_PER_M * 1.0;
+const AUTO_SMALL_DETAIL_REACH = UNITS_PER_M * 0.62;
+const AUTO_SMALL_DETAIL_PAD = UNITS_PER_M * 0.05;
+
+function pointToward(a,b,maxDist){
+  if(!a||!b) return a?{x:a.x,y:a.y}:null;
+  const dx=b.x-a.x, dy=b.y-a.y;
+  const len=Math.hypot(dx,dy);
+  if(len<=1e-6) return {x:a.x,y:a.y};
+  const t=Math.min(1,maxDist/len);
+  return {x:a.x+dx*t,y:a.y+dy*t};
+}
+
+function teeDetailLocalBounds(tee,reach=AUTO_SMALL_DETAIL_REACH){
+  if(!tee||!Number.isFinite(tee.x)||!Number.isFinite(tee.y)||!Number.isFinite(tee.angle)||!Number.isFinite(tee.branchAngle)) return null;
+  const runDx=Math.cos(tee.angle)*reach;
+  const runDy=Math.sin(tee.angle)*reach;
+  const branchReach=reach*0.92;
+  const branchDx=Math.cos(tee.branchAngle)*branchReach;
+  const branchDy=Math.sin(tee.branchAngle)*branchReach;
+  return boundsFromPoints([
+    {x:tee.x,y:tee.y},
+    {x:tee.x-runDx,y:tee.y-runDy},
+    {x:tee.x+runDx,y:tee.y+runDy},
+    {x:tee.x+branchDx,y:tee.y+branchDy}
+  ],AUTO_SMALL_DETAIL_PAD);
+}
+
+function reductionDetailLocalBounds(red,reach=AUTO_SMALL_DETAIL_REACH){
+  if(!red||!red.p) return null;
+  const bigPt=pointToward(red.p,red.bigAway||red.p,reach);
+  const smallPt=pointToward(red.p,red.smallAway||red.p,reach*0.92);
+  return boundsFromPoints([red.p,bigPt,smallPt],AUTO_SMALL_DETAIL_PAD);
+}
+
+function clusterSmallDetailItems(items,maxDist=AUTO_SMALL_DETAIL_COMBINE_DIST){
+  const groups=[];
+  const pending=[...(items||[])];
+  while(pending.length){
+    const seed=pending.shift();
+    const group=[seed];
+    let changed=true;
+    while(changed){
+      changed=false;
+      for(let i=pending.length-1;i>=0;i--){
+        const item=pending[i];
+        if(group.some(g=>Math.hypot(g.point.x-item.point.x,g.point.y-item.point.y)<=maxDist)){
+          group.push(item);
+          pending.splice(i,1);
+          changed=true;
+        }
+      }
+    }
+    groups.push(group);
+  }
+  return groups;
 }
 
 function blockCenter(b){
@@ -8459,7 +8780,7 @@ function scoreDetailCandidate(c,r,others,obstacles,anchor){
 }
 
 function autoDetailFamily(autoId=''){
-  if(autoId.startsWith('auto-tee-')||autoId.startsWith('auto-reduccion-')) return 'small';
+  if(autoId.startsWith('auto-small-')||autoId.startsWith('auto-tee-')||autoId.startsWith('auto-reduccion-')) return 'small';
   if(autoId==='auto-valvula-1216-codo'||autoId==='auto-codo-adaptador-1216') return 'medium';
   return 'large';
 }
@@ -8567,34 +8888,40 @@ function syncAutoDetailViewports(){
     specs.push({autoId:cfg.autoId,bounds:b,anchor:modelToPaper(c||modelBoundsCenter(b))});
   });
 
-  // Multi-Reducciones
+  // Tees y reducciones: si estan a menos de 1 m se agrupan en un solo detalle
+  const smallItems=[];
   const uniqueReds = [];
   const seenReds = new Set();
-  for (const red of reductionMarkers()) {
-    const k = Math.round(red.p.x * 100) + '_' + Math.round(red.p.y * 100);
-    if (!seenReds.has(k)) {
-      seenReds.add(k);
-      uniqueReds.push(red);
-    }
+  for(const red of reductionMarkers()){
+    const k=red.key || (Math.round(red.p.x * 100) + '_' + Math.round(red.p.y * 100));
+    if(seenReds.has(k)) continue;
+    seenReds.add(k);
+    uniqueReds.push(red);
   }
 
   uniqueReds.forEach((red, idx) => {
-    const b = mergeModelBounds([
-      boundsFromPoint(red.p, UNITS_PER_M * 0.085),
-      boundsFromLine(red.big, UNITS_PER_M * 0.05),
-      boundsFromLine(red.small, UNITS_PER_M * 0.05)
-    ]);
-    const autoId = `auto-reduccion-${idx}`;
-    specs.push({ autoId, bounds: b, anchor: modelToPaper(red.p) });
+    smallItems.push({
+      kind:'reduccion',
+      sourceId:red.key || `red-${idx}`,
+      point:red.p,
+      bounds:reductionDetailLocalBounds(red)
+    });
   });
 
-  // Multi-Tees
   (S.tees || []).forEach((tee, idx) => {
-    const b = mergeModelBounds([
-      boundsFromPoint(tee, UNITS_PER_M * 0.085)
-    ]);
-    const autoId = `auto-tee-${idx}`;
-    specs.push({ autoId, bounds: b, anchor: modelToPaper(tee) });
+    smallItems.push({
+      kind:'tee',
+      sourceId:tee.id || `tee-${idx}`,
+      point:{x:tee.x,y:tee.y},
+      bounds:teeDetailLocalBounds(tee)
+    });
+  });
+
+  clusterSmallDetailItems(smallItems).forEach(group => {
+    const bounds=mergeModelBounds(group.map(item=>item.bounds));
+    const center=modelBoundsCenter(bounds) || group[0].point;
+    const autoId=`auto-small-${group.map(item=>`${item.kind}-${item.sourceId}`).sort().join('__').replace(/[^\w-]+/g,'-')}`;
+    specs.push({autoId,bounds,anchor:modelToPaper(center)});
   });
 
   // Detalle de válvula de 1216 y codo adaptador
@@ -8864,6 +9191,9 @@ function drawOverlay(curW,detail=null){
   const draw=(zs)=>{
     if(curW&&(S.tool==='line'||S.tool==='wall'||S.tool==='sel'||S.lineEditLine)) drawRefLines(ox,curW,zs);
     if(curW&&S.tool==='line') drawCabinetConnectionGuide(ox,curW,zs);
+    const linePreviewPath=S.tool==='line'&&S.drag&&S.ds&&S.de
+      ? [S.ds,S.de]
+      : null;
     const wallPreviewPath=S.tool==='wall'
       ? (Array.isArray(S.wallFreehandPath)&&S.wallFreehandPath.length
           ? S.wallFreehandPath
@@ -8885,64 +9215,69 @@ function drawOverlay(curW,detail=null){
       ox.beginPath();
       ox.arc(wallPreviewPath[0].x,wallPreviewPath[0].y,4/zs,0,Math.PI*2);
       ox.fill();
-    }else if(S.drag&&S.ds&&S.de){
+    }else if(S.tool==='line'&&linePreviewPath?.length){
       const prof=activeProf();
-      ox.beginPath(); ox.moveTo(S.ds.x,S.ds.y); ox.lineTo(S.de.x,S.de.y);
-      ox.strokeStyle=prof.color; ox.lineWidth=prof.thick/zs;
-      ox.lineCap='square'; ox.lineJoin='miter';
-      ox.setLineDash([5/zs,3/zs]); ox.stroke(); ox.setLineDash([]);
+      if(linePreviewPath.length>1){
+        ox.beginPath(); ox.moveTo(linePreviewPath[0].x,linePreviewPath[0].y); ox.lineTo(linePreviewPath[1].x,linePreviewPath[1].y);
+        ox.strokeStyle=prof.color; ox.lineWidth=prof.thick/zs;
+        ox.lineCap='square'; ox.lineJoin='miter';
+        ox.setLineDash([5/zs,3/zs]); ox.stroke(); ox.setLineDash([]);
+      }
       // Start dot
       ox.fillStyle=S.snapS?SNAP_COLORS[S.snapType]||'#00ffa3':prof.color;
-      ox.beginPath(); ox.arc(S.ds.x,S.ds.y,4/zs,0,Math.PI*2); ox.fill();
-      
-      const tempLine = { pts: [S.ds, S.de], profId: prof.id };
-      const oldLines = S.lines;
-      S.lines = [...oldLines, tempLine];
-      
-      try {
-        // Preview Tees
-        const tempTees = detectTees();
-        for(const det of tempTees){
-          if (det.branchLine === tempLine || det.mainLine === tempLine || det.mainLine1 === tempLine || det.mainLine2 === tempLine) {
-            let dMain1 = det.mainLine ? lineDiam(det.mainLine) : (det.mainLine1 ? lineDiam(det.mainLine1) : '2025');
-            let dMain2 = det.mainLine ? lineDiam(det.mainLine) : (det.mainLine2 ? lineDiam(det.mainLine2) : '2025');
-            let dBranch = lineDiam(det.branchLine);
-            let resolvedType = '2025*2025*2025';
-            if(dMain1 === '2025' && dMain2 === '2025' && dBranch === '1216'){
-              resolvedType = '2025*1216*2025';
-            } else if(dMain1 === '2025' && dMain2 === '2025' && dBranch === '2025'){
-              resolvedType = '2025*2025*2025';
-            } else if(dMain1 === '1216' && dMain2 === '1216' && dBranch === '1216'){
-              resolvedType = '1216*1216*1216';
-            } else if((dMain1 === '2025' && dMain2 === '1216') || (dMain1 === '1216' && dMain2 === '2025')){
-              if(dBranch === '1216'){
-                resolvedType = '2025*1216*1216';
-              } else if(dBranch === '2025'){
-                resolvedType = '2025*2025*1216';
+      const startDot=linePreviewPath[0];
+      ox.beginPath(); ox.arc(startDot.x,startDot.y,4/zs,0,Math.PI*2); ox.fill();
+
+      if(linePreviewPath.length>1){
+        const tempLine = { pts: [linePreviewPath[0], linePreviewPath[1]], profId: prof.id };
+        const oldLines = S.lines;
+        S.lines = [...oldLines, tempLine];
+
+        try {
+          // Preview Tees
+          const tempTees = detectTees();
+          for(const det of tempTees){
+            if (det.branchLine === tempLine || det.mainLine === tempLine || det.mainLine1 === tempLine || det.mainLine2 === tempLine) {
+              let dMain1 = det.mainLine ? lineDiam(det.mainLine) : (det.mainLine1 ? lineDiam(det.mainLine1) : '2025');
+              let dMain2 = det.mainLine ? lineDiam(det.mainLine) : (det.mainLine2 ? lineDiam(det.mainLine2) : '2025');
+              let dBranch = lineDiam(det.branchLine);
+              let resolvedType = '2025*2025*2025';
+              if(dMain1 === '2025' && dMain2 === '2025' && dBranch === '1216'){
+                resolvedType = '2025*1216*2025';
+              } else if(dMain1 === '2025' && dMain2 === '2025' && dBranch === '2025'){
+                resolvedType = '2025*2025*2025';
+              } else if(dMain1 === '1216' && dMain2 === '1216' && dBranch === '1216'){
+                resolvedType = '1216*1216*1216';
+              } else if((dMain1 === '2025' && dMain2 === '1216') || (dMain1 === '1216' && dMain2 === '2025')){
+                if(dBranch === '1216'){
+                  resolvedType = '2025*1216*1216';
+                } else if(dBranch === '2025'){
+                  resolvedType = '2025*2025*1216';
+                }
               }
+              const tempTeeObj = {
+                x: det.x,
+                y: det.y,
+                angle: det.angle,
+                branchAngle: det.branchAngle,
+                type: resolvedType
+              };
+              drawTeeOnOverlay(ox, tempTeeObj, zs);
             }
-            const tempTeeObj = {
-              x: det.x,
-              y: det.y,
-              angle: det.angle,
-              branchAngle: det.branchAngle,
-              type: resolvedType
-            };
-            drawTeeOnOverlay(ox, tempTeeObj, zs);
           }
-        }
-        
-        // Preview Reductions
-        const tempReds = reductionMarkers();
-        for(const m of tempReds){
-          if(m.big === tempLine || m.small === tempLine) {
-            drawReductionOnOverlay(ox, m, zs);
+
+          // Preview Reductions
+          const tempReds = reductionMarkers();
+          for(const m of tempReds){
+            if(m.big === tempLine || m.small === tempLine) {
+              drawReductionOnOverlay(ox, m, zs);
+            }
           }
+        } catch(err) {
+          console.error("Interactive preview error:", err);
+        } finally {
+          S.lines = oldLines;
         }
-      } catch(err) {
-        console.error("Interactive preview error:", err);
-      } finally {
-        S.lines = oldLines;
       }
     }
     drawInlineBlockSnapGuide(ox,zs);
@@ -9252,7 +9587,8 @@ const DI=document.getElementById('dimInput');
 const DIMDEL=document.getElementById('dimDel');
 const NUMPAD=document.getElementById('numPad');
 const MEASURE_ADJUST=document.getElementById('measureAdjust');
-[DI,DIMDEL,NUMPAD,MEASURE_ADJUST].forEach(el=>{
+const DIMSHIELD=document.getElementById('dimShield');
+[DI,DIMDEL,NUMPAD,MEASURE_ADJUST,DIMSHIELD].forEach(el=>{
   if(el&&el.parentElement!==document.body) document.body.appendChild(el);
 });
 let dimBlurPending=false;
@@ -9267,6 +9603,20 @@ let measureAdjustSign=1;
 let measureAdjustAnchor='end';
 const LINE_EDIT_HANDLE_HIT_PX = 16;
 const LINE_EDIT_DRAG_START_PX = 7;
+
+function setDimShieldVisible(show){
+  if(!DIMSHIELD) return;
+  DIMSHIELD.style.display=show?'block':'none';
+}
+
+if(DIMSHIELD){
+  ['pointerdown','pointerup','click','touchstart','touchend'].forEach(evt=>{
+    DIMSHIELD.addEventListener(evt,e=>{
+      e.preventDefault();
+      e.stopPropagation();
+    },{passive:false});
+  });
+}
 
 function setMeasureAdjustSign(sign){
   measureAdjustSign=sign===-1?-1:1;
@@ -9460,6 +9810,7 @@ function showMeasureInput(line,isNew=false,detail=null,opts={}){
   DI.style.display='block';
   NUMPAD.style.display='grid';
   DIMDEL.style.display='flex';
+  setDimShieldVisible(true);
   dimBlurPending=false;
 }
 
@@ -9483,6 +9834,7 @@ function hideDimInput(commit,opts={}){
     NUMPAD.style.display='none';
     NUMPAD.classList.remove('noDecimal');
     DIMDEL.style.display='none';
+    setDimShieldVisible(false);
     hideMeasureAdjust();
     if(commit&&opts.advance&&target) focusNextAccessory(target);
     return;
@@ -9528,6 +9880,7 @@ function hideDimInput(commit,opts={}){
   NUMPAD.style.display='none';
   NUMPAD.classList.remove('noDecimal');
   DIMDEL.style.display='none';
+  setDimShieldVisible(false);
   hideMeasureAdjust();
   const dragHandle = document.getElementById('dimDragHandle');
   if (dragHandle) dragHandle.style.display = 'none';
@@ -9553,6 +9906,7 @@ function deleteMeasureLine(){
   NUMPAD.style.display='none';
   NUMPAD.classList.remove('noDecimal');
   DIMDEL.style.display='none';
+  setDimShieldVisible(false);
   hideMeasureAdjust();
   const dragHandle = document.getElementById('dimDragHandle');
   if (dragHandle) dragHandle.style.display = 'none';
@@ -9709,6 +10063,7 @@ function showSmallNumberPad(input,{decimal=false}={}){
   DI.style.display='block';
   NUMPAD.style.display='grid';
   DIMDEL.style.display='flex';
+  setDimShieldVisible(true);
   hideMeasureAdjust();
   setTimeout(()=>{if(numTarget===input) placeNumberPadNearInput(input);},90);
 }
@@ -10234,12 +10589,13 @@ function onDn(e){
   if(S.tool==='line'){
     const lineDetail=drawingDetailAtPaper(paper);
     if(!lineDetail&&frozenMainIso){
-      S.drag=false;
+      clearLineInteractionState();
       showFrozenViewportHint();
       return;
     }
     if(S.vp&&!lineDetail&&!hitVP(paper.x,paper.y)){
-      S.drag=false; toast('Dibuja dentro del viewport');
+      clearLineInteractionState();
+      toast('Dibuja dentro del viewport');
       return;
     }
     if(S.vp&&!lineDetail&&!S.vpEdit) setViewportWorkMode(true,{fit:false});
@@ -10254,7 +10610,7 @@ function onDn(e){
     if(!startPt){
       const sn=smartSnap(w0.x,w0.y,null,{detail:lineDetail,screen:sc});
       startPt=sn?{...sn.pt}:{...(lineDetail?w0:clampToVP(w0))};
-      S.snapS=!!sn; S.snapType=sn?sn.type:'ep';
+      S.snapS=!!sn; S.snapType=sn?(sn.snapDotType||sn.type):'ep';
     }
     S.drawDetail=lineDetail||null;
     S.ds=startPt; S.de={...startPt}; S.drag=true;
@@ -10284,7 +10640,7 @@ function onDn(e){
     S.wallPointerDown={sc:{...sc},detail:activeDetail,startPt:{...startInfo.pt}};
     S.drawDetail=activeDetail;
     S.snapS=!!startInfo.snap;
-    S.snapType=startInfo.snap?startInfo.snap.type:'ep';
+    S.snapType=startInfo.snap?(startInfo.snap.snapDotType||startInfo.snap.type):'ep';
     if(!S.wallTapStart){
       S.wallTapPreviewEnd=null;
       drawOverlay(startInfo.pt,activeDetail);
@@ -10373,7 +10729,7 @@ function onMv(e){
       if(sn){
         snapped = sn.pt;
         const ss = modelToDrawingScreen(snapped, editDetail);
-        showSnapDot(ss.x, ss.y, sn.type);
+        showSnapDot(ss.x, ss.y, sn.snapDotType||sn.type);
       } else {
         DOT.style.display = 'none';
         snapped = isWallLine(S.lineEditLine)
@@ -10393,7 +10749,7 @@ function onMv(e){
       if(sn){
         snapped = sn.pt;
         const ss = modelToDrawingScreen(snapped, editDetail);
-        showSnapDot(ss.x, ss.y, sn.type);
+        showSnapDot(ss.x, ss.y, sn.snapDotType||sn.type);
       } else {
         DOT.style.display = 'none';
         snapped = isWallLine(S.lineEditLine)
@@ -10430,7 +10786,7 @@ function onMv(e){
           moveDx=sn.pt.x-S.lineDragStart.mid.x;
           moveDy=sn.pt.y-S.lineDragStart.mid.y;
           const ss=modelToDrawingScreen(sn.pt,editDetail);
-          showSnapDot(ss.x,ss.y,sn.type);
+          showSnapDot(ss.x,ss.y,sn.snapDotType||sn.type);
         }else{
           DOT.style.display = 'none';
           const snappedDisp = isWallLine(S.lineEditLine) && S.lineEditLine.wall?.orthogonal!==false
@@ -10625,7 +10981,7 @@ function onMv(e){
     S.de={...ep};
     if(S.snapE){
       const ss=modelToDrawingScreen(ep,detail);
-      showSnapDot(ss.x,ss.y,sn.type);
+      showSnapDot(ss.x,ss.y,sn.snapDotType||sn.type);
     } else {DOT.style.display='none';}
     drawOverlay(w1,detail); drawLoupe(sc.x,sc.y); return;
   }
@@ -10648,14 +11004,14 @@ function onMv(e){
     const wsn=strongWallSnap(hw.x,hw.y,null);
     if(wsn){
       const ss=modelToDrawingScreen(wsn.pt,hoverDetail);
-      showSnapDot(ss.x,ss.y,wsn.type);
+      showSnapDot(ss.x,ss.y,wsn.snapDotType||wsn.type);
       drawOverlay(canHover?hw:null,hoverDetail);
       drawLoupe(sc.x,sc.y);
       return;
     }
   }
   const sn=(canHover&&S.tool!=='wall')?smartSnap(hw.x,hw.y,null,{detail:hoverDetail,screen:sc}):null;
-  if(sn){const ss=modelToDrawingScreen(sn.pt,hoverDetail);showSnapDot(ss.x,ss.y,sn.type);}
+  if(sn){const ss=modelToDrawingScreen(sn.pt,hoverDetail);showSnapDot(ss.x,ss.y,sn.snapDotType||sn.type);}
   else DOT.style.display='none';
   if(S.tool==='wall'&&S.wallTapStart){
     const preview=wallInputPointFromScreen(sc,S.wallTapStart.detail||hoverDetail||null,S.wallTapStart.pt);
@@ -10663,7 +11019,7 @@ function onMv(e){
     S.snapE=!!preview.snap;
     if(preview.snap){
       const ss=modelToDrawingScreen(preview.pt,S.wallTapStart.detail||hoverDetail||null);
-      showSnapDot(ss.x,ss.y,preview.snap.type);
+      showSnapDot(ss.x,ss.y,preview.snap.snapDotType||preview.snap.type);
     }else{
       DOT.style.display='none';
     }
@@ -10734,7 +11090,8 @@ function onUp(e){
   if(Object.keys(aPtr).length<2){isPinch=false;S.tDist=null;S.tMid=null;pinchScope=null;}
   if(Object.keys(aPtr).length===0){S.panPt=null;}
   if(Object.keys(aPtr).length===0){S.detailPan=null;S.detailMove=null;S.detailResize=null;resizeText=null;}
-  clearLoupe(); DOT.style.display='none'; S.guideSnap=null; S.snapPreview=null; clearProjectionGuide();
+  const keepProjectionGuide=shouldKeepProjectionGuideAfterPointerUp();
+  clearLoupe(); DOT.style.display='none'; S.guideSnap=null; S.snapPreview=null; if(!keepProjectionGuide) clearProjectionGuide();
   if(hadTextResize){redraw();return;}
   if(hadDetailAdjust){redraw();return;}
 
@@ -10871,6 +11228,7 @@ function onUp(e){
         }
       }
       redraw();
+      if(shouldKeepProjectionGuideAfterPointerUp()) refreshProjectionGuideVisual();
     }
     S.selDown=null; return;
   }
@@ -10924,28 +11282,24 @@ function onUp(e){
   // Line: commit segment
   if((S.tool==='line'||S.tool==='wall')&&S.drag&&S.ds&&S.de){
     const detail=S.drawDetail;
-    const dist=Math.hypot(S.de.x-S.ds.x,S.de.y-S.ds.y);
-    if(dist>3/drawingZoom(detail)){
-      pushH();
-      const line=S.tool==='wall'
-        ? makeWallLine(S.ds,S.de,cloneWallDefaults())
-        : {
-            pts:[{...S.ds},{...S.de}],
-            profId:S.activeProf,
-            label:null,
-            diam:(activeProf().diam||''),
-            kind:(activeProf().kind||'empotrada')
-          };
-      S.lines.push(line);
-      S.polyAnchor={...S.de};
-      hideAutoLabels();
-      invalidatePipeLabels();
-      redraw();
-      showMeasureInput(line,true,detail);
+    if(S.tool==='wall'){
+      const dist=Math.hypot(S.de.x-S.ds.x,S.de.y-S.ds.y);
+      if(dist>3/drawingZoom(detail)){
+        pushH();
+        const line=makeWallLine(S.ds,S.de,cloneWallDefaults());
+        S.lines.push(line);
+        S.polyAnchor={...S.de};
+        hideAutoLabels();
+        invalidatePipeLabels();
+        redraw();
+        showMeasureInput(line,true,detail);
+      }
+    }else{
+      commitIsoLineSegment(S.ds,S.de,detail);
     }
   }
   if(S.tool==='wall') resetWallGestureState();
-  else {S.drag=false; S.ds=null; S.de=null; S.snapS=false; S.snapE=false; S.drawDetail=null;}
+  else {resetLineGestureState();}
   ox.clearRect(0,0,OC.width,OC.height);
 }
 
@@ -11473,45 +11827,56 @@ let gabinetesDropOpen=false;
 function layoutGabinetesDrop(){
   if(!GABINETES_DROP) return;
   const pad=8;
-  const hostRect=GABINETES_DROP.parentElement?.getBoundingClientRect();
+  const host=GABINETES_DROP.parentElement;
+  const hostRect=host?.getBoundingClientRect();
   const dropWidth=126;
+  const dropHeight=116;
   GABINETES_DROP.style.width='126px';
   GABINETES_DROP.style.minWidth='126px';
   GABINETES_DROP.style.maxWidth='126px';
-  GABINETES_DROP.style.left='0px';
   GABINETES_DROP.style.right='auto';
-  GABINETES_DROP.style.top='calc(100% + 6px)';
   GABINETES_DROP.style.bottom='auto';
   GABINETES_DROP.style.maxHeight='none';
   if(hostRect){
-    const overflowRight=hostRect.left+dropWidth-(window.innerWidth-pad);
-    if(overflowRight>0){
-      GABINETES_DROP.style.left=(-overflowRight)+'px';
+    let left=Math.max(pad,Math.min(hostRect.left,window.innerWidth-dropWidth-pad));
+    let top=hostRect.bottom+6;
+    if(top+dropHeight>window.innerHeight-pad){
+      top=Math.max(pad,hostRect.top-dropHeight-6);
     }
+    GABINETES_DROP.style.left=left+'px';
+    GABINETES_DROP.style.top=top+'px';
+  }else{
+    GABINETES_DROP.style.left=pad+'px';
+    GABINETES_DROP.style.top=(pad+42)+'px';
   }
 }
 function toggleGabinetesDrop(){
   gabinetesDropOpen=!gabinetesDropOpen;
   const btn=document.getElementById('bgabinetes');
+  const host=GABINETES_DROP?.parentElement;
   if(gabinetesDropOpen){
     GABINETES_DROP.classList.add('open');
     GABINETES_DROP.style.display='grid';
     if(btn) btn.classList.add('on');
+    if(host) host.classList.add('drop-open');
     requestAnimationFrame(layoutGabinetesDrop);
   }else{
     GABINETES_DROP.classList.remove('open');
     GABINETES_DROP.style.display='none';
     if(btn) btn.classList.remove('on');
+    if(host) host.classList.remove('drop-open');
   }
 }
 function closeGabinetesDrop(){
   gabinetesDropOpen=false;
   const btn=document.getElementById('bgabinetes');
+  const host=GABINETES_DROP?.parentElement;
   if(GABINETES_DROP){
     GABINETES_DROP.classList.remove('open');
     GABINETES_DROP.style.display='none';
   }
   if(btn) btn.classList.remove('on');
+  if(host) host.classList.remove('drop-open');
 }
 const PLANTA_LIBRARY_DROP=document.getElementById('plantaLibraryDropdown');
 let plantaLibraryDropOpen=false;
@@ -13556,23 +13921,22 @@ function compactViewportVerticalBias(H){
 function fitViewportFrame(doRedraw=true){
   const vp=syncFixedViewportRect(); if(!vp) return;
   const {w:W,h:H}=visibleCanvasSize();
+  const fitRect=visibleCanvasFitRect();
   const padScale=isCompactPortraitViewport()?0.99:0.95;
-  const yBias=compactViewportVerticalBias(H);
-  S.zoom=Math.min(W/vp.w,H/vp.h) * padScale;
-  S.px=(W-vp.w*S.zoom)/2-vp.x*S.zoom;
-  S.py=(H-vp.h*S.zoom)/2-vp.y*S.zoom+yBias;
+  S.zoom=Math.min(fitRect.w/vp.w,fitRect.h/vp.h) * padScale;
+  S.px=fitRect.x+(fitRect.w-vp.w*S.zoom)/2-vp.x*S.zoom;
+  S.py=fitRect.y+(fitRect.h-vp.h*S.zoom)/2-vp.y*S.zoom;
   S.viewFit='vp';
   if(doRedraw) redraw();
 }
 
 function fitSheetFrame(doRedraw=true){
-  const {w:W,h:H}=visibleCanvasSize();
+  const fitRect=visibleCanvasFitRect();
   const padScale=isCompactPortraitViewport()?0.98:0.92;
-  const yBias=compactViewportVerticalBias(H);
-  const zx=W/A4W*padScale, zy=H/A4H*padScale;
+  const zx=fitRect.w/A4W*padScale, zy=fitRect.h/A4H*padScale;
   S.zoom=Math.min(zx,zy);
-  S.px=(W-A4W*S.zoom)/2;
-  S.py=(H-A4H*S.zoom)/2+yBias;
+  S.px=fitRect.x+(fitRect.w-A4W*S.zoom)/2;
+  S.py=fitRect.y+(fitRect.h-A4H*S.zoom)/2;
   S.viewFit='sheet';
   if(doRedraw) redraw();
 }
@@ -13616,9 +13980,13 @@ function setTool(tool,opts={}){
   const preserveProjection=shouldPreserveProjectionGuide(prevTool,tool,opts);
   S.tool=tool; S.polyAnchor=null; S.lineEditLine = null; S.lineHandleDown=null; S.lineDragGrip=null; S.lineDragStart=null; S.lineDragHistoryPushed=false;
   if(!preserveProjection) clearProjectionGuide();
+  clearLineInteractionState(true);
   clearWallInteractionState(true);
   updateToolButtons();
   OC.style.cursor=tool==='line'||tool==='wall'||tool==='vano'||tool==='window'||tool==='door'||tool==='vp'?'crosshair':tool==='pan'?'grab':'default';
+  if(preserveProjection&&S.projectionGuide){
+    refreshProjectionGuideVisual();
+  }
 }
 
 function updateToolButtons(){
@@ -13639,6 +14007,17 @@ function updateToolButtons(){
   if(freeze) freeze.classList.toggle('on',!!S.isoFrozen);
   const txt=document.getElementById('btxtscale');
   if(txt) txt.textContent='Txt '+S.textScale.toFixed(1);
+}
+
+function updateInputModeButton(){
+  const btn=document.getElementById('binputmode');
+  if(!btn) return;
+  const hand=S.inputMode!=='pen';
+  btn.textContent=hand?'Mano':'Lápiz';
+  btn.title=hand
+    ?'Modo Mano: dibujo táctil por toques y arrastre'
+    :'Modo Lápiz: dibujo preciso sin ayudas táctiles persistentes';
+  btn.classList.toggle('on',hand);
 }
 
 function updateScaleTabs(){
@@ -13937,6 +14316,15 @@ document.getElementById('bfreezeiso')?.addEventListener('click',()=>{
 });
 document.getElementById('bpan').addEventListener('click',()=>setTool('pan'));
 document.getElementById('btline').addEventListener('click',()=>{setViewportWorkMode(true,{fit:false});setTool('line');});
+document.getElementById('binputmode')?.addEventListener('click',()=>{
+  S.inputMode=S.inputMode==='hand'?'pen':'hand';
+  updateInputModeButton();
+  clearLineInteractionState(true);
+  if(S.inputMode==='pen') clearProjectionGuide();
+  else if(S.projectionGuide) refreshProjectionGuideVisual();
+  redraw();
+  toast(S.inputMode==='hand'?'Modo Mano activado':'Modo Lápiz activado');
+});
 document.getElementById('bmuro').addEventListener('click',()=>{
   if((S.projectKind||'iso')!=='planta'){
     toast('Muro solo disponible en Planta');
@@ -14257,6 +14645,7 @@ document.addEventListener('keydown',e=>{
 initToolbarDrag();
 ensureBuiltInBlocks();
 updateProfBtn();
+updateInputModeButton();
 document.getElementById('thkVal').textContent=activeProf().thick;
 syncProjectModeUI();
 setTool('line');
