@@ -419,6 +419,9 @@ canvas{position:absolute;inset:0;}
 .numPad .ok{grid-column:1/-1;background:var(--acc);color:#fff;}
 .numPad .clear{background:#4b5563;}
 .numPad.noDecimal button[data-k="."]{opacity:.35;}
+#measureAdjust{position:fixed;z-index:1602;display:none;grid-template-columns:repeat(2,52px);gap:4px;padding:4px;border:1px solid rgba(255,255,255,.18);border-radius:10px;background:rgba(24,30,40,.96);box-shadow:0 8px 20px rgba(0,0,0,.45);transform:translate(-50%,0);touch-action:none;}
+#measureAdjust button{height:28px;border:0;border-radius:8px;background:var(--sur3);color:var(--tx);font-size:16px;font-weight:800;touch-action:none;}
+#measureAdjust button.on{background:var(--acc);color:#fff;box-shadow:0 0 0 1px rgba(79,168,232,.35) inset;}
 /* VP Handles */
 .vph{position:fixed;z-index:150;pointer-events:auto;transform:translate(-50%,-50%);display:none;background:#fff;border:1.5px solid var(--acc2);box-shadow:0 1px 4px rgba(0,0,0,.5);}
 .vph.c{width:18px;height:18px;border-radius:4px;}
@@ -464,6 +467,13 @@ canvas{position:absolute;inset:0;}
 .accQuick button{min-height:34px;border:1px solid rgba(26,127,212,.28);border-radius:9px;background:rgba(0,87,176,.18);color:#dbeafe;font-size:9px;font-weight:800;line-height:1.05;padding:4px;touch-action:none;}
 .accGrid label.pulse{animation:accPulse .35s ease;}
 @keyframes accPulse{0%{box-shadow:0 0 0 0 rgba(79,168,232,.55);}100%{box-shadow:0 0 0 8px rgba(79,168,232,0);}}
+.inspectList{display:grid;gap:7px;margin-top:12px;}
+.inspectItem{width:100%;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;padding:10px 12px;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.03);color:var(--tx);text-align:left;cursor:pointer;touch-action:auto;}
+.inspectItem:active{transform:scale(.985);}
+.inspectItem strong{display:block;font-size:12px;color:var(--tx);line-height:1.2;}
+.inspectMeta{display:block;font-size:10px;color:var(--tx2);margin-top:2px;line-height:1.15;}
+.inspectTag{display:inline-flex;align-items:center;justify-content:center;min-width:54px;padding:5px 7px;border-radius:999px;border:1px solid rgba(79,168,232,.22);background:rgba(79,168,232,.12);color:#bfdbfe;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.35px;}
+.inspectEmpty{padding:12px;border:1px dashed rgba(255,255,255,.12);border-radius:10px;color:var(--tx2);font-size:11px;text-align:center;background:rgba(255,255,255,.02);}
 .startGrid{display:grid;grid-template-columns:1fr;gap:8px;margin-top:10px;}
 .startGrid button,.saveMenu button{border:1px solid rgba(255,255,255,.12);border-radius:10px;background:var(--sur2);color:var(--tx);padding:10px 12px;font-size:13px;font-weight:700;text-align:left;touch-action:auto;}
 .startGrid button:hover,.saveMenu button:hover{background:var(--sur3);}
@@ -768,6 +778,7 @@ canvas{position:absolute;inset:0;}
     <div class="tbtn txt" id="bfitiso" title="Centrar dibujo en viewport">Fit</div>
     <div class="tbtn txt" id="bdetail" title="Generar detalles">Det</div>
     <div class="tbtn txt" id="bnewdetail" title="Crear circulo de detalle manual">+Det</div>
+    <div class="tbtn txt" id="bfreezeiso" title="Congelar interaccion del isometrico">Lock</div>
   </div>
   <div class="toolGroup" data-group="lineas">
     <span class="groupLabel">Líneas</span>
@@ -828,6 +839,7 @@ canvas{position:absolute;inset:0;}
   <div class="toolGroup" data-group="gabinetes">
     <span class="groupLabel">Gabinetes</span>
     <div class="tbtn txt" id="bgabinetes" title="Gabinetes">Bloques ▾</div>
+    <div class="tbtn txt" id="binspect" title="Inspeccionar bloques y accesorios">Insp</div>
     <div id="gabinetesDropdown" class="tool-dropdown">
       <div class="tool-dropdown-item" id="bgab" title="Insertar gabinete">G1</div>
       <div class="tool-dropdown-item" id="bgab2" title="Insertar gabinete doble">G2</div>
@@ -946,6 +958,10 @@ canvas{position:absolute;inset:0;}
     <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
     <button data-k=".">.</button><button data-k="0">0</button><button class="clear" data-act="bk">BK</button>
     <button class="ok" data-act="ok">OK</button>
+  </div>
+  <div id="measureAdjust" aria-label="Modo de ajuste de linea">
+    <button type="button" data-sign="-1">-</button>
+    <button type="button" data-sign="1" class="on">+</button>
   </div>
   <button id="dimDel" type="button" title="Borrar linea">X</button>
 </div>
@@ -1231,6 +1247,17 @@ canvas{position:absolute;inset:0;}
     <div class="mbtns">
       <button class="mcx" onclick="closeM('blockmod')">Cancelar</button>
       <button class="mok" onclick="saveBlock()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<div class="mbg" id="inspectmod">
+  <div class="mod" style="max-width:360px;">
+    <h3>Inspeccionar bloques</h3>
+    <p>Selecciona un bloque o accesorio para centrarlo dentro del viewport y dejarlo seleccionado.</p>
+    <div id="inspectList" class="inspectList"></div>
+    <div class="mbtns">
+      <button class="mcx" onclick="closeM('inspectmod')">Cerrar</button>
     </div>
   </div>
 </div>
@@ -1713,9 +1740,8 @@ function cabinetAnchorCp(cpts){
   }
   return {x:sx/cpts.length,y:sy/cpts.length};
 }
-const CABINET_JOIN_SNAP_R = 34;
-const CABINET_JOIN_ALIGN_R = 140;
 const CABINET_JOIN_MIN_OVERLAP_M = 0.05;
+const CABINET_OUTLET_DETECT_TOL = 0.26;
 let nextCabinetBlockId = 1;
 
 function ensureCabinetBlockId(block){
@@ -1866,9 +1892,9 @@ const GRID_LINE_STEP = GRID_AXIS_STEP * Math.sin(Math.PI/3);
 const GRID_PRESENTATION_MULT = 3;
 const SNAP_R    = 24;   // world px snap radius
 const PROJ_SNAP_R = 16; // projection snap is softer than direct snap
-const LOUPE_R   = 108;  // screen px loupe radius
-const LOUPE_Z   = 3.6;  // loupe zoom
-const MOBILE_LOUPE_TOP_OFFSET = 126;
+const LOUPE_R   = 126;  // screen px loupe radius
+const LOUPE_Z   = 4.0;  // loupe zoom
+const MOBILE_LOUPE_TOP_OFFSET = 152;
 const AUTO_PAN_EDGE_PX = 82;
 const AUTO_PAN_MAX_STEP = 18;
 const MIN_LINE_PX = 60; // short line threshold (screen)
@@ -1878,6 +1904,11 @@ const DIM_TEXT_STEP = 0.1;
 const VP_MIN    = 54;   // touch-friendly minimum viewport size
 const VP_Z_MIN  = 0.08, VP_Z_MAX = 42;
 const GUIDE_R   = 210;  // screen px projection guide reach
+const PROJECTION_POINT_R = 18;
+const PROJECTION_INTERSECTION_R = 20;
+const PROJECTION_LINE_SNAP_R = 34;
+const PROJECTION_ACQUIRE_MS = 500;
+const PROJECTION_ACQUIRE_MOVE_PX = 6;
 
 // â”€â”€ DEFAULT PROFILES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const DEFAULT_PROFILES = [
@@ -1906,8 +1937,10 @@ function mergedProfiles(items){
 // â”€â”€ STATE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const REDUCTION_JOIN_TOL = UNITS_PER_M * 0.035;
 const REDUCTION_COLOR = '#e11d48';
-const CODO_ADAPTADOR_DIAM_M = 0.03;
+const CODO_ADAPTADOR_DIAM_M = 0.022;
 const CODO_ADAPTADOR_COLOR = '#e11d48';
+const EXPORT_LINE_WIDTH_SCALE = 0.82;
+const EXPORT_DETAIL_RING_WIDTH = 1.0;
 const REDUCTION_VIEWS = [
   {id:'inf_der',c:{x:-0.0082495791,y:0.0047628967},l:[[[0.0247487373,-0.0142886902],[0,0.0285773803]],[[-0.0494974747,0],[0,0.0285773803]],[[-0.0494974747,0],[0.0247487373,-0.0142886902]]]},
   {id:'inf_izq',c:{x:-0.0135455903,y:-0.0050065239},l:[[[-0.0465439068,-0.0240581108],[0.0277023052,-0.0097694207]],[[-0.0217951694,0.0188079597],[0.0277023052,-0.0097694207]],[[-0.0217951694,0.0188079597],[-0.0465439068,-0.0240581108]]]},
@@ -1923,6 +1956,8 @@ const VALVE_TARGET_LEN_M = 0.15;
 const PASAMURO_COLOR = '#ef1d1d';
 const PASAMURO_SNAP_R = 34;
 const PASAMURO_DEFAULT_SCALE = 1;
+const INLINE_BLOCK_SNAP_SOFTEN = 0.84;
+const INLINE_BLOCK_SPECIAL_SOFTEN = 0.52;
 const BLOCK_ROTATE_TAP_MS = 260;
 const CABINET_LABEL_TEXT = 'C.M';
 const CABINET_LABEL_H_M = 0.25;
@@ -1977,6 +2012,7 @@ const S = {
   pendingExport:null,
   viewFit:'vp',
   fileName:'plano-gas',
+  fileNameManual:false,
   saveSubfolder:'',
   // drawing
   drag:false, ds:null, de:null,
@@ -1988,6 +2024,7 @@ const S = {
   pendingDimensionPick:false,
   // select / pan
   selLine:null, selBlock:null, selLabel:null, selOpening:null, selDown:null,
+  lineHandleDown:null, lineDragGrip:null, lineDragStart:null, lineDragHistoryPushed:false,
   panPt:null,
   // pinch
   tDist:null, tMid:null,
@@ -1999,12 +2036,15 @@ const S = {
   editingTee:null,
   // viewport
   vp:{...DEFAULT_VP,z:1,px:-DEFAULT_VP.x,py:-DEFAULT_VP.y}, vpSel:false, vpEdit:true, fixedVP:true,
+  isoFrozen:false, frozenHintAt:0,
   detailVP:null, detailVPs:[], activeDetail:null, selDetail:null,
   detailPan:null, detailMove:null, detailResize:null, drawDetail:null,
   vpDrag:null, vpDragStart:null,
   vpMoveDrag:false, vpMoveStart:null,
   guideSnap:null,
+  projectionGuide:null,
   snapPreview:null,
+  blockSnapGuide:null,
   // block lib
   lib:[],
   // last double-tap
@@ -2390,7 +2430,7 @@ const BUILTIN_BLOCKS=[
     ],
     viewCpts:[
       [{x:1021.6,y:218.8},{x:1118.0,y:162.8}],
-      [{x:1022.2,y:245.6},{x:857.0,y:234.4}]
+      [{x:1022.0,y:250.0},{x:1119.5,y:303.5}]
     ],
     scale:GABINETE_DOBLE_DEFAULT_SCALE
   },
@@ -2795,15 +2835,12 @@ function blockConnectionWorldPoints(block){
   }));
 }
 
-function cabinetOutletConnectedTo2025(pt,tol=0.22){
+function cabinetOutletConnectedTo2025(pt,tol=CABINET_OUTLET_DETECT_TOL){
   if(!pt) return false;
   for(const line of S.lines){
     if(lineDiam(line)!=='2025') continue;
-    for(const seg of lineSegmentsForSnap(line)){
-      const a=seg[0], b=seg[1];
-      if(!a||!b) continue;
-      const pr=projectPointToSegment(pt,a,b);
-      if(pr.d<=tol) return true;
+    for(const node of lineSnapPoints(line)){
+      if(Math.hypot(pt.x-node.x,pt.y-node.y)<=tol) return true;
     }
   }
   return false;
@@ -4071,47 +4108,99 @@ function isoSnap(ax,ay,bx,by){
 }
 
 // â”€â”€ SNAP SYSTEM (priority: intersect > endpoint > online) â”€â”€
-function snapAll(wx,wy){
+function snapPriority(type){
+  switch(type){
+    case 'int': return 0;
+    case 'ep': return 1;
+    case 'ol': return 2;
+    default: return 3;
+  }
+}
+
+function pickBetterSnapCandidate(best,candidate){
+  if(!candidate) return best;
+  if(!best) return candidate;
+  const bestPriority=snapPriority(best.type);
+  const candidatePriority=snapPriority(candidate.type);
+  if(candidatePriority!==bestPriority) return candidatePriority<bestPriority ? candidate : best;
+  const bestDistance=Number.isFinite(best.d)?best.d:Infinity;
+  const candidateDistance=Number.isFinite(candidate.d)?candidate.d:Infinity;
+  if(Math.abs(candidateDistance-bestDistance)>1e-6) return candidateDistance<bestDistance ? candidate : best;
+  const bestActual=Number.isFinite(best.actualD)?best.actualD:bestDistance;
+  const candidateActual=Number.isFinite(candidate.actualD)?candidate.actualD:candidateDistance;
+  return candidateActual<bestActual ? candidate : best;
+}
+
+function blockEndpointSnapCandidate(block,wx,wy,baseR){
+  if(!block) return null;
+  const lib=S.lib.find(l=>l.id===block.lid);
+  if(!lib) return null;
+  const cpts=blockCpts(lib,block.vi||0);
+  if(!cpts.length) return null;
+  let best=null;
+  for(const cp of cpts){
+    const px=block.x+cp.x*block.sc;
+    const py=block.y+cp.y*block.sc;
+    const d=Math.hypot(wx-px,wy-py);
+    if(d<=baseR){
+      best=pickBetterSnapCandidate(best,{
+        pt:{x:px,y:py},
+        type:'ep',
+        d,
+        actualD:d,
+        source:'block',
+        block
+      });
+    }
+  }
+  return best;
+}
+
+function snapAll(wx,wy,opts={}){
   if(!S.snap) return null;
   const r=SNAP_R/modelZoom();
+  const ignoreLine=opts?.ignoreLine||null;
+  let best=null;
 
   // 1) Intersection snap
   for(let i=0;i<S.lines.length;i++) for(let j=i+1;j<S.lines.length;j++){
     const li=S.lines[i], lj=S.lines[j];
+    if(li===ignoreLine||lj===ignoreLine) continue;
     const segsI=lineSegmentsForSnap(li), segsJ=lineSegmentsForSnap(lj);
     for(const segI of segsI) for(const segJ of segsJ){
       const pt=segIntersect(segI[0],segI[1],segJ[0],segJ[1]);
       if(pt){
         const d=Math.hypot(wx-pt.x,wy-pt.y);
-        if(d<r) return{pt,type:'int',d};
+        if(d<r) best=pickBetterSnapCandidate(best,{pt,type:'int',d});
       }
     }
   }
   // 2) Endpoint snap
-  for(const l of S.lines) for(const p of lineSnapPoints(l)){
+  for(const l of S.lines){
+    if(l===ignoreLine) continue;
+    for(const p of lineSnapPoints(l)){
     const d=Math.hypot(wx-p.x,wy-p.y);
-    if(d<r) return{pt:{x:p.x,y:p.y},type:'ep',d};
+    if(d<r) best=pickBetterSnapCandidate(best,{pt:{x:p.x,y:p.y},type:'ep',d,source:'line'});
+  }
   }
   // block connection points
   for(const b of S.blocks){
-    const lib=S.lib.find(l=>l.id===b.lid); if(!lib) continue;
-    for(const cp of blockCpts(lib,b.vi||0)){
-      const px2=b.x+cp.x*b.sc,py2=b.y+cp.y*b.sc;
-      const d=Math.hypot(wx-px2,wy-py2);
-      if(d<r) return{pt:{x:px2,y:py2},type:'ep',d};
-    }
+    best=pickBetterSnapCandidate(best,blockEndpointSnapCandidate(b,wx,wy,r));
   }
   // 3) On-line snap (midpoints included)
-  for(const l of S.lines) for(const seg of lineSegmentsForSnap(l)){
+  for(const l of S.lines){
+    if(l===ignoreLine) continue;
+    for(const seg of lineSegmentsForSnap(l)){
     const a=seg[0],b=seg[1];
     const dx2=b.x-a.x,dy2=b.y-a.y,l2=dx2*dx2+dy2*dy2;
     if(l2<1) continue;
     let t=((wx-a.x)*dx2+(wy-a.y)*dy2)/l2; t=Math.max(0.05,Math.min(0.95,t));
     const px2=a.x+t*dx2,py2=a.y+t*dy2;
     const d=Math.hypot(wx-px2,wy-py2);
-    if(d<r*0.7) return{pt:{x:px2,y:py2},type:'ol',d};
+    if(d<r*0.7) best=pickBetterSnapCandidate(best,{pt:{x:px2,y:py2},type:'ol',d,source:'line'});
   }
-  return null;
+  }
+  return best;
 }
 
 function segIntersect(p1,p2,p3,p4){
@@ -4159,6 +4248,51 @@ function guidePoints(){
   return unique;
 }
 
+function cabinetGuideBlocksNearPoint(pt,rad=GUIDE_R/modelZoom()){
+  if(!pt) return [];
+  const hits=[];
+  for(const block of S.blocks){
+    if(!isCabinetBlock(block)) continue;
+    const pts=blockConnectionWorldPoints(block);
+    if(!pts.length) continue;
+    let nearest=Infinity;
+    for(const p of pts){
+      nearest=Math.min(nearest,Math.hypot(pt.x-p.x,pt.y-p.y));
+    }
+    if(nearest<=rad) hits.push({block,pts,nearest});
+  }
+  return hits.sort((a,b)=>a.nearest-b.nearest);
+}
+
+function drawCabinetConnectionGuide(ctx,pt,zoomScale=modelZoom()){
+  if(S.tool!=='line'||!pt) return;
+  const hit=cabinetGuideBlocksNearPoint(pt)[0];
+  if(!hit||!Array.isArray(hit.pts)||!hit.pts.length) return;
+  let activeIndex=0;
+  let activeDist=Infinity;
+  hit.pts.forEach((p,idx)=>{
+    const d=Math.hypot(pt.x-p.x,pt.y-p.y);
+    if(d<activeDist){
+      activeDist=d;
+      activeIndex=idx;
+    }
+  });
+  ctx.save();
+  for(let i=0;i<hit.pts.length;i++){
+    const p=hit.pts[i];
+    const active=i===activeIndex;
+    const radius=(active?6.1:4.7)/zoomScale;
+    ctx.fillStyle=active?'rgba(0,255,163,0.92)':'rgba(79,168,232,0.92)';
+    ctx.strokeStyle=active?'rgba(255,255,255,0.96)':'rgba(255,255,255,0.82)';
+    ctx.lineWidth=(active?1.9:1.2)/zoomScale;
+    ctx.beginPath();
+    ctx.arc(p.x,p.y,radius,0,Math.PI*2);
+    ctx.fill();
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
 function nearestGuides(wx,wy,limit=3,rad=GUIDE_R/modelZoom()){
   return guidePoints()
     .map(p=>({...p,d:Math.hypot(wx-p.x,wy-p.y)}))
@@ -4167,37 +4301,324 @@ function nearestGuides(wx,wy,limit=3,rad=GUIDE_R/modelZoom()){
     .slice(0,limit);
 }
 
-function projectSnap(from,wx,wy){
-  if(!S.snap||!from) return null;
-  const zoom=modelZoom();
-  const r=PROJ_SNAP_R/zoom;
-  const IA = activeProjectionAngles();
-  const raw=Math.atan2(wy-from.y,wx-from.x);
-  let mainA=IA[0],bestA=Infinity;
-  for(const a of IA){
-    let d=Math.abs(raw-a); if(d>Math.PI)d=2*Math.PI-d;
-    if(d<bestA){bestA=d;mainA=a;}
+function projectionGuideType(role){
+  return role==='start' ? 'guideStart' : (role==='mid' ? 'guideMid' : 'guideEnd');
+}
+
+function projectionGuideKey(p){
+  return `${p.role}:${Math.round(p.x*10)}:${Math.round(p.y*10)}`;
+}
+
+function sameProjectionGuidePoint(a,b,tol=0.5){
+  return !!(a&&b&&Math.hypot(a.x-b.x,a.y-b.y)<=tol&&a.role===b.role);
+}
+
+function copyProjectionGuidePoint(p){
+  return p ? {x:p.x,y:p.y,role:p.role,line:p.line||null,type:projectionGuideType(p.role)} : null;
+}
+
+function angularDistance(a,b){
+  let d=Math.abs(a-b);
+  if(d>Math.PI) d=2*Math.PI-d;
+  return d;
+}
+
+function projectionAnglesForPoint(ref,target){
+  const angles=activeProjectionAngles();
+  if(!angles.length) return [];
+  const raw=target ? Math.atan2(target.y-ref.y,target.x-ref.x) : angles[0];
+  const verticalAngles=angles.filter(a=>Math.abs(Math.cos(a))<0.26);
+  const obliqueAngles=angles.filter(a=>Math.abs(Math.cos(a))>=0.26);
+  const pickNearest=(pool,fallback)=>{
+    const src=(pool&&pool.length)?pool:(fallback&&fallback.length?fallback:angles);
+    let best=src[0], bestD=Infinity;
+    for(const a of src){
+      const d=angularDistance(raw,a);
+      if(d<bestD){ bestD=d; best=a; }
+    }
+    return best;
+  };
+  const primary=pickNearest(obliqueAngles,angles);
+  const vertical=pickNearest(verticalAngles,angles.filter(a=>angularDistance(a,primary)>0.12));
+  const unique=[];
+  for(const a of [primary,vertical]){
+    if(Number.isFinite(a)&&!unique.some(v=>angularDistance(v,a)<0.01)) unique.push(a);
   }
-  const dir={x:Math.cos(mainA),y:Math.sin(mainA)};
-  const ray2={x:from.x+dir.x*10000,y:from.y+dir.y*10000};
-  let best=null,bd=r;
-  for(const g of nearestGuides(wx,wy,4,GUIDE_R/zoom)){
-    for(const a of IA){
-      const gd={x:Math.cos(a),y:Math.sin(a)};
-      const pt=lineIntersect(from,ray2,{x:g.x-gd.x*10000,y:g.y-gd.y*10000},{x:g.x+gd.x*10000,y:g.y+gd.y*10000});
-      if(!pt||pt.t<-0.001) continue;
-      const d=Math.hypot(wx-pt.x,wy-pt.y);
-      if(d<bd&&Math.hypot(pt.x-from.x,pt.y-from.y)>2/zoom){
-        bd=d; best={pt:{x:pt.x,y:pt.y},type:'proj',d,anchor:g,angle:a};
+  return unique.length ? unique : angles.slice(0,2);
+}
+
+function primaryProjectionAxis(from,target){
+  if(!from||!target) return null;
+  const angles=activeProjectionAngles();
+  if(!angles.length) return null;
+  const raw=Math.atan2(target.y-from.y,target.x-from.x);
+  let best=angles[0], bestD=Infinity;
+  for(const a of angles){
+    const d=angularDistance(raw,a);
+    if(d<bestD){
+      bestD=d;
+      best=a;
+    }
+  }
+  return best;
+}
+
+function projectionGuideLines(state,target){
+  const refs=Array.isArray(state?.refs)?state.refs.slice(0,2):[];
+  const out=[];
+  for(const ref of refs){
+    for(const angle of projectionAnglesForPoint(ref,target)){
+      if(out.some(item=>sameProjectionGuidePoint(item.ref,ref,0.5)&&angularDistance(item.angle,angle)<0.01)) continue;
+      out.push({ref,angle});
+    }
+  }
+  return out;
+}
+
+function projectionGuidePoints(opts={}){
+  const ignoreLine=opts?.ignoreLine||null;
+  const pts=[];
+  for(const line of S.lines){
+    if(line===ignoreLine||!line?.pts||line.pts.length<2) continue;
+    const handles=lineEditHandles(line);
+    for(const handle of handles){
+      const role=handle.anchor||'mid';
+      pts.push({
+        x:handle.pt.x,
+        y:handle.pt.y,
+        role,
+        line,
+        type:projectionGuideType(role)
+      });
+    }
+  }
+  const unique=[];
+  for(const p of pts){
+    const existing=unique.find(q=>Math.hypot(q.x-p.x,q.y-p.y)<0.5);
+    if(!existing){
+      unique.push(p);
+      continue;
+    }
+    if(existing.role==='mid'&&p.role!=='mid'){
+      existing.role=p.role;
+      existing.type=projectionGuideType(p.role);
+      existing.line=p.line;
+    }
+  }
+  return unique;
+}
+
+function nearestProjectionGuidePoint(wx,wy,opts={}){
+  const r=(opts.radiusPx||PROJECTION_POINT_R)/modelZoom();
+  let best=null;
+  for(const p of projectionGuidePoints(opts)){
+    const d=Math.hypot(wx-p.x,wy-p.y);
+    if(d<=r&&(!best||d<best.d)) best={...p,d};
+  }
+  return best;
+}
+
+function projectionIntersectionFromRefs(refA,refB,target){
+  if(!refA||!refB) return null;
+  const axesA=projectionAnglesForPoint(refA,target);
+  const axesB=projectionAnglesForPoint(refB,target);
+  let best=null;
+  for(const angleA of axesA){
+    const dirA={x:Math.cos(angleA),y:Math.sin(angleA)};
+    const a2={x:refA.x+dirA.x*10000,y:refA.y+dirA.y*10000};
+    for(const angleB of axesB){
+      if(angularDistance(angleA,angleB)<0.1) continue;
+      const dirB={x:Math.cos(angleB),y:Math.sin(angleB)};
+      const b1={x:refB.x-dirB.x*10000,y:refB.y-dirB.y*10000};
+      const b2={x:refB.x+dirB.x*10000,y:refB.y+dirB.y*10000};
+      const cross=lineIntersect(refA,a2,b1,b2);
+      if(!cross) continue;
+      const d=Math.hypot(target.x-cross.x,target.y-cross.y);
+      if(!best||d<best.d){
+        best={pt:{x:cross.x,y:cross.y},d,angleA,angleB};
       }
     }
   }
   return best;
 }
 
-function smartSnap(wx,wy,from=null){
-  const direct=snapAll(wx,wy);
-  const proj=projectSnap(from,wx,wy);
+function refreshProjectionGuideVisual(){
+  redraw();
+  const state=S.projectionGuide;
+  const cursor=state?.cursor||null;
+  if(cursor?.world){
+    drawOverlay(cursor.world,cursor.detail||null);
+    if(cursor.screen) drawLoupe(cursor.screen.x,cursor.screen.y);
+  }
+}
+
+function acquireProjectionReferencePoint(point){
+  if(!point) return;
+  const state=S.projectionGuide&&Array.isArray(S.projectionGuide.refs)
+    ? S.projectionGuide
+    : {refs:[],hover:null,lastHoverKey:'',intersection:null,pending:null,cursor:null};
+  const next=copyProjectionGuidePoint(point);
+  if(!state.refs.length){
+    state.refs=[next];
+  }else if(state.refs.length===1){
+    if(!sameProjectionGuidePoint(state.refs[0],next)) state.refs=[state.refs[0],next];
+  }else if(!sameProjectionGuidePoint(state.refs[0],next)&&!sameProjectionGuidePoint(state.refs[1],next)){
+    state.refs=[next];
+  }
+  if(state.pending?.timer){
+    clearTimeout(state.pending.timer);
+  }
+  state.pending=null;
+  S.projectionGuide=state;
+}
+
+function clearProjectionAcquireTimer(state=S.projectionGuide){
+  if(state?.pending?.timer) clearTimeout(state.pending.timer);
+  if(state?.pending) state.pending=null;
+}
+
+function clearProjectionGuide(){
+  clearProjectionAcquireTimer();
+  S.projectionGuide=null;
+}
+
+function updateProjectionGuideState(wx,wy,opts={}){
+  const allowProjection=S.tool==='line'||S.tool==='sel'||!!S.lineEditLine;
+  if(!S.snap||!allowProjection){
+    clearProjectionGuide();
+    return null;
+  }
+  const hover=nearestProjectionGuidePoint(wx,wy,opts);
+  const state=S.projectionGuide&&Array.isArray(S.projectionGuide.refs)
+    ? S.projectionGuide
+    : {refs:[],hover:null,lastHoverKey:'',intersection:null,pending:null,cursor:null};
+  state.cursor={
+    world:{x:wx,y:wy},
+    detail:opts.detail||null,
+    screen:opts.screen?{x:opts.screen.x,y:opts.screen.y}:null
+  };
+  state.hover=hover?copyProjectionGuidePoint(hover):null;
+  if(hover){
+    const key=projectionGuideKey(hover);
+    const alreadyAcquired=(state.refs||[]).some(ref=>sameProjectionGuidePoint(ref,hover));
+    const pending=state.pending;
+    const movedTooMuch=!!(pending&&opts.screen&&pending.screen&&Math.hypot(opts.screen.x-pending.screen.x,opts.screen.y-pending.screen.y)>PROJECTION_ACQUIRE_MOVE_PX);
+    if(alreadyAcquired){
+      clearProjectionAcquireTimer(state);
+      state.lastHoverKey=key;
+    }else if(!pending||pending.key!==key||movedTooMuch){
+      clearProjectionAcquireTimer(state);
+      state.pending={
+        key,
+        point:copyProjectionGuidePoint(hover),
+        screen:opts.screen?{x:opts.screen.x,y:opts.screen.y}:null,
+        startedAt:Date.now(),
+        timer:setTimeout(()=>{
+          const current=S.projectionGuide;
+          if(!current?.pending||current.pending.key!==key) return;
+          acquireProjectionReferencePoint(current.pending.point);
+          if(S.projectionGuide){
+            S.projectionGuide.lastHoverKey=key;
+            S.projectionGuide.intersection=(S.projectionGuide.refs||[]).length===2
+              ? projectionIntersectionFromRefs(S.projectionGuide.refs[0],S.projectionGuide.refs[1],S.projectionGuide.cursor?.world||{x:hover.x,y:hover.y})
+              : null;
+          }
+          refreshProjectionGuideVisual();
+        },PROJECTION_ACQUIRE_MS)
+      };
+    }
+  }else{
+    state.lastHoverKey='';
+    clearProjectionAcquireTimer(state);
+  }
+  state.refs=(state.refs||[]).filter(Boolean).slice(-2);
+  state.intersection=state.refs.length===2
+    ? projectionIntersectionFromRefs(state.refs[0],state.refs[1],{x:wx,y:wy})
+    : null;
+  S.projectionGuide=(state.refs.length||state.hover||state.intersection) ? state : null;
+  return S.projectionGuide;
+}
+
+function projectionLineSnap(from,wx,wy,state,opts={}){
+  if(!from||!state) return null;
+  const drawAngle=primaryProjectionAxis(from,{x:wx,y:wy});
+  if(!Number.isFinite(drawAngle)) return null;
+  const zoom=modelZoom();
+  const r=(opts.radiusPx||PROJECTION_LINE_SNAP_R)/zoom;
+  const dir={x:Math.cos(drawAngle),y:Math.sin(drawAngle)};
+  const ray2={x:from.x+dir.x*10000,y:from.y+dir.y*10000};
+  let best=null;
+  for(const item of projectionGuideLines(state,{x:wx,y:wy})){
+    const gd={x:Math.cos(item.angle),y:Math.sin(item.angle)};
+    const g1={x:item.ref.x-gd.x*10000,y:item.ref.y-gd.y*10000};
+    const g2={x:item.ref.x+gd.x*10000,y:item.ref.y+gd.y*10000};
+    const nearParallel=angularDistance(drawAngle,item.angle)<0.08;
+    if(nearParallel){
+      const fromProj=projectPointToSegment(from,g1,g2);
+      if(fromProj.d<=r*0.9){
+        const cursorProj=projectPointToSegment({x:wx,y:wy},g1,g2);
+        const forward=((cursorProj.pt.x-from.x)*dir.x)+((cursorProj.pt.y-from.y)*dir.y);
+        if(cursorProj.d<=r&&forward>2/zoom){
+          const d=Math.hypot(wx-cursorProj.pt.x,wy-cursorProj.pt.y);
+          if(!best||d<best.d){
+            best={
+              pt:{x:cursorProj.pt.x,y:cursorProj.pt.y},
+              type:'proj',
+              d,
+              projection:state,
+              anchor:item.ref,
+              angle:item.angle,
+              drawAngle,
+              mode:'collinear'
+            };
+          }
+        }
+      }
+    }
+    const cross=lineIntersect(from,ray2,g1,g2);
+    if(!cross||cross.t<-0.001) continue;
+    const d=Math.hypot(wx-cross.x,wy-cross.y);
+    if(d>r||Math.hypot(cross.x-from.x,cross.y-from.y)<=2/zoom) continue;
+    if(!best||d<best.d){
+      best={
+        pt:{x:cross.x,y:cross.y},
+        type:'proj',
+        d,
+        projection:state,
+        anchor:item.ref,
+        angle:item.angle,
+        drawAngle
+      };
+    }
+  }
+  return best;
+}
+
+function projectSnap(from,wx,wy,opts={}){
+  if(!S.snap) return null;
+  const state=updateProjectionGuideState(wx,wy,opts);
+  const lineSnap=projectionLineSnap(from,wx,wy,state,opts);
+  let crossSnap=null;
+  if(state?.intersection){
+    const r=(opts.radiusPx||PROJECTION_INTERSECTION_R)/modelZoom();
+    if(state.intersection.d<=r){
+      crossSnap={
+        pt:{...state.intersection.pt},
+        type:'proj',
+        d:state.intersection.d,
+        projection:state,
+        angleA:state.intersection.angleA,
+        angleB:state.intersection.angleB
+      };
+    }
+  }
+  if(crossSnap&&lineSnap) return crossSnap.d<=lineSnap.d ? crossSnap : lineSnap;
+  return crossSnap||lineSnap;
+}
+
+function smartSnap(wx,wy,from=null,opts={}){
+  const direct=snapAll(wx,wy,opts);
+  const proj=projectSnap(from,wx,wy,opts);
   S.guideSnap=(proj&&(!direct||proj.d<direct.d))?proj:null;
   if(S.guideSnap) return S.guideSnap;
   return direct;
@@ -4562,8 +4983,8 @@ function insertWallRectanglePreset(widthM=7,heightM=15){
 }
 
 // Snap dot color by type
-const SNAP_COLORS={ep:'#00ffa3',int:'#f59e0b',ol:'#4fa8e8',proj:'#00d5ff',pm:'#7dd3fc'};
-const SNAP_SIZES ={ep:8,int:9,ol:7,proj:8,pm:6};
+const SNAP_COLORS={ep:'#00ffa3',int:'#f59e0b',ol:'#4fa8e8',proj:'#a855f7',pm:'#7dd3fc',guideStart:'#38bdf8',guideMid:'#22c55e',guideEnd:'#ef4444'};
+const SNAP_SIZES ={ep:8,int:9,ol:7,proj:8,pm:6,guideStart:9,guideMid:9,guideEnd:9};
 
 function showSnapDot(screenX,screenY,type){
   const col=SNAP_COLORS[type]||'#00ffa3';
@@ -4571,18 +4992,73 @@ function showSnapDot(screenX,screenY,type){
   DOT.style.left=screenX+'px'; DOT.style.top=screenY+'px';
   DOT.style.display='block';
   DOT.style.background=type==='proj'
-    ?'rgba(0,213,255,.18)'
-    :(type==='pm'?'rgba(125,211,252,.18)':col);
+    ?'rgba(168,85,247,.18)'
+    :(type==='pm'
+      ?'rgba(125,211,252,.18)'
+      :(type==='guideStart'||type==='guideMid'||type==='guideEnd'
+        ?`${col}22`
+        :col));
   DOT.style.border=type==='proj'
     ?`3px solid ${col}`
-    :(type==='pm'?'1.5px solid rgba(125,211,252,.85)':'2px solid rgba(255,255,255,.72)');
+    :(type==='pm'
+      ?'1.5px solid rgba(125,211,252,.85)'
+      :(type==='guideStart'||type==='guideMid'||type==='guideEnd'
+        ?`2px solid ${col}`
+        :'2px solid rgba(255,255,255,.72)'));
   const sz=SNAP_SIZES[type]||12;
   DOT.style.width=sz+'px'; DOT.style.height=sz+'px';
-  DOT.style.boxShadow=type==='pm'?`0 0 7px rgba(125,211,252,.55)`: `0 0 10px ${col}`;
+  DOT.style.boxShadow=type==='pm'
+    ?`0 0 7px rgba(125,211,252,.55)`
+    :`0 0 10px ${col}`;
 }
 
 // â”€â”€ REFERENCE LINES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+function drawProjectionGuideState(ctx,curW,zoomScale=modelZoom()){
+  const guide=S.projectionGuide;
+  if(!guide) return false;
+  const target=curW||guide.intersection?.pt||guide.hover||guide.refs[guide.refs.length-1];
+  if(!target) return false;
+  const refs=(guide.refs||[]).slice(0,2);
+  if(!refs.length) return false;
+  ctx.save();
+  ctx.setLineDash([2.1/zoomScale,7.6/zoomScale]);
+  ctx.lineCap='round';
+  for(const item of projectionGuideLines(guide,target)){
+    const dx=Math.cos(item.angle), dy=Math.sin(item.angle);
+    ctx.strokeStyle='rgba(125,131,146,.62)';
+    ctx.lineWidth=1.05/zoomScale;
+    ctx.beginPath();
+    ctx.moveTo(item.ref.x-dx*5000,item.ref.y-dy*5000);
+    ctx.lineTo(item.ref.x+dx*5000,item.ref.y+dy*5000);
+    ctx.stroke();
+  }
+  ctx.setLineDash([]);
+  for(const ref of refs){
+    const active=guide.hover&&sameProjectionGuidePoint(ref,guide.hover,0.75);
+    const color=SNAP_COLORS[projectionGuideType(ref.role)]||'#4fa8e8';
+    ctx.fillStyle=active?color:`${color}B8`;
+    ctx.strokeStyle='rgba(255,255,255,.85)';
+    ctx.lineWidth=(active?1.5:1.0)/zoomScale;
+    ctx.beginPath();
+    ctx.arc(ref.x,ref.y,(active?5.6:4.1)/zoomScale,0,Math.PI*2);
+    ctx.fill();
+    ctx.stroke();
+  }
+  if(guide.intersection){
+    ctx.fillStyle='rgba(168,85,247,.24)';
+    ctx.strokeStyle='rgba(168,85,247,.98)';
+    ctx.lineWidth=1.2/zoomScale;
+    ctx.beginPath();
+    ctx.arc(guide.intersection.pt.x,guide.intersection.pt.y,6.2/zoomScale,0,Math.PI*2);
+    ctx.fill();
+    ctx.stroke();
+  }
+  ctx.restore();
+  return true;
+}
+
 function drawRefLines(ctx,curW,zoomScale=modelZoom()){
+  if((S.tool==='line'||S.tool==='sel'||S.lineEditLine)&&drawProjectionGuideState(ctx,curW,zoomScale)) return;
   if(!S.guideSnap||!S.guideSnap.anchor) return;
   const a=S.guideSnap.angle, near=S.guideSnap.anchor;
   const cx=Math.cos(a),cy=Math.sin(a);
@@ -4843,7 +5319,7 @@ function redraw(){
   updateScaleLabel();
 }
 
-function drawLine(ctx,l,sel,zoomScale=modelZoom()){
+function drawLine(ctx,l,sel,zoomScale=modelZoom(),lineWidthScale=1){
   if(l.pts.length<2) return;
   if(isWallLine(l)){
     drawWallLine(ctx,l,sel,zoomScale,false);
@@ -4851,22 +5327,22 @@ function drawLine(ctx,l,sel,zoomScale=modelZoom()){
   }
   const prof=S.profiles.find(p=>p.id===l.profId)||S.profiles[0];
   for(let i=1;i<l.pts.length;i++){
-    drawLineSegment(ctx,l.pts[i-1],l.pts[i],prof,sel,zoomScale);
+    drawLineSegment(ctx,l.pts[i-1],l.pts[i],prof,sel,zoomScale,lineWidthScale);
   }
 }
 
-function drawLineSegment(ctx,a,b,prof,sel,zoomScale){
+function drawLineSegment(ctx,a,b,prof,sel,zoomScale,lineWidthScale=1){
   const hidden=hiddenIntervalsForSegment(a,b);
   let t=0;
   for(const h of hidden){
-    if(h.t0>t) strokeLinePiece(ctx,a,b,t,h.t0,prof,sel,zoomScale,false);
-    strokeLinePiece(ctx,a,b,h.t0,h.t1,prof,sel,zoomScale,true);
+    if(h.t0>t) strokeLinePiece(ctx,a,b,t,h.t0,prof,sel,zoomScale,false,lineWidthScale);
+    strokeLinePiece(ctx,a,b,h.t0,h.t1,prof,sel,zoomScale,true,lineWidthScale);
     t=Math.max(t,h.t1);
   }
-  if(t<1) strokeLinePiece(ctx,a,b,t,1,prof,sel,zoomScale,false);
+  if(t<1) strokeLinePiece(ctx,a,b,t,1,prof,sel,zoomScale,false,lineWidthScale);
 }
 
-function strokeLinePiece(ctx,a,b,t0,t1,prof,sel,zoomScale,hidden=false){
+function strokeLinePiece(ctx,a,b,t0,t1,prof,sel,zoomScale,hidden=false,lineWidthScale=1){
   if(t1-t0<0.001) return;
   const p0=lerpPt(a,b,t0), p1=lerpPt(a,b,t1);
   if(Math.hypot(p1.x-p0.x,p1.y-p0.y)<0.05) return;
@@ -4874,7 +5350,7 @@ function strokeLinePiece(ctx,a,b,t0,t1,prof,sel,zoomScale,hidden=false){
   ctx.moveTo(p0.x,p0.y);
   ctx.lineTo(p1.x,p1.y);
   ctx.strokeStyle=sel?'#4fa8e8':prof.color;
-  ctx.lineWidth=(sel?prof.thick+0.8:prof.thick)/zoomScale;
+  ctx.lineWidth=((sel?prof.thick+0.8:prof.thick)*lineWidthScale)/zoomScale;
   ctx.lineCap='square'; ctx.lineJoin='miter';
   ctx.setLineDash(hidden?[11/zoomScale,8/zoomScale]:(sel?[5/zoomScale,3/zoomScale]:dashArray(prof,zoomScale)));
   ctx.stroke(); ctx.setLineDash([]);
@@ -6211,8 +6687,8 @@ function pickPasamuroViewForVec(vec,currentId=null){
 }
 
 function nearestLinePointForPasamuro(wx,wy){
-  const tol=PASAMURO_SNAP_R/modelZoom();
-  const specialTol=Math.max(12/modelZoom(),tol*0.48);
+  const tol=(PASAMURO_SNAP_R*INLINE_BLOCK_SNAP_SOFTEN)/modelZoom();
+  const specialTol=Math.max(11/modelZoom(),tol*INLINE_BLOCK_SPECIAL_SOFTEN);
   let best=null;
   for(const l of S.lines){
     if(isWallLine(l)) continue;
@@ -6240,6 +6716,9 @@ function nearestLinePointForPasamuro(wx,wy){
         d:exact?exact.d:d,
         vec:{x:dx,y:dy},
         type:exact?exact.type:'ol',
+        snapDotType:exact
+          ?(exact.role==='start'?'guideStart':(exact.role==='mid'?'guideMid':'guideEnd'))
+          :'pm',
         role:exact?exact.role:'line',
         label:exact?exact.label:''
       };
@@ -6250,7 +6729,8 @@ function nearestLinePointForPasamuro(wx,wy){
 }
 
 function nearestLinePointForValve(wx,wy,diam){
-  const tol=VALVE_SNAP_R/modelZoom();
+  const tol=(VALVE_SNAP_R*INLINE_BLOCK_SNAP_SOFTEN)/modelZoom();
+  const specialTol=Math.max(11/modelZoom(),tol*INLINE_BLOCK_SPECIAL_SOFTEN);
   let best=null;
   for(const l of S.lines){
     if(lineDiam(l)!==diam) continue;
@@ -6261,24 +6741,107 @@ function nearestLinePointForValve(wx,wy,diam){
       const t=Math.max(0,Math.min(1,((wx-a.x)*dx+(wy-a.y)*dy)/len2));
       const p={x:a.x+dx*t,y:a.y+dy*t};
       const d=Math.hypot(wx-p.x,wy-p.y);
-      if(d<=tol&&(!best||d<best.d)) best={line:l,seg:i-1,a,b,p,t,d,vec:{x:dx,y:dy}};
+      if(d>tol) continue;
+      const mid={x:(a.x+b.x)*0.5,y:(a.y+b.y)*0.5};
+      const specials=[
+        {role:'start',label:'Inicio',type:'ep',p:a,d:Math.hypot(wx-a.x,wy-a.y)},
+        {role:'end',label:'Fin',type:'ep',p:b,d:Math.hypot(wx-b.x,wy-b.y)},
+        {role:'mid',label:'Medio',type:'int',p:mid,d:Math.hypot(wx-mid.x,wy-mid.y)}
+      ].filter(item=>item.d<=specialTol)
+       .sort((m,n)=>m.d-n.d);
+      const exact=specials[0]||null;
+      const candidate={
+        line:l,
+        seg:i-1,
+        a,b,
+        p:exact?exact.p:p,
+        t,
+        d:exact?exact.d:d,
+        vec:{x:dx,y:dy},
+        role:exact?exact.role:'line',
+        label:exact?exact.label:'',
+        type:exact?exact.type:'ol',
+        snapDotType:exact
+          ?(exact.role==='start'?'guideStart':(exact.role==='mid'?'guideMid':'guideEnd'))
+          :'ol'
+      };
+      if(!best||candidate.d<best.d) best=candidate;
     }
   }
   return best;
 }
 
+function setInlineBlockSnapGuide(snap){
+  if(!snap?.a||!snap?.b){
+    S.blockSnapGuide=null;
+    return;
+  }
+  const mid={x:(snap.a.x+snap.b.x)*0.5,y:(snap.a.y+snap.b.y)*0.5};
+  S.blockSnapGuide={
+    a:{...snap.a},
+    b:{...snap.b},
+    current:{...snap.p},
+    activeRole:snap.role||'line',
+    points:[
+      {role:'start',p:{...snap.a},color:SNAP_COLORS.guideStart},
+      {role:'mid',p:mid,color:SNAP_COLORS.guideMid},
+      {role:'end',p:{...snap.b},color:SNAP_COLORS.guideEnd}
+    ]
+  };
+}
+
+function clearInlineBlockSnapGuide(clearOverlay=false){
+  S.blockSnapGuide=null;
+  if(clearOverlay) ox.clearRect(0,0,OC.width,OC.height);
+}
+
+function drawInlineBlockSnapGuide(ctx,zoomScale=modelZoom()){
+  const guide=S.blockSnapGuide;
+  if(!guide?.a||!guide?.b) return;
+  ctx.save();
+  ctx.strokeStyle='rgba(255,255,255,.42)';
+  ctx.lineWidth=1.4/zoomScale;
+  ctx.beginPath();
+  ctx.moveTo(guide.a.x,guide.a.y);
+  ctx.lineTo(guide.b.x,guide.b.y);
+  ctx.stroke();
+  for(const item of guide.points||[]){
+    const active=item.role===guide.activeRole;
+    const radius=(active?6.4:4.9)/zoomScale;
+    ctx.fillStyle=active?item.color:`${item.color}B8`;
+    ctx.strokeStyle=active?'rgba(255,255,255,.92)':'rgba(255,255,255,.7)';
+    ctx.lineWidth=(active?1.8:1.2)/zoomScale;
+    ctx.beginPath();
+    ctx.arc(item.p.x,item.p.y,radius,0,Math.PI*2);
+    ctx.fill();
+    ctx.stroke();
+  }
+  if(guide.current&&guide.activeRole==='line'){
+    ctx.fillStyle='rgba(125,211,252,.95)';
+    ctx.strokeStyle='rgba(255,255,255,.88)';
+    ctx.lineWidth=1.1/zoomScale;
+    ctx.beginPath();
+    ctx.arc(guide.current.x,guide.current.y,4.5/zoomScale,0,Math.PI*2);
+    ctx.fill();
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
 function moveValveWithSnap(block,wx,wy,screenPt=null){
   const snap=nearestLinePointForValve(wx,wy,block.diam);
   if(snap){
+    setInlineBlockSnapGuide(snap);
     block.x=snap.p.x; block.y=snap.p.y;
     block.hostLineId=snap.line.id||null;
     block.hostSeg=snap.seg;
     block.free=false;
     block.vi=pickValveViewForVec(snap.vec,block.vi).id;
     const ss=screenPt||modelToScreen(snap.p);
-    showSnapDot(ss.x,ss.y,'int');
+    showSnapDot(ss.x,ss.y,snap.snapDotType||'ol');
     return snap;
   }
+  clearInlineBlockSnapGuide();
   block.x=wx; block.y=wy;
   block.free=true; block.hostLineId=null; block.hostSeg=null;
   DOT.style.display='none';
@@ -6303,6 +6866,7 @@ function showPasamuroSnapHint(label){
 function movePasamuroWithSnap(block,wx,wy,screenPt=null){
   const snap=nearestLinePointForPasamuro(wx,wy);
   if(snap){
+    setInlineBlockSnapGuide(snap);
     block.x=snap.p.x;
     block.y=snap.p.y;
     block.hostLineId=snap.line.id||null;
@@ -6310,10 +6874,11 @@ function movePasamuroWithSnap(block,wx,wy,screenPt=null){
     block.free=false;
     block.vi=pickPasamuroViewForVec(snap.vec,block.vi).id;
     const ss=screenPt||modelToScreen(snap.p);
-    showSnapDot(ss.x,ss.y,'pm');
+    showSnapDot(ss.x,ss.y,snap.snapDotType||'pm');
     showPasamuroSnapHint(snap.label);
     return snap;
   }
+  clearInlineBlockSnapGuide();
   block.x=wx;
   block.y=wy;
   block.free=true;
@@ -7522,6 +8087,24 @@ function detailList(){
   return S.detailVPs;
 }
 
+function updateViewportStatusChip(){
+  const chip=document.getElementById('vpchip');
+  if(!chip) return;
+  chip.textContent=S.isoFrozen?'ISO congelado':'VP';
+  chip.style.display=(S.vpEdit||S.isoFrozen)?'block':'none';
+}
+
+function isFrozenViewportTap(paper,detail=null){
+  return !!(S.isoFrozen&&S.vpEdit&&S.vp&&!detail&&hitVP(paper.x,paper.y));
+}
+
+function showFrozenViewportHint(){
+  const now=Date.now();
+  if(now-(S.frozenHintAt||0)<900) return;
+  S.frozenHintAt=now;
+  toast('ISO congelado: trabaja en el detalle o desactiva Lock');
+}
+
 function drawDetailDim(ctx,l,d,occupied=[],obstacles=[]){
   const p0=detailModelToScreen(d,l.pts[0]);
   const p1=detailModelToScreen(d,l.pts[l.pts.length-1]);
@@ -7741,6 +8324,78 @@ function nearestBlockToPoint(filter,pt){
   return best&&best.b;
 }
 
+function inspectBlockBaseName(block){
+  if(!block) return 'Bloque';
+  if(isValveBlock(block)) return block.diam==='2025' ? 'Valvula 20/25' : 'Valvula 12/16';
+  if(isPasamuroBlock(block)) return 'Pasamuro';
+  const lib=S.lib.find(l=>l.id===block.lid);
+  return lib?.name||'Bloque';
+}
+
+function inspectBlockTag(block){
+  if(!block) return 'Bloque';
+  if(isCabinetBlock(block)) return 'Gabinete';
+  if(isValveBlock(block)) return 'Valvula';
+  if(isPasamuroBlock(block)) return 'Pasamuro';
+  return 'Bloque';
+}
+
+function escapeInspectHtml(text){
+  return String(text??'')
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
+}
+
+function inspectBlockItems(){
+  const items=[];
+  const counts=new Map();
+  (S.blocks||[]).forEach((block,index)=>{
+    if(!block) return;
+    const baseName=inspectBlockBaseName(block);
+    const seq=(counts.get(baseName)||0)+1;
+    counts.set(baseName,seq);
+    items.push({
+      index,
+      block,
+      baseName,
+      tag:inspectBlockTag(block),
+      label:`${baseName} ${seq}`,
+      viewLabel:Number.isFinite(block.vi)?`Vista ${Number(block.vi)+1}`:'',
+      scaleLabel:`${Number(block.sc||1).toFixed(2)}x`
+    });
+  });
+  return items;
+}
+
+function renderInspectBlockList(){
+  const host=document.getElementById('inspectList');
+  if(!host) return [];
+  const items=inspectBlockItems();
+  if(!items.length){
+    host.innerHTML='<div class="inspectEmpty">Todavia no hay bloques ni accesorios insertados.</div>';
+    return items;
+  }
+  host.innerHTML=items.map(item=>{
+    const meta=escapeInspectHtml([item.tag,item.viewLabel,item.scaleLabel].filter(Boolean).join(' · '));
+    const label=escapeInspectHtml(item.label);
+    const tag=escapeInspectHtml(item.tag);
+    return `<button type="button" class="inspectItem" data-index="${item.index}">
+      <span>
+        <strong>${label}</strong>
+        <span class="inspectMeta">${meta}</span>
+      </span>
+      <span class="inspectTag">${tag}</span>
+    </button>`;
+  }).join('');
+  host.querySelectorAll('.inspectItem').forEach(btn=>{
+    btn.addEventListener('click',()=>selectInspectBlock(Number(btn.dataset.index)));
+  });
+  return items;
+}
+
 function circleHitsBox(c,r,b){
   const x=Math.max(b.minX,Math.min(c.x,b.maxX));
   const y=Math.max(b.minY,Math.min(c.y,b.maxY));
@@ -7803,6 +8458,30 @@ function scoreDetailCandidate(c,r,others,obstacles,anchor){
   return score-r*.18;
 }
 
+function autoDetailFamily(autoId=''){
+  if(autoId.startsWith('auto-tee-')||autoId.startsWith('auto-reduccion-')) return 'small';
+  if(autoId==='auto-valvula-1216-codo'||autoId==='auto-codo-adaptador-1216') return 'medium';
+  return 'large';
+}
+
+function autoDetailBaseRadius(autoId,vp){
+  const size=Math.min(vp.w,vp.h);
+  const family=autoDetailFamily(autoId);
+  if(family==='large') return Math.max(86,Math.min(108,size*0.19));
+  if(family==='medium') return Math.max(72,Math.min(92,size*0.16));
+  return Math.max(54,Math.min(66,size*0.12));
+}
+
+function snapDetailCandidateToGrid(base,rr,vp){
+  const grid=Math.max(22,Math.round(Math.min(vp.w,vp.h)/12));
+  const minX=vp.x+rr, maxX=vp.x+vp.w-rr;
+  const minY=vp.y+rr, maxY=vp.y+vp.h-rr;
+  return {
+    x:Math.min(maxX,Math.max(minX,vp.x+Math.round((base.x-vp.x)/grid)*grid)),
+    y:Math.min(maxY,Math.max(minY,vp.y+Math.round((base.y-vp.y)/grid)*grid))
+  };
+}
+
 function placeAutoDetailViewport(autoId,bounds,anchorPaper,idx){
   const vp=ensureVP();
   if(!vp||!bounds||!anchorPaper) return null;
@@ -7814,19 +8493,20 @@ function placeAutoDetailViewport(autoId,bounds,anchorPaper,idx){
   }
   d.visible=true;
   d.active=false;
-  const maxR=Math.min(vp.w,vp.h)*0.28;
-  const minR=Math.max(46,Math.min(vp.w,vp.h)*0.13);
+  const baseR=autoDetailBaseRadius(autoId,vp);
   const others=detailList().filter(x=>x&&x!==d&&x.visible);
   const obstacles=detailPlacementObstacles();
   let best=null;
   
   // Usar una rejilla más densa (5x5) para maximizar la probabilidad de evitar choques en la hoja
-  const cols=[0.15, 0.32, 0.50, 0.68, 0.85], rows=[0.15, 0.32, 0.50, 0.68, 0.85];
+  const cols=[0.18,0.34,0.50,0.66,0.82], rows=[0.18,0.35,0.52,0.69,0.84];
+  const nearOffset=Math.max(baseR*1.18,78);
+  const nearLift=Math.max(baseR*0.58,40);
   const near=[
-    {x:anchorPaper.x+maxR*1.2,y:anchorPaper.y-maxR*.55},
-    {x:anchorPaper.x-maxR*1.2,y:anchorPaper.y-maxR*.55},
-    {x:anchorPaper.x+maxR*1.2,y:anchorPaper.y+maxR*.55},
-    {x:anchorPaper.x-maxR*1.2,y:anchorPaper.y+maxR*.55}
+    {x:anchorPaper.x+nearOffset,y:anchorPaper.y-nearLift},
+    {x:anchorPaper.x-nearOffset,y:anchorPaper.y-nearLift},
+    {x:anchorPaper.x+nearOffset,y:anchorPaper.y+nearLift},
+    {x:anchorPaper.x-nearOffset,y:anchorPaper.y+nearLift}
   ];
   const candidates=[
     ...near,
@@ -7834,22 +8514,18 @@ function placeAutoDetailViewport(autoId,bounds,anchorPaper,idx){
   ];
   
   // Limitar el tamaño de los círculos para el caso de Tees y Reducciones
-  const isSmall = autoId.startsWith('auto-tee') || autoId.startsWith('auto-reduccion');
-  const targetRadii = isSmall ? [minR] : [maxR, maxR*.88, maxR*.76, minR];
+  const targetRadii=[baseR,Math.max(46,baseR*0.9)];
 
   for(const base of candidates){
     for(const rr of targetRadii){
-      const c={
-        x:Math.min(vp.x+vp.w-rr,Math.max(vp.x+rr,base.x)),
-        y:Math.min(vp.y+vp.h-rr,Math.max(vp.y+rr,base.y))
-      };
+      const c=snapDetailCandidateToGrid(base,rr,vp);
       const score=scoreDetailCandidate(c,rr,others,obstacles,anchorPaper);
       if(!best||score<best.score) best={...c,r:rr,score};
     }
   }
   d.x=best?best.x:anchorPaper.x;
   d.y=best?best.y:anchorPaper.y;
-  d.r=best?best.r:minR;
+  d.r=best?best.r:baseR;
   clampDetailToVP(d);
   fitDetailContent(d,bounds);
   return d;
@@ -8186,7 +8862,8 @@ function drawWallApproachHint(ctx,zoomScale){
 function drawOverlay(curW,detail=null){
   ox.clearRect(0,0,OC.width,OC.height);
   const draw=(zs)=>{
-    if(curW&&(S.tool==='line'||S.tool==='wall')) drawRefLines(ox,curW,zs);
+    if(curW&&(S.tool==='line'||S.tool==='wall'||S.tool==='sel'||S.lineEditLine)) drawRefLines(ox,curW,zs);
+    if(curW&&S.tool==='line') drawCabinetConnectionGuide(ox,curW,zs);
     const wallPreviewPath=S.tool==='wall'
       ? (Array.isArray(S.wallFreehandPath)&&S.wallFreehandPath.length
           ? S.wallFreehandPath
@@ -8268,6 +8945,7 @@ function drawOverlay(curW,detail=null){
         S.lines = oldLines;
       }
     }
+    drawInlineBlockSnapGuide(ox,zs);
     drawWallApproachHint(ox,zs);
   };
   if(detail) withDetailTransform(ox,detail,draw);
@@ -8312,24 +8990,21 @@ function autoPanDrawingViewport(sc){
 function drawLoupe(sx,sy){
   lx.clearRect(0,0,LC.width,LC.height);
   const srcR=LOUPE_R/LOUPE_Z;
-  const sideOffset=LOUPE_R+58;
+  const sideOffset=LOUPE_R+72;
   const preferTop=useMobileLoupeLayout();
   const topOffset=MOBILE_LOUPE_TOP_OFFSET;
   const verticalOffset=S.tool==='wall' ? Math.round(LOUPE_R*0.2) : Math.round(LOUPE_R*0.42);
   let lcx=sx+sideOffset, lcy=sy-verticalOffset;
   if(preferTop){
-    lcx=sx;
-    lcy=sy-topOffset;
-    if(lcy<LOUPE_R+8) lcy=sy+Math.round(topOffset*0.68);
-    if(lcy>LC.height-LOUPE_R-8) lcy=sy-topOffset;
-    if(lcy<LOUPE_R+8){
-      lcx=sx+sideOffset;
-      lcy=sy-verticalOffset;
-    }
+    const sideSign=sx>LC.width*0.58?-1:1;
+    lcx=sx+(sideOffset*sideSign);
+    lcy=sy-Math.round(topOffset*0.72);
+    if(lcy<LOUPE_R+10) lcy=sy+Math.round(LOUPE_R*0.9);
+    if(lcy>LC.height-LOUPE_R-10) lcy=sy-Math.round(LOUPE_R*0.86);
   }
   if(lcx>LC.width-LOUPE_R-8) lcx=sx-sideOffset;
   if(lcx<LOUPE_R+8) lcx=sx+Math.min(sideOffset,LOUPE_R+26);
-  if(lcx>LC.width-LOUPE_R-8) lcx=sx;
+  if(lcx>LC.width-LOUPE_R-8) lcx=sx-(LOUPE_R*0.22);
   if(!preferTop){
     if(S.tool==='wall'){
       lcy=sy;
@@ -8337,9 +9012,25 @@ function drawLoupe(sx,sy){
       lcy=sy+verticalOffset;
     }
   }
-  lcx=Math.min(Math.max(lcx,LOUPE_R+4),LC.width-LOUPE_R-4);
-  lcy=Math.min(Math.max(lcy,LOUPE_R+4),LC.height-LOUPE_R-4);
-  const snapCenter=S.tool==='wall'&&S.snapPreview&&DOT.style.display!=='none'
+  const vpBounds=(S.vp&&S.vpEdit)
+    ?(()=>{
+        const p1=ts(S.vp.x,S.vp.y);
+        const p2=ts(S.vp.x+S.vp.w,S.vp.y+S.vp.h);
+        return {
+          left:Math.min(p1.x,p2.x),
+          top:Math.min(p1.y,p2.y),
+          right:Math.max(p1.x,p2.x),
+          bottom:Math.max(p1.y,p2.y)
+        };
+      })()
+    : null;
+  const clampLeft=vpBounds?Math.max(LOUPE_R+4,vpBounds.left+LOUPE_R+4):LOUPE_R+4;
+  const clampTop=vpBounds?Math.max(LOUPE_R+4,vpBounds.top+LOUPE_R+4):LOUPE_R+4;
+  const clampRight=vpBounds?Math.min(LC.width-LOUPE_R-4,vpBounds.right-LOUPE_R-4):LC.width-LOUPE_R-4;
+  const clampBottom=vpBounds?Math.min(LC.height-LOUPE_R-4,vpBounds.bottom-LOUPE_R-4):LC.height-LOUPE_R-4;
+  lcx=Math.min(Math.max(lcx,clampLeft),Math.max(clampLeft,clampRight));
+  lcy=Math.min(Math.max(lcy,clampTop),Math.max(clampTop,clampBottom));
+  const snapCenter=(S.tool==='wall'||!!dragBlk)&&S.snapPreview&&DOT.style.display!=='none'
     ? {x:S.snapPreview.x,y:S.snapPreview.y}
     : null;
   const srcCenter=snapCenter||{x:sx,y:sy};
@@ -8360,7 +9051,7 @@ function drawLoupe(sx,sy){
     if(sp.x>=sl&&sp.x<=sl+sw2&&sp.y>=st&&sp.y<=st+sh){
       const px=dl+(sp.x-sl)*LOUPE_Z;
       const py=dt+(sp.y-st)*LOUPE_Z;
-      lx.fillStyle=sp.type==='proj'?'rgba(0,213,255,.24)':sp.col;
+      lx.fillStyle=sp.type==='proj'?'rgba(168,85,247,.24)':sp.col;
       lx.strokeStyle=sp.col;
       lx.lineWidth=1;
       lx.beginPath();
@@ -8560,7 +9251,8 @@ function redo(){if(!S.fut.length)return;S.hist.push(JSON.stringify(historyState(
 const DI=document.getElementById('dimInput');
 const DIMDEL=document.getElementById('dimDel');
 const NUMPAD=document.getElementById('numPad');
-[DI,DIMDEL,NUMPAD].forEach(el=>{
+const MEASURE_ADJUST=document.getElementById('measureAdjust');
+[DI,DIMDEL,NUMPAD,MEASURE_ADJUST].forEach(el=>{
   if(el&&el.parentElement!==document.body) document.body.appendChild(el);
 });
 let dimBlurPending=false;
@@ -8570,6 +9262,78 @@ let numOriginalValue='';
 let numPadTouched=false;
 let dimAllowDecimal=true;
 let numPadPointerHandledAt=0;
+let measureInputMode='absolute';
+let measureAdjustSign=1;
+let measureAdjustAnchor='end';
+const LINE_EDIT_HANDLE_HIT_PX = 16;
+const LINE_EDIT_DRAG_START_PX = 7;
+
+function setMeasureAdjustSign(sign){
+  measureAdjustSign=sign===-1?-1:1;
+  if(!MEASURE_ADJUST) return;
+  [...MEASURE_ADJUST.querySelectorAll('button[data-sign]')].forEach(btn=>{
+    btn.classList.toggle('on',Number(btn.dataset.sign)===measureAdjustSign);
+  });
+}
+
+function hideMeasureAdjust(){
+  if(MEASURE_ADJUST) MEASURE_ADJUST.style.display='none';
+}
+
+function lineEditHandles(line){
+  if(!line?.pts||line.pts.length<2) return [];
+  const p1=line.pts[0];
+  const p2=line.pts[line.pts.length-1];
+  const mid={x:(p1.x+p2.x)/2,y:(p1.y+p2.y)/2};
+  return [
+    {kind:'A', anchor:'start', pt:p1, fill:'#38bdf8', label:'inicio'},
+    {kind:'M', anchor:'mid', pt:mid, fill:'#22c55e', label:'medio'},
+    {kind:'B', anchor:'end', pt:p2, fill:'#ef4444', label:'final'}
+  ];
+}
+
+function hitLineEditHandle(wx,wy,detail=null){
+  if(!S.lineEditLine) return null;
+  const handles=lineEditHandles(S.lineEditLine);
+  if(!handles.length) return null;
+  const zScale=detail ? S.zoom*detail.z : modelZoom();
+  const r=LINE_EDIT_HANDLE_HIT_PX/zScale;
+  let best=null;
+  for(const handle of handles){
+    const d=Math.hypot(wx-handle.pt.x,wy-handle.pt.y);
+    if(d<=r&&(!best||d<best.d)) best={...handle,d,r};
+  }
+  return best;
+}
+
+function directLineEditSnap(wx,wy,ignoreLine=null,from=null,detail=null,screen=null){
+  return smartSnap(wx,wy,from,{ignoreLine,detail,screen});
+}
+
+function beginLineHandleDrag(handle,wLine){
+  if(!S.lineEditLine||!handle) return false;
+  const pts=S.lineEditLine.pts;
+  if(!pts?.length) return false;
+  if(!S.lineDragHistoryPushed){
+    pushH();
+    S.lineDragHistoryPushed=true;
+  }
+  S.lineDragGrip=handle.kind;
+  if(handle.kind==='A'){
+    S.lineDragStart={...pts[0]};
+  }else if(handle.kind==='B'){
+    S.lineDragStart={...pts[pts.length-1]};
+  }else{
+    S.lineDragStart={
+      x:wLine.x,
+      y:wLine.y,
+      mid:{x:(pts[0].x+pts[pts.length-1].x)/2,y:(pts[0].y+pts[pts.length-1].y)/2},
+      pts:pts.map(p=>({...p})),
+      slideConstraint:isWallLine(S.lineEditLine)?findWallSlideConstraint(S.lineEditLine):null
+    };
+  }
+  return true;
+}
 
 function lineMeasureM(line){
   if(!line||!line.pts||line.pts.length<2) return 0;
@@ -8596,12 +9360,15 @@ function fmtMeasureInput(v){
   return v.toFixed(2).replace(/0+$/,'').replace(/\.$/,'');
 }
 
-function showMeasureInput(line,isNew=false,detail=null){
+function showMeasureInput(line,isNew=false,detail=null,opts={}){
   numTarget=null;
   dimAllowDecimal=true;
   NUMPAD.classList.remove('noDecimal');
   S.editDimLine=line;
   line.awaitMeasure=!!isNew;
+  measureInputMode=opts.mode==='delta'?'delta':'absolute';
+  measureAdjustAnchor=opts.anchor==='start'?'start':'end';
+  setMeasureAdjustSign(opts.sign===-1?-1:1);
   const current=parseFloat(String(lineDisplayLabel(line)||'').replace(',','.'));
   const captured=Number.isFinite(current)&&current>0?current:(line.draftMeasure||lineMeasureM(line));
   line.draftMeasure=captured;
@@ -8634,13 +9401,10 @@ function showMeasureInput(line,isNew=false,detail=null){
   inputX = Math.max(68, Math.min(inputX, vW - 102));
   
   // Vertical clamping:
-  // Widget extends vertically from iy - 16 (top of dimInput) to iy + 192 (bottom of numpad).
-  // Total height = 208px. Canvas top margin = 12px. Bottom bar margin = 12px.
-  // iy min = cwRect.top + 16 + 12 = cwRect.top + 28.
-  // iy max = vH - 54 - 192 - 12 = vH - 258.
+  // Widget extends from iy - 16 to iy + 226 when the +/- bar is visible.
   const bbarH = 54;
   const minY = cwRect.top + 28;
-  const maxY = vH - bbarH - 204;
+  const maxY = vH - bbarH - 238;
   let inputY = Math.max(minY, Math.min(endY, maxY));
   
   // Position the elements exactly
@@ -8650,12 +9414,24 @@ function showMeasureInput(line,isNew=false,detail=null){
   const title=document.getElementById('measureTitle');
   const diamWrap=document.getElementById('mdiamWrap');
   const kindWrap=document.getElementById('mkindWrap');
-  if(title) title.textContent=isWall?'Longitud del muro':'Medida de linea';
+  if(title){
+    if(measureInputMode==='delta'&&!isWall) title.textContent=measureAdjustAnchor==='start'?'Ajuste desde inicio':'Ajuste desde final';
+    else title.textContent=isWall?'Longitud del muro':'Medida de linea';
+  }
   if(diamWrap) diamWrap.style.display=isWall?'none':'';
   if(kindWrap) kindWrap.style.display=isWall?'none':'';
+  if(MEASURE_ADJUST){
+    if(measureInputMode==='delta'&&!isWall){
+      MEASURE_ADJUST.style.left=inputX+'px';
+      MEASURE_ADJUST.style.top=(inputY+22)+'px';
+      MEASURE_ADJUST.style.display='grid';
+    }else{
+      MEASURE_ADJUST.style.display='none';
+    }
+  }
   
   NUMPAD.style.left=inputX+'px';
-  NUMPAD.style.top =(inputY+20)+'px'; // Sit perfectly 4px below the bottom edge of input (inputY + 16 + 4)
+  NUMPAD.style.top =(inputY+(measureInputMode==='delta'&&!isWall?56:20))+'px';
   NUMPAD.classList.remove('noDecimal');
   
   DIMDEL.textContent='X';
@@ -8670,9 +9446,17 @@ function showMeasureInput(line,isNew=false,detail=null){
     dragHandle.style.display = 'block';
   }
   
-  DI.value=fmtMeasureInput(captured);
-  dimValueSelected=true;
-  DI.classList.add('dimSelected');
+  if(measureInputMode==='delta'&&!isWall){
+    DI.value='';
+    DI.placeholder='0.00';
+    dimValueSelected=false;
+    DI.classList.remove('dimSelected');
+  }else{
+    DI.value=fmtMeasureInput(captured);
+    DI.placeholder='';
+    dimValueSelected=true;
+    DI.classList.add('dimSelected');
+  }
   DI.style.display='block';
   NUMPAD.style.display='grid';
   DIMDEL.style.display='flex';
@@ -8699,6 +9483,7 @@ function hideDimInput(commit,opts={}){
     NUMPAD.style.display='none';
     NUMPAD.classList.remove('noDecimal');
     DIMDEL.style.display='none';
+    hideMeasureAdjust();
     if(commit&&opts.advance&&target) focusNextAccessory(target);
     return;
   }
@@ -8710,9 +9495,18 @@ function hideDimInput(commit,opts={}){
         v=line.draftMeasure||lineMeasureM(line);
       }
       if(Number.isFinite(v)&&v>0){
+        let finalValue=v;
+        if(measureInputMode==='delta'&&!isWallLine(line)){
+          const baseValue=line.draftMeasure||lineMeasureM(line);
+          finalValue=baseValue+(measureAdjustSign*v);
+          if(!(Number.isFinite(finalValue)&&finalValue>0.01)){
+            toast('La linea debe quedar mayor que 0');
+            return;
+          }
+        }
         if(!line.awaitMeasure) pushH();
-        line.label=v.toFixed(2).replace(/0+$/,'').replace(/\.$/,'');
-        if(!applyWallRectangleMeasure(line,v)) applyLineMeasure(line,v);
+        line.label=finalValue.toFixed(2).replace(/0+$/,'').replace(/\.$/,'');
+        if(!applyWallRectangleMeasure(line,finalValue)) applyLineMeasure(line,finalValue,{anchor:measureAdjustAnchor});
         delete line.draftMeasure;
         line.awaitMeasure=false;
         S.polyAnchor={...line.pts[line.pts.length-1]};
@@ -8734,9 +9528,13 @@ function hideDimInput(commit,opts={}){
   NUMPAD.style.display='none';
   NUMPAD.classList.remove('noDecimal');
   DIMDEL.style.display='none';
+  hideMeasureAdjust();
   const dragHandle = document.getElementById('dimDragHandle');
   if (dragHandle) dragHandle.style.display = 'none';
   S.editDimLine=null;
+  measureInputMode='absolute';
+  measureAdjustAnchor='end';
+  setMeasureAdjustSign(1);
   redraw();
 }
 
@@ -8755,6 +9553,7 @@ function deleteMeasureLine(){
   NUMPAD.style.display='none';
   NUMPAD.classList.remove('noDecimal');
   DIMDEL.style.display='none';
+  hideMeasureAdjust();
   const dragHandle = document.getElementById('dimDragHandle');
   if (dragHandle) dragHandle.style.display = 'none';
   redraw();
@@ -8822,9 +9621,13 @@ DI.addEventListener('pointerdown',e=>e.stopPropagation());
       
       DI.style.left = newLeft + 'px';
       DI.style.top = newTop + 'px';
+      if (MEASURE_ADJUST && MEASURE_ADJUST.style.display === 'grid') {
+        MEASURE_ADJUST.style.left = newLeft + 'px';
+        MEASURE_ADJUST.style.top = (newTop + 22) + 'px';
+      }
       
       NUMPAD.style.left = newLeft + 'px';
-      NUMPAD.style.top = (newTop + 20) + 'px';
+      NUMPAD.style.top = (newTop + ((MEASURE_ADJUST && MEASURE_ADJUST.style.display === 'grid') ? 56 : 20)) + 'px';
       
       DIMDEL.style.left = (newLeft + 60) + 'px';
       DIMDEL.style.top = (newTop - 15) + 'px';
@@ -8906,7 +9709,18 @@ function showSmallNumberPad(input,{decimal=false}={}){
   DI.style.display='block';
   NUMPAD.style.display='grid';
   DIMDEL.style.display='flex';
+  hideMeasureAdjust();
   setTimeout(()=>{if(numTarget===input) placeNumberPadNearInput(input);},90);
+}
+
+if(MEASURE_ADJUST){
+  MEASURE_ADJUST.addEventListener('pointerdown',e=>{
+    e.preventDefault();
+    e.stopPropagation();
+    const btn=e.target.closest('button[data-sign]');
+    if(!btn) return;
+    setMeasureAdjustSign(Number(btn.dataset.sign)===-1?-1:1);
+  });
 }
 
 const QUICK_ACCESSORIES = [
@@ -9013,22 +9827,24 @@ function distToSegment(p, v, w) {
 
 function drawLineEditGrips(ctx, zoomScale=modelZoom()){
   if(!S.lineEditLine) return;
-  const pts=S.lineEditLine.pts;
-  if(!pts || pts.length<2) return;
-  const p1=pts[0], p2=pts[pts.length-1];
+  const handles=lineEditHandles(S.lineEditLine);
+  if(!handles.length) return;
   
   ctx.save();
-  const drawGrip = (p) => {
+  const activeKind=S.lineDragGrip||(S.lineHandleDown&&S.lineHandleDown.kind)||'';
+  const drawGrip = (handle) => {
+    const p=handle.pt;
+    const active=activeKind===handle.kind;
+    const radius=(handle.kind==='M'?5.4:6.2)/zoomScale;
     ctx.beginPath();
-    ctx.arc(p.x, p.y, 3.6 / zoomScale, 0, Math.PI*2);
-    ctx.fillStyle = '#1a7fd4';
+    ctx.arc(p.x, p.y, radius, 0, Math.PI*2);
+    ctx.fillStyle = active ? '#00ffa3' : handle.fill;
     ctx.fill();
     ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 0.8/zoomScale;
+    ctx.lineWidth = (active?2.1:1.25)/zoomScale;
     ctx.stroke();
   };
-  drawGrip(p1);
-  drawGrip(p2);
+  handles.forEach(drawGrip);
   ctx.restore();
 }
 
@@ -9047,11 +9863,14 @@ function onDn(e){
 
     if(Object.keys(aPtr).length>=2){
       isPinch=true; S.drag=false; S.ds=null; S.de=null;
+      clearProjectionGuide();
       S.tDist=null; S.tMid=null; pinch(); clearLoupe(); return;
     }
   isPinch=false;
   const paper=tw(sc.x,sc.y);
   const w=screenToModel(sc.x,sc.y);
+  const initialDetail=drawingDetailAtPaper(paper);
+  const frozenMainIso=isFrozenViewportTap(paper,initialDetail);
 
   if (S.canvasLongPressTimeout) {
     clearTimeout(S.canvasLongPressTimeout);
@@ -9063,7 +9882,7 @@ function onDn(e){
     const editDetail=drawingDetailAtPaper(paper);
     const wLine=screenToDrawingModel(sc.x,sc.y,editDetail);
     const l=(!editDetail&&S.vp&&!hitVP(paper.x,paper.y))?null:hitL(wLine.x,wLine.y);
-    if (l) {
+    if (l && !frozenMainIso) {
       S.canvasLongPressStart = {...sc};
       S.canvasLongPressTimeout = setTimeout(() => {
         pushH();
@@ -9127,6 +9946,10 @@ function onDn(e){
     const wOpen=screenToDrawingModel(sc.x,sc.y,editDetail);
     const opening=hitWallOpening(wOpen.x,wOpen.y);
     if(opening){
+      if(frozenMainIso){
+        showFrozenViewportHint();
+        return;
+      }
       S.selOpening=opening;
       S.selLine=null;
       S.selLabel=null;
@@ -9142,16 +9965,19 @@ function onDn(e){
     const wLine=screenToDrawingModel(sc.x,sc.y,editDetail);
     const l=(!editDetail&&S.vp&&!hitVP(paper.x,paper.y))?null:hitL(wLine.x,wLine.y);
     if(l){
-      pushH();
+      if(frozenMainIso){
+        showFrozenViewportHint();
+        return;
+      }
+      setTool('sel');
       S.lineEditLine = l;
       S.selLine = l;
       S.selLabel = null;
       S.selBlock = null;
       S.selDetail = null;
       S.scaleMode = 'cota';
-      setTool('sel');
       redraw();
-      toast('Editando línea: arrastra las pinzas de los extremos para alargar o el cuerpo para mover');
+      toast('Editando linea: inicio, medio y final visibles. Mantén y arrastra para editar');
       return;
     }
 
@@ -9172,34 +9998,27 @@ function onDn(e){
 
   // Handle active Line Edit Mode interactions
   if(S.tool==='sel'&&S.lineEditLine){
+    if(frozenMainIso){
+      showFrozenViewportHint();
+      return;
+    }
+    const editDetail=drawingDetailAtPaper(paper);
+    const wLine=screenToDrawingModel(sc.x,sc.y,editDetail);
+    const handle=hitLineEditHandle(wLine.x,wLine.y,editDetail);
+    if(handle){
+      S.lineHandleDown={kind:handle.kind,detail:editDetail,line:S.lineEditLine,sc:{...sc},pt:{...handle.pt}};
+      return;
+    }
     const pts=S.lineEditLine.pts;
     const p1=pts[0], p2=pts[pts.length-1];
-    const editDetail=drawingDetailAtPaper(paper);
     const zScale = editDetail ? S.zoom * editDetail.z : modelZoom();
-    const r = 14 / zScale;
-    const wLine=screenToDrawingModel(sc.x,sc.y,editDetail);
-    
-    if(Math.hypot(wLine.x - p1.x, wLine.y - p1.y) <= r) {
-      S.lineDragGrip = 'A';
-      S.lineDragStart = { ...p1 };
+    const r = 12 / zScale;
+    const dist = distToSegment(wLine, p1, p2);
+    if(dist <= r) {
+      S.lineHandleDown={kind:'M',detail:editDetail,line:S.lineEditLine,sc:{...sc},pt:{x:(p1.x+p2.x)/2,y:(p1.y+p2.y)/2},fromBody:true};
       return;
-    } else if(Math.hypot(wLine.x - p2.x, wLine.y - p2.y) <= r) {
-      S.lineDragGrip = 'B';
-      S.lineDragStart = { ...p2 };
-      return;
-    } else {
-      const dist = distToSegment(wLine, p1, p2);
-      if(dist <= r) {
-        S.lineDragGrip = 'body';
-        S.lineDragStart = {
-          x: wLine.x,
-          y: wLine.y,
-          pts: pts.map(p => ({...p})),
-          slideConstraint:isWallLine(S.lineEditLine)?findWallSlideConstraint(S.lineEditLine):null
-        };
-        return;
-      }
     }
+    S.lineHandleDown=null;
     S.lineEditLine = null;
     redraw();
     return;
@@ -9310,6 +10129,10 @@ function onDn(e){
     }
     const opening=hitWallOpening(w.x,w.y);
     if(opening){
+      if(frozenMainIso){
+        showFrozenViewportHint();
+        return;
+      }
       S.selOpening=opening; S.selLine=null; S.selBlock=null; S.selLabel=null; S.selDetail=null;
       S.scaleMode='cota';
       dragOpening={openingId:opening.id};
@@ -9324,6 +10147,10 @@ function onDn(e){
     }
     const b=(S.vp&&!hitVP(paper.x,paper.y))?null:hitB(w.x,w.y);
     if(b){
+      if(frozenMainIso&&isInlineAttachmentBlock(b)){
+        showFrozenViewportHint();
+        return;
+      }
       if (S.canvasLongPressTimeout) {
         clearTimeout(S.canvasLongPressTimeout);
         S.canvasLongPressTimeout = null;
@@ -9344,6 +10171,10 @@ function onDn(e){
     }
     const l=(!drawingDetailAtPaper(paper)&&S.vp&&!hitVP(paper.x,paper.y))?null:hitL(w.x,w.y);
     if(l){
+      if(frozenMainIso){
+        showFrozenViewportHint();
+        return;
+      }
       S.selLine=l; S.selBlock=null; S.selLabel=null; S.selDetail=null; S.selOpening=null;
       S.scaleMode='cota';
       if(isWallLine(l)) S.lineEditLine=l;
@@ -9371,6 +10202,10 @@ function onDn(e){
 
   if(S.tool==='vano'||S.tool==='window'||S.tool==='door'){
     const openDetail=drawingDetailAtPaper(paper);
+    if(!openDetail&&frozenMainIso){
+      showFrozenViewportHint();
+      return;
+    }
     if(S.vp&&!openDetail&&!hitVP(paper.x,paper.y)){
       toast('Inserta la abertura dentro del viewport');
       return;
@@ -9398,6 +10233,11 @@ function onDn(e){
   // LINE tool
   if(S.tool==='line'){
     const lineDetail=drawingDetailAtPaper(paper);
+    if(!lineDetail&&frozenMainIso){
+      S.drag=false;
+      showFrozenViewportHint();
+      return;
+    }
     if(S.vp&&!lineDetail&&!hitVP(paper.x,paper.y)){
       S.drag=false; toast('Dibuja dentro del viewport');
       return;
@@ -9412,7 +10252,7 @@ function onDn(e){
       if(d<36/z0) startPt={...S.polyAnchor};
     }
     if(!startPt){
-      const sn=smartSnap(w0.x,w0.y,null);
+      const sn=smartSnap(w0.x,w0.y,null,{detail:lineDetail,screen:sc});
       startPt=sn?{...sn.pt}:{...(lineDetail?w0:clampToVP(w0))};
       S.snapS=!!sn; S.snapType=sn?sn.type:'ep';
     }
@@ -9425,6 +10265,11 @@ function onDn(e){
   // WALL tool
   if(S.tool==='wall'){
     const lineDetail=drawingDetailAtPaper(paper);
+    if(!lineDetail&&frozenMainIso){
+      resetWallGestureState();
+      showFrozenViewportHint();
+      return;
+    }
     if(S.vp&&!lineDetail&&!hitVP(paper.x,paper.y)){
       resetWallGestureState();
       toast('Dibuja dentro del viewport');
@@ -9505,6 +10350,15 @@ function onMv(e){
     redraw(); return;
   }
 
+  if(S.lineEditLine && S.lineHandleDown && !S.lineDragGrip){
+    const moved=Math.hypot(sc.x-S.lineHandleDown.sc.x,sc.y-S.lineHandleDown.sc.y);
+    if(moved>=LINE_EDIT_DRAG_START_PX){
+      const editDetail=S.lineHandleDown.detail||drawingDetailAtPaper(paper);
+      const wLine=screenToDrawingModel(sc.x,sc.y,editDetail);
+      beginLineHandleDrag(S.lineHandleDown,wLine);
+    }
+  }
+
   if(S.lineEditLine && S.lineDragGrip){
     const editDetail=drawingDetailAtPaper(paper);
     const wLine=screenToDrawingModel(sc.x,sc.y,editDetail);
@@ -9515,7 +10369,7 @@ function onMv(e){
       let snapped;
       const sn = isWallLine(S.lineEditLine)
         ? strongWallSnap(wLine.x, wLine.y, p2)
-        : smartSnap(wLine.x, wLine.y, p2);
+        : directLineEditSnap(wLine.x, wLine.y, S.lineEditLine, p2, editDetail, sc);
       if(sn){
         snapped = sn.pt;
         const ss = modelToDrawingScreen(snapped, editDetail);
@@ -9529,12 +10383,13 @@ function onMv(e){
       pts[0] = snapped;
       updateLineLengthFromCoords(S.lineEditLine);
       redraw();
+      drawOverlay(wLine,editDetail);
       drawLoupe(sc.x, sc.y);
     } else if(S.lineDragGrip === 'B'){
       let snapped;
       const sn = isWallLine(S.lineEditLine)
         ? strongWallSnap(wLine.x, wLine.y, p1)
-        : smartSnap(wLine.x, wLine.y, p1);
+        : directLineEditSnap(wLine.x, wLine.y, S.lineEditLine, p1, editDetail, sc);
       if(sn){
         snapped = sn.pt;
         const ss = modelToDrawingScreen(snapped, editDetail);
@@ -9548,8 +10403,9 @@ function onMv(e){
       pts[pts.length - 1] = snapped;
       updateLineLengthFromCoords(S.lineEditLine);
       redraw();
+      drawOverlay(wLine,editDetail);
       drawLoupe(sc.x, sc.y);
-    } else if(S.lineDragGrip === 'body'){
+    } else if(S.lineDragGrip === 'M'){
       const slide=S.lineDragStart.slideConstraint;
       if(slide&&isWallLine(S.lineEditLine)){
         const rail=wallRailForRole(slide.hostLine,slide.role);
@@ -9567,13 +10423,28 @@ function onMv(e){
       }else{
         const dx = wLine.x - S.lineDragStart.x;
         const dy = wLine.y - S.lineDragStart.y;
-        const snappedDisp = isWallLine(S.lineEditLine) && S.lineEditLine.wall?.orthogonal!==false
-          ? orthoSnap(0, 0, dx, dy)
-          : isoSnap(0, 0, dx, dy);
-        pts[0] = { x: S.lineDragStart.pts[0].x + snappedDisp.x, y: S.lineDragStart.pts[0].y + snappedDisp.y };
-        pts[pts.length - 1] = { x: S.lineDragStart.pts[pts.length - 1].x + snappedDisp.x, y: S.lineDragStart.pts[pts.length - 1].y + snappedDisp.y };
+        const rawMid={x:S.lineDragStart.mid.x+dx,y:S.lineDragStart.mid.y+dy};
+        const sn=directLineEditSnap(rawMid.x,rawMid.y,S.lineEditLine,S.lineDragStart.mid,editDetail,sc);
+        let moveDx=dx, moveDy=dy;
+        if(sn){
+          moveDx=sn.pt.x-S.lineDragStart.mid.x;
+          moveDy=sn.pt.y-S.lineDragStart.mid.y;
+          const ss=modelToDrawingScreen(sn.pt,editDetail);
+          showSnapDot(ss.x,ss.y,sn.type);
+        }else{
+          DOT.style.display = 'none';
+          const snappedDisp = isWallLine(S.lineEditLine) && S.lineEditLine.wall?.orthogonal!==false
+            ? orthoSnap(0, 0, dx, dy)
+            : isoSnap(0, 0, dx, dy);
+          moveDx=snappedDisp.x;
+          moveDy=snappedDisp.y;
+        }
+        pts[0] = { x: S.lineDragStart.pts[0].x + moveDx, y: S.lineDragStart.pts[0].y + moveDy };
+        pts[pts.length - 1] = { x: S.lineDragStart.pts[pts.length - 1].x + moveDx, y: S.lineDragStart.pts[pts.length - 1].y + moveDy };
       }
+      updateLineLengthFromCoords(S.lineEditLine);
       redraw();
+      drawOverlay(wLine,editDetail);
       drawLoupe(sc.x, sc.y);
     }
     return;
@@ -9630,12 +10501,14 @@ function onMv(e){
     if(isValveBlock(dragBlk)){
       moveValveWithSnap(dragBlk,w.x,w.y,sc);
       redraw();
+      drawOverlay(null,null);
       drawLoupe(sc.x,sc.y);
       return;
     }
     if(isPasamuroBlock(dragBlk)){
       movePasamuroWithSnap(dragBlk,w.x,w.y,sc);
       redraw();
+      drawOverlay(null,null);
       drawLoupe(sc.x,sc.y);
       return;
     }
@@ -9740,7 +10613,7 @@ function onMv(e){
     const detail=S.drawDetail;
     const drawPaper=detail?clampPaperToDetail(detail,paper):paper;
     const w1=detail?detailToModel(detail,drawPaper):w;
-    const sn=S.tool==='wall'?strongWallSnap(w1.x,w1.y,S.ds):smartSnap(w1.x,w1.y,S.ds);
+    const sn=S.tool==='wall'?strongWallSnap(w1.x,w1.y,S.ds):smartSnap(w1.x,w1.y,S.ds,{detail,screen:sc});
     S.snapE=!!sn;
     let ep=sn?{...sn.pt}:null;
     if(!ep){
@@ -9760,7 +10633,7 @@ function onMv(e){
   // Hover: snap dot + ref lines
   const hoverDetail=drawingDetailAtPaper(paper);
   const canHover=hoverDetail||!S.vp||hitVP(paper.x,paper.y);
-  if(!canHover){ S.guideSnap=null; S.wallApproachHint=null; }
+  if(!canHover){ S.guideSnap=null; S.wallApproachHint=null; clearProjectionGuide(); }
   const hw=hoverDetail?detailToModel(hoverDetail,paper):w;
   if((S.tool==='vano'||S.tool==='window'||S.tool==='door') && canHover){
     const wt=nearestWallProjection(hw.x,hw.y);
@@ -9777,10 +10650,11 @@ function onMv(e){
       const ss=modelToDrawingScreen(wsn.pt,hoverDetail);
       showSnapDot(ss.x,ss.y,wsn.type);
       drawOverlay(canHover?hw:null,hoverDetail);
+      drawLoupe(sc.x,sc.y);
       return;
     }
   }
-  const sn=(canHover&&S.tool!=='wall')?smartSnap(hw.x,hw.y,null):null;
+  const sn=(canHover&&S.tool!=='wall')?smartSnap(hw.x,hw.y,null,{detail:hoverDetail,screen:sc}):null;
   if(sn){const ss=modelToDrawingScreen(sn.pt,hoverDetail);showSnapDot(ss.x,ss.y,sn.type);}
   else DOT.style.display='none';
   if(S.tool==='wall'&&S.wallTapStart){
@@ -9796,8 +10670,9 @@ function onMv(e){
     drawOverlay(preview.raw,S.wallTapStart.detail||hoverDetail||null);
     return;
   }
-  if(S.tool==='line'||S.tool==='wall'){
+  if(S.tool==='line'||S.tool==='wall'||S.tool==='sel'){
     drawOverlay(canHover?hw:null,hoverDetail);
+    drawLoupe(sc.x,sc.y);
   }
 }
 
@@ -9819,12 +10694,39 @@ function onUp(e){
   }
 
   if(S.lineDragGrip){
-    pushH();
     S.lineDragGrip = null;
     S.lineDragStart = null;
+    S.lineHandleDown = null;
+    S.lineDragHistoryPushed = false;
+    clearProjectionGuide();
     invalidatePipeLabels();
     redraw();
     return;
+  }
+
+  if(S.lineHandleDown){
+    const handle=S.lineHandleDown;
+    const tapDist=Math.hypot(sc.x-handle.sc.x,sc.y-handle.sc.y);
+    S.lineHandleDown=null;
+    if(tapDist<LINE_EDIT_DRAG_START_PX && S.lineEditLine===handle.line){
+      if(handle.kind==='A'||handle.kind==='B'){
+        clearProjectionGuide();
+        if(isWallLine(handle.line)){
+          showMeasureInput(handle.line,false,handle.detail||null);
+        }else{
+          showMeasureInput(handle.line,false,handle.detail||null,{
+            mode:'delta',
+            anchor:handle.kind==='A'?'start':'end',
+            sign:1
+          });
+        }
+        redraw();
+        return;
+      }
+      clearProjectionGuide();
+      redraw();
+      return;
+    }
   }
 
   const hadDetailAdjust=S.detailMove || S.detailResize;
@@ -9832,7 +10734,7 @@ function onUp(e){
   if(Object.keys(aPtr).length<2){isPinch=false;S.tDist=null;S.tMid=null;pinchScope=null;}
   if(Object.keys(aPtr).length===0){S.panPt=null;}
   if(Object.keys(aPtr).length===0){S.detailPan=null;S.detailMove=null;S.detailResize=null;resizeText=null;}
-  clearLoupe(); DOT.style.display='none'; S.guideSnap=null;
+  clearLoupe(); DOT.style.display='none'; S.guideSnap=null; S.snapPreview=null; clearProjectionGuide();
   if(hadTextResize){redraw();return;}
   if(hadDetailAdjust){redraw();return;}
 
@@ -9857,6 +10759,7 @@ function onUp(e){
     const wasTap=!dragBlkMoved&&dragMeta&&Math.hypot(sc.x-dragMeta.sx,sc.y-dragMeta.sy)<10&&shortTap;
     const wasSelected=!!(dragMeta&&dragMeta.selected);
     dragBlk=null; dragBlkStart=null; dragBlkMoved=false; dragBlkGrip=null;
+    clearInlineBlockSnapGuide(true);
     if(isValveBlock(b)){
       if(wasTap&&wasSelected){
         cycleValveView(b);
@@ -10083,6 +10986,7 @@ function pinch(){
       else {
         const locked=S.vpEdit?detailAt(paperMid.x,paperMid.y,false):null;
         if(locked) pinchScope={type:'detailRadius',d:locked};
+        else if(isFrozenViewportTap(paperMid,null)) pinchScope='blocked';
         else pinchScope=(S.vpEdit&&S.vp&&hitVP(paperMid.x,paperMid.y))?'vp':'paper';
       }
     }
@@ -10109,6 +11013,8 @@ function pinch(){
       const d=pinchScope.d;
       d.r*=dz;
       clampDetailToVP(d);
+    } else if(pinchScope==='blocked'){
+      // Main isometric viewport intentionally frozen while arranging details.
     } else if(pinchScope==='vp'&&S.vp){
       const vp=ensureVP();
       const old=vp.z;
@@ -10142,6 +11048,10 @@ OC.addEventListener('wheel',e=>{
     zoomDetailAt(e.deltaY<0?1.12:0.9,sc.x,sc.y,wd);
     return;
   }
+  if(isFrozenViewportTap(paper,null)){
+    showFrozenViewportHint();
+    return;
+  }
   if(S.vpEdit&&S.vp&&hitVP(paper.x,paper.y)){
     zoomViewportAt(e.deltaY<0?1.12:0.9,sc.x,sc.y);
     hideAutoDetailViewports();
@@ -10166,9 +11076,8 @@ function setViewportWorkMode(on,opts={}){
     for(const item of detailList()) if(item) item.active=false;
     S.activeDetail=null; S.selDetail=null; S.detailPan=null; S.detailMove=null; S.detailResize=null;
   }
-  const chip=document.getElementById('vpchip');
   const btn=document.getElementById('bwork');
-  if(chip) chip.style.display=on?'block':'none';
+  updateViewportStatusChip();
   if(btn) btn.classList.toggle('on',!!on);
   if(on){
     if(fit) fitViewportFrame(false);
@@ -10183,14 +11092,14 @@ function enterVPEdit(){
   if(S.fixedVP){setViewportWorkMode(true);setTool('line');return;}
   S.vpEdit=true; S.vpSel=false;
   VP_KEYS.forEach(k=>vpH[k].style.display='none');
-  document.getElementById('vpchip').style.display='block';
+  updateViewportStatusChip();
   setTool('line');
   toast('Modo dibujo en viewport - doble toque para salir');
 }
 function exitVPEdit(){
   if(S.fixedVP){setViewportWorkMode(false);setTool('pan');return;}
   S.vpEdit=false; S.vpSel=true;
-  document.getElementById('vpchip').style.display='none';
+  updateViewportStatusChip();
   setTool('sel'); redraw();
 }
 
@@ -10222,7 +11131,7 @@ function erase(){
     pushH();
     S.vp=null; S.vpSel=false; S.vpEdit=false;
     S.lines=[]; S.blocks=[]; S.pipeLabels=[]; S.detailVP=null; S.detailVPs=[]; S.activeDetail=null; S.selDetail=null; S.polyAnchor=null; S.selLine=null; S.selBlock=null;
-    document.getElementById('vpchip').style.display='none';
+    updateViewportStatusChip();
     setTool('sel'); redraw(); toast('Viewport y dibujo eliminados');
   } else {
     toast('Selecciona una linea, bloque o texto para borrar');
@@ -10494,7 +11403,7 @@ function closeSaveMenu(){
 function toggleSaveMenu(){
   if(!SAVE_MENU) return;
   const nameInput=document.getElementById('saveFileName');
-  if(nameInput) nameInput.value=S.fileName||defaultFileName();
+  if(nameInput) nameInput.value=syncAutoFileNameFromForm();
   
   const destNameEl=document.getElementById('saveDestName');
   const btnSelectFolderEl=document.getElementById('btnSelectFolder');
@@ -10966,6 +11875,46 @@ function insertPasamuroBlock(){
   toast('Pasamuro: arrastralo sobre su linea');
 }
 
+function openInspectBlocksModal(){
+  closeDrops();
+  const items=renderInspectBlockList();
+  if(!items.length){
+    toast('Todavia no hay bloques ni accesorios para inspeccionar');
+    return;
+  }
+  openM('inspectmod');
+}
+
+function selectInspectBlock(index){
+  const block=(S.blocks||[])[index];
+  if(!block){
+    toast('Ese bloque ya no existe');
+    renderInspectBlockList();
+    return;
+  }
+  closeM('inspectmod');
+  S.selBlock=block;
+  S.selLine=null;
+  S.selLabel=null;
+  S.selDetail=null;
+  S.selOpening=null;
+  S.scaleMode='block';
+  if(S.vp){
+    setViewportWorkMode(true,{fit:false});
+    const focus=isCabinetBlock(block)
+      ? {targetW:0.38,targetH:0.28,maxZ:6.5,y:0.54}
+      : (isValveBlock(block)||isPasamuroBlock(block)
+          ? {targetW:0.24,targetH:0.18,maxZ:10.5,y:0.55}
+          : {targetW:0.3,targetH:0.22,maxZ:8.5,y:0.55});
+    focusBlockInViewport(block,focus);
+    fitViewportFrame(false);
+  }
+  setTool('sel');
+  updateScaleTabs();
+  redraw();
+  toast(inspectBlockBaseName(block)+' seleccionado');
+}
+
 function openM(id){document.getElementById(id).classList.add('open');}
 function closeM(id){
   if(id==='formmod'&&DI.style.display==='block') hideDimInput(false);
@@ -11041,8 +11990,8 @@ function openStartOptions(kind){
 }
 function defaultFileName(){
   const f=S.form||{};
-  const seed=f.suministro||f.usuario||'plano-gas';
-  return sanitizeFileName(seed)||'plano-gas';
+  const seed=f.direccion?('ISO-'+f.direccion):(f.suministro?('ISO-'+f.suministro):(f.usuario?('ISO-'+f.usuario):'ISO-plano-gas'));
+  return sanitizeFileName(seed)||'ISO-plano-gas';
 }
 function sanitizeFileName(name){
   return String(name||'')
@@ -11053,10 +12002,29 @@ function sanitizeFileName(name){
     .replace(/\s/g,'-')
     .slice(0,60);
 }
+function syncAutoFileNameFromForm(force=false){
+  const autoName=defaultFileName();
+  const current=sanitizeFileName(S.fileName);
+  if(force||!S.fileNameManual||!current){
+    S.fileName=autoName;
+    S.fileNameManual=false;
+  }else{
+    S.fileName=current;
+  }
+  const saveInput=document.getElementById('saveFileName');
+  if(saveInput) saveInput.value=S.fileName||autoName;
+  const shareInput=document.getElementById('shareFileName');
+  const shareOpen=document.getElementById('sharemod')?.classList.contains('open');
+  if(shareInput&&(!shareOpen||!shareInput.value.trim())){
+    shareInput.value=S.fileName||autoName;
+  }
+  return S.fileName||autoName;
+}
 function fileBaseName(){
   const input=document.getElementById('saveFileName');
+  const autoName=syncAutoFileNameFromForm();
   const clean=sanitizeFileName(input?input.value:S.fileName);
-  S.fileName=clean||defaultFileName();
+  S.fileName=clean||autoName;
   if(input) input.value=S.fileName;
   return S.fileName;
 }
@@ -11148,6 +12116,7 @@ function readFormFromUI(){
     isometrista:document.getElementById('fisometrista').value.trim(),
     accesorios
   };
+  syncAutoFileNameFromForm();
 }
 function openForm(pending=null){
   S.pendingExport=pending;
@@ -11464,6 +12433,7 @@ function resetProject(form=blankForm(),kind=S.projectKind||'iso'){
   S.projectKind=kind==='planta'?'planta':'iso';
   S.form=JSON.parse(JSON.stringify(form||blankForm()));
   S.fileName=defaultFileName();
+  S.fileNameManual=false;
   S.saveSubfolder='';
   S.wallDefaults={...WALL_DEFAULTS};
   S.openingDefaults=JSON.parse(JSON.stringify(OPENING_DEFAULTS));
@@ -11474,9 +12444,10 @@ function resetProject(form=blankForm(),kind=S.projectKind||'iso'){
   S.pendingDimensionPick=false;
   S.cajetin=null; S.cajetinSrc=null;
   S.detailVP=null; S.detailVPs=[]; S.activeDetail=null; S.selDetail=null; S.drawDetail=null; S.editingTee=null;
+  syncAutoFileNameFromForm(true);
   const defaultVP = (S.projectKind === 'planta') ? PLANTA_LAYOUT.drawRect : DEFAULT_VP;
   S.vp = { ...defaultVP, z: 1, px: -defaultVP.x, py: -defaultVP.y };
-  S.vpEdit=true; S.viewFit='vp'; S.polyAnchor=null; S.selLine=null; S.selBlock=null; S.selOpening=null;
+  S.vpEdit=true; S.viewFit='vp'; S.polyAnchor=null; S.selLine=null; S.selBlock=null; S.selOpening=null; S.isoFrozen=false;
   updateProfBtn();
   document.getElementById('thkVal').textContent=activeProf().thick;
   const slider=document.getElementById('tscaleSlider');
@@ -11486,6 +12457,7 @@ function resetProject(form=blankForm(),kind=S.projectKind||'iso'){
   updateStartOptionsCopy();
   setTool(S.projectKind==='planta'?'wall':'line');
   syncProjectModeUI();
+  updateViewportStatusChip();
   fitViewportFrame(false);
   redraw();
 }
@@ -11497,7 +12469,8 @@ function captureViewState(){
     viewFit:S.viewFit||'vp',
     vpEdit:!!S.vpEdit,
     vpSel:!!S.vpSel,
-    wallDimsVisible:!!S.wallDimsVisible
+    wallDimsVisible:!!S.wallDimsVisible,
+    isoFrozen:!!S.isoFrozen
   };
 }
 function captureProject(){
@@ -11506,6 +12479,7 @@ function captureProject(){
     version:1,
     projectKind:S.projectKind||'iso',
     fileName:S.fileName||defaultFileName(),
+    fileNameManual:!!S.fileNameManual,
     saveSubfolder:S.saveSubfolder||'',
     form:S.form,
     profiles:S.profiles,
@@ -11572,9 +12546,10 @@ async function saveProjectLocal(skipForm=false){
     }
   }
 
-  if(await saveBlobNative(blob, name+'.isogas.json', 'application/json')){
+  const nativeSavedAt=await saveBlobNative(blob, name+'.isogas.json', 'application/json');
+  if(nativeSavedAt){
     closeSaveMenu();
-    toast('Editable (.json) guardado');
+    toast('Editable (.json) guardado en ' + nativeSavedAt);
     hasUnsavedChanges = false;
     return true;
   }
@@ -11589,7 +12564,7 @@ function saveTemplate(skipForm=false){
   if(!skipForm) readOpenForm();
   fileBaseName();
   saveFolderParts();
-  const tpl={version:1,projectKind:S.projectKind||'iso',fileName:S.fileName,saveSubfolder:S.saveSubfolder,form:S.form,profiles:S.profiles,activeProf:S.activeProf,textScale:S.textScale,wallDefaults:S.wallDefaults,openingDefaults:S.openingDefaults};
+  const tpl={version:1,projectKind:S.projectKind||'iso',fileName:S.fileName,fileNameManual:!!S.fileNameManual,saveSubfolder:S.saveSubfolder,form:S.form,profiles:S.profiles,activeProf:S.activeProf,textScale:S.textScale,wallDefaults:S.wallDefaults,openingDefaults:S.openingDefaults};
   localStorage.setItem(templateStorageKey(),JSON.stringify(tpl));
   if((S.projectKind||'iso')==='iso') localStorage.setItem(TEMPLATE_KEY,JSON.stringify(tpl));
   closeSaveMenu();
@@ -11597,7 +12572,12 @@ function saveTemplate(skipForm=false){
 }
 function loadProjectData(data){
   resetProject(data.form||blankForm(),data.projectKind||'iso');
-  S.fileName=data.fileName||defaultFileName();
+  const loadedName=sanitizeFileName(data.fileName);
+  S.fileName=loadedName||defaultFileName();
+  S.fileNameManual=typeof data.fileNameManual==='boolean'
+    ? !!data.fileNameManual
+    : !!(loadedName&&loadedName!==defaultFileName());
+  syncAutoFileNameFromForm();
   S.saveSubfolder=data.saveSubfolder||'';
   S.profiles=mergedProfiles(data.profiles);
   S.activeProf=data.activeProf||S.profiles[0].id;
@@ -11632,6 +12612,7 @@ function loadProjectData(data){
   S.vpSel=savedView?!!savedView.vpSel&&!S.vpEdit:false;
   S.viewFit=savedView?.viewFit||(S.vpEdit?'vp':'sheet');
   S.wallDimsVisible=!!savedView?.wallDimsVisible;
+  S.isoFrozen=!!savedView?.isoFrozen;
   if(hasSavedCanvasView){
     S.zoom=savedView.zoom;
     S.px=savedView.px;
@@ -11641,8 +12622,7 @@ function loadProjectData(data){
   }else{
     fitSheetFrame(false);
   }
-  const vpChip=document.getElementById('vpchip');
-  if(vpChip) vpChip.style.display=S.vpEdit?'block':'none';
+  updateViewportStatusChip();
   updateToolButtons();
   redraw();
 }
@@ -11652,7 +12632,12 @@ function loadTemplate(){
   try{
     const tpl=JSON.parse(raw);
     resetProject(tpl.form||blankForm(),tpl.projectKind||S.projectKind||'iso');
-    S.fileName=tpl.fileName||defaultFileName();
+    const loadedName=sanitizeFileName(tpl.fileName);
+    S.fileName=loadedName||defaultFileName();
+    S.fileNameManual=typeof tpl.fileNameManual==='boolean'
+      ? !!tpl.fileNameManual
+      : !!(loadedName&&loadedName!==defaultFileName());
+    syncAutoFileNameFromForm();
     S.saveSubfolder=tpl.saveSubfolder||'';
     S.profiles=mergedProfiles(tpl.profiles);
     if(tpl.activeProf) S.activeProf=tpl.activeProf;
@@ -11724,7 +12709,7 @@ function requestProjectAction(action){
   closeSaveMenu();
   pendingProjectAction=action;
   const nameInput=document.getElementById('saveFileName');
-  if(nameInput) nameInput.value=S.fileName||defaultFileName();
+  if(nameInput) nameInput.value=syncAutoFileNameFromForm();
   const folderInput=document.getElementById('saveSubfolder');
   if(folderInput) folderInput.value=S.saveSubfolder||'';
   if(!projectHasWork()){
@@ -11804,12 +12789,23 @@ function moveConnectedGeometry(sourceLine,oldPt,dx2,dy2){
   }
 }
 
-function applyLineMeasure(line,lenM){
+function applyLineMeasure(line,lenM,opts={}){
   const a=line.pts[0], b=line.pts[line.pts.length-1];
-  const oldEnd={...b};
+  const anchor=opts.anchor==='start'?'start':'end';
   const dx2=b.x-a.x, dy2=b.y-a.y;
   const oldLen=Math.hypot(dx2,dy2)||1;
   const newLen=Math.max(0,lenM)*UNITS_PER_M;
+  if(anchor==='start'){
+    const oldStart={...a};
+    const newStart={
+      x:b.x-(dx2/oldLen)*newLen,
+      y:b.y-(dy2/oldLen)*newLen
+    };
+    line.pts[0]=newStart;
+    moveConnectedGeometry(line,oldStart,newStart.x-oldStart.x,newStart.y-oldStart.y);
+    return;
+  }
+  const oldEnd={...b};
   const newEnd={
     x:a.x+(dx2/oldLen)*newLen,
     y:a.y+(dy2/oldLen)*newLen
@@ -11925,7 +12921,7 @@ function buildExportCanvas(sc){
     ctx.scale(vp.z,vp.z);
     drawBlockGroup(ctx,blocksForDraw(b=>!isInlineAttachmentBlock(b)),null,vp.z,false);
     drawWallsBatch(ctx,vp.z);
-    for(const l of S.lines) if(!isWallLine(l)) drawLine(ctx,l,false,vp.z);
+    for(const l of S.lines) if(!isWallLine(l)) drawLine(ctx,l,false,vp.z,EXPORT_LINE_WIDTH_SCALE);
     drawReductions(ctx,vp.z);
     drawTees(ctx,vp.z);
     drawCodoAdaptadorMarkers(ctx,vp.z);
@@ -11938,7 +12934,7 @@ function buildExportCanvas(sc){
   } else {
     drawBlockGroup(ctx,blocksForDraw(b=>!isInlineAttachmentBlock(b)),null,1,false);
     drawWallsBatch(ctx,1);
-    for(const l of S.lines) if(!isWallLine(l)) drawLine(ctx,l,false,1);
+    for(const l of S.lines) if(!isWallLine(l)) drawLine(ctx,l,false,1,EXPORT_LINE_WIDTH_SCALE);
     drawReductions(ctx,1);
     drawTees(ctx,1);
     drawCodoAdaptadorMarkers(ctx,1);
@@ -11989,7 +12985,7 @@ function buildExportCanvas(sc){
     ctx.scale(d.z,d.z);
     drawBlockGroup(ctx,blocksForDraw(b=>!isInlineAttachmentBlock(b)),null,d.z,false);
     drawWallsBatch(ctx,d.z);
-    for(const l of S.lines) if(!isWallLine(l)) drawLine(ctx,l,false,d.z);
+    for(const l of S.lines) if(!isWallLine(l)) drawLine(ctx,l,false,d.z,EXPORT_LINE_WIDTH_SCALE);
     drawReductions(ctx,d.z);
     drawTees(ctx,d.z);
     drawCodoAdaptadorMarkers(ctx,d.z);
@@ -12010,7 +13006,7 @@ function buildExportCanvas(sc){
     }
     ctx.restore();
     ctx.strokeStyle='rgba(0,63,125,.85)';
-    ctx.lineWidth=1.2;
+    ctx.lineWidth=EXPORT_DETAIL_RING_WIDTH;
     ctx.beginPath(); ctx.arc(d.x,d.y,d.r,0,Math.PI*2); ctx.stroke();
   }
   ctx.restore();
@@ -12018,6 +13014,7 @@ function buildExportCanvas(sc){
 }
 
 let activeDirectoryHandle = null;
+let nativeSaveTargetName = 'Descargas/Isogas';
 
 function nativeFilePlugin(){
   return window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.IsogasShare;
@@ -12032,21 +13029,29 @@ async function saveBlobNative(blob,fileName,mimeType){
   try{
     const dataUrl = await blobToDataUrl(blob);
     await plugin.saveFile({dataUrl,fileName,mimeType});
-    return true;
+    return currentSaveTargetLabel();
   }catch(err){
     console.error('Native save error:',err);
     toast('No se pudo guardar con Android');
     return false;
   }
 }
+function currentSaveTargetLabel(){
+  const parts=saveFolderParts();
+  if(activeDirectoryHandle&&activeDirectoryHandle.name){
+    return parts.length?`${activeDirectoryHandle.name}/${parts.join('/')}`:activeDirectoryHandle.name;
+  }
+  return parts.length?`${nativeSaveTargetName}/${parts.join('/')}`:nativeSaveTargetName;
+}
 async function refreshNativeSaveTarget(){
   const plugin = nativeFilePlugin();
   if(!plugin || typeof plugin.getSaveTarget !== 'function') return;
   try{
     const target = await plugin.getSaveTarget();
+    nativeSaveTargetName = target && target.name ? target.name : 'Descargas/Isogas';
     const destNameEl = document.getElementById('saveDestName');
     const btnSelectEl = document.getElementById('btnSelectFolder');
-    if(destNameEl) destNameEl.textContent = 'Carpeta: ' + (target && target.name ? target.name : 'Descargas/Isogas');
+    if(destNameEl) destNameEl.textContent = 'Carpeta: ' + nativeSaveTargetName;
     if(btnSelectEl){
       btnSelectEl.style.display = 'inline-flex';
       btnSelectEl.textContent = target && target.hasFolder ? 'Cambiar' : 'Elegir carpeta';
@@ -12163,7 +13168,7 @@ async function writeBlobToCustomDirectory(blob, fileName, description='Archivo')
       const writable = await fileHandle.createWritable();
       await writable.write(blob);
       await writable.close();
-      toast(description + ' guardado en carpeta local');
+      toast(description + ' guardado en ' + currentSaveTargetLabel());
       return true;
     } catch (err) {
       console.error(err);
@@ -12188,9 +13193,10 @@ async function exportJPG(skipForm=false){
     }
   }
 
-  if(await saveBlobNative(blob, name+'.jpg', 'image/jpeg')){
+  const nativeSavedAt=await saveBlobNative(blob, name+'.jpg', 'image/jpeg');
+  if(nativeSavedAt){
     closeSaveMenu();
-    toast('JPG guardado');
+    toast('JPG guardado en ' + nativeSavedAt);
     return;
   }
   
@@ -12224,9 +13230,10 @@ async function exportPDF(skipForm=false){
         }
       }
 
-      if(await saveBlobNative(blob, name+'.pdf', 'application/pdf')){
+      const nativeSavedAt=await saveBlobNative(blob, name+'.pdf', 'application/pdf');
+      if(nativeSavedAt){
         closeSaveMenu();
-        toast('PDF guardado');
+        toast('PDF guardado en ' + nativeSavedAt);
         return;
       }
       
@@ -12315,10 +13322,9 @@ function hasNativeShareChooser(){
 }
 
 function openShareModal(){
-  const defaultName = (S.projectKind === 'planta') ? 'Plano en planta' : 'Plano isometrico';
   const input = document.getElementById('shareFileName');
   if (input) {
-    input.value = defaultName;
+    input.value = syncAutoFileNameFromForm();
   }
   closeSaveMenu();
   openM('sharemod');
@@ -12327,7 +13333,7 @@ function openShareModal(){
 async function executeWhatsAppShare() {
   const rawName = document.getElementById('shareFileName').value.trim();
   const format = document.getElementById('shareFormat').value;
-  const name = sanitizeFileName(rawName) || (S.projectKind === 'planta' ? 'Plano-en-planta' : 'Plano-isometrico');
+  const name = sanitizeFileName(rawName) || fileBaseName();
   const cv = buildExportCanvas(3);
   
   closeM('sharemod');
@@ -12573,6 +13579,10 @@ function fitSheetFrame(doRedraw=true){
 
 function zoomAt(factor){
   if(S.vpEdit&&S.vp){
+    if(S.isoFrozen){
+      showFrozenViewportHint();
+      return;
+    }
     const vp=ensureVP();
     const c=ts(vp.x+vp.w/2,vp.y+vp.h/2);
     zoomViewportAt(factor,c.x,c.y);
@@ -12593,10 +13603,19 @@ function toast(msg){
   clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2600);
 }
 
+function shouldPreserveProjectionGuide(prevTool,nextTool,opts={}){
+  if(opts.preserveProjection) return true;
+  const compatible=tool=>tool==='line'||tool==='sel';
+  return !!(S.projectionGuide&&compatible(prevTool||'')&&compatible(nextTool||''));
+}
+
 // â”€â”€ TOOL SETTER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-function setTool(tool){
+function setTool(tool,opts={}){
   if(tool==='vp'&&S.fixedVP) tool='line';
-  S.tool=tool; S.polyAnchor=null; S.lineEditLine = null;
+  const prevTool=S.tool;
+  const preserveProjection=shouldPreserveProjectionGuide(prevTool,tool,opts);
+  S.tool=tool; S.polyAnchor=null; S.lineEditLine = null; S.lineHandleDown=null; S.lineDragGrip=null; S.lineDragStart=null; S.lineDragHistoryPushed=false;
+  if(!preserveProjection) clearProjectionGuide();
   clearWallInteractionState(true);
   updateToolButtons();
   OC.style.cursor=tool==='line'||tool==='wall'||tool==='vano'||tool==='window'||tool==='door'||tool==='vp'?'crosshair':tool==='pan'?'grab':'default';
@@ -12616,6 +13635,8 @@ function updateToolButtons(){
   if(work) work.classList.toggle('on',!!S.vpEdit);
   const detail=document.getElementById('bdetail');
   if(detail) detail.classList.toggle('on',detailList().some(d=>d&&d.visible));
+  const freeze=document.getElementById('bfreezeiso');
+  if(freeze) freeze.classList.toggle('on',!!S.isoFrozen);
   const txt=document.getElementById('btxtscale');
   if(txt) txt.textContent='Txt '+S.textScale.toFixed(1);
 }
@@ -12907,6 +13928,13 @@ document.getElementById('bwork').addEventListener('click',()=>{
   setTool(on?'line':'pan');
   toast(on?'Dibujo dentro del viewport':'Navegacion de hoja completa');
 });
+document.getElementById('bfreezeiso')?.addEventListener('click',()=>{
+  S.isoFrozen=!S.isoFrozen;
+  updateViewportStatusChip();
+  updateToolButtons();
+  redraw();
+  toast(S.isoFrozen?'ISO congelado para trabajar detalles':'ISO liberado');
+});
 document.getElementById('bpan').addEventListener('click',()=>setTool('pan'));
 document.getElementById('btline').addEventListener('click',()=>{setViewportWorkMode(true,{fit:false});setTool('line');});
 document.getElementById('bmuro').addEventListener('click',()=>{
@@ -13045,6 +14073,7 @@ document.getElementById('bgab2').addEventListener('click',()=>{closeGabinetesDro
 document.getElementById('bgab3').addEventListener('click',()=>{closeGabinetesDrop();insertOrRotateGabineteTriple();});
 document.getElementById('bgab4').addEventListener('click',()=>{closeGabinetesDrop();insertOrRotateGabineteCuadruple();});
 document.getElementById('bs22').addEventListener('click',()=>{closeGabinetesDrop();insertOrRotateS22();});
+document.getElementById('binspect')?.addEventListener('click',()=>openInspectBlocksModal());
 document.getElementById('bval2025').addEventListener('click',()=>insertValveBlock('2025'));
 document.getElementById('bval1216').addEventListener('click',()=>insertValveBlock('1216'));
 document.getElementById('bpasamuro').addEventListener('click',()=>insertPasamuroBlock());
@@ -13102,7 +14131,11 @@ document.getElementById('saveAsPdf').addEventListener('click',()=>{closeSaveMenu
 document.getElementById('saveLocalProject').addEventListener('click',()=>saveProjectLocal());
 document.getElementById('shareWhatsApp').addEventListener('click',openShareModal);
 document.getElementById('shareEmail').addEventListener('click',()=>shareEmail());
-document.getElementById('saveFileName').addEventListener('input',e=>{S.fileName=e.target.value;});
+document.getElementById('saveFileName').addEventListener('input',e=>{
+  S.fileName=e.target.value;
+  S.fileNameManual=!!sanitizeFileName(e.target.value);
+  if(!S.fileNameManual) syncAutoFileNameFromForm(true);
+});
 document.getElementById('saveFileName').addEventListener('pointerdown',e=>e.stopPropagation());
 const btnSelectFolderEl = document.getElementById('btnSelectFolder');
 if(btnSelectFolderEl) btnSelectFolderEl.addEventListener('click', selectCustomFolder);
