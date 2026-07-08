@@ -1694,7 +1694,7 @@ canvas{position:absolute;inset:0;}
   </div>
 </div>
 
-<div id="groupToolbar" style="display:none; position:absolute; z-index:1000; background:rgba(17,24,39,0.92); backdrop-filter:blur(6px); border:1px solid rgba(255,255,255,0.12); border-radius:10px; padding:6px; box-shadow:0 8px 30px rgba(0,0,0,0.5); display:flex; gap:6px; align-items:center; transition:opacity 0.2s;">
+<div id="groupToolbar" style="display:none; position:absolute; z-index:1000; background:rgba(17,24,39,0.92); backdrop-filter:blur(6px); border:1px solid rgba(255,255,255,0.12); border-radius:10px; padding:6px; box-shadow:0 8px 30px rgba(0,0,0,0.5); gap:6px; align-items:center; transition:opacity 0.2s;">
   <!-- Clone Button (Green) -->
   <button id="btnGroupClone" title="Clonar" style="width:36px; height:36px; border-radius:7px; border:none; background:transparent; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all 0.2s;">
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -6000,10 +6000,10 @@ function syncProjectModeUI(){
   const isPlanta=isPlantaProject();
   ['bmuro','bwallgen','bwalldims','badddim','bvano','bventana','bpuerta'].forEach(id=>{
     const el=document.getElementById(id);
-    if(el) el.style.display=isPlanta?'flex':'none';
+    if(el) el.style.display=isPlanta?'none':'flex';
   });
   const libGroup=document.getElementById('plantaLibraryGroup');
-  if(libGroup) libGroup.style.display=isPlanta?'flex':'none';
+  if(libGroup) libGroup.style.display='none';
   if(!isPlanta) closePlantaLibraryDrop();
   syncPlantaBottomPanel();
   syncPlantaSelectionPanel();
@@ -6026,14 +6026,6 @@ const PLANTA_BOTTOM_ROOT_ITEMS=[
 
 const PLANTA_BOTTOM_SECTIONS={
   gas:{title:'Gas',items:[
-    {label:'L20/25',type:'profile',value:'p2025c',tone:'utility'},
-    {label:'L12/16',type:'profile',value:'p1216c',tone:'utility'},
-    {label:'V20/25',type:'profile',value:'p2025v',tone:'utility'},
-    {label:'V12/16',type:'profile',value:'p1216v',tone:'utility'},
-    {label:'S20/25',type:'profile',value:'p2025s',tone:'utility'},
-    {label:'S12/16',type:'profile',value:'p1216s',tone:'utility'},
-    {label:'M20/25',type:'profile',value:'p2025m',tone:'utility'},
-    {label:'M12/16',type:'profile',value:'p1216m',tone:'utility'},
     {label:'G1',type:'block',value:'planta_gas_g1',tone:'gas'},
     {label:'G2',type:'block',value:'planta_gas_g2',tone:'gas'},
     {label:'G3',type:'block',value:'planta_gas_g3',tone:'gas'},
@@ -6133,9 +6125,25 @@ function plantaBottomState(){
   return S.plantaBottomSection;
 }
 
+function syncPlantaGasToolbar(){
+  const isPlanta=isPlantaProject();
+  const duplicateTopIds=['bmuro','bwallgen','bwalldims','badddim','bvano','bventana','bpuerta'];
+  duplicateTopIds.forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.style.display=isPlanta?'none':'flex';
+  });
+  const gabGroup=document.querySelector('.toolGroup[data-group="gabinetes"]');
+  const accGroup=document.querySelector('.toolGroup[data-group="accesorios"]');
+  const plantaLibGroup=document.getElementById('plantaLibraryGroup');
+  if(gabGroup) gabGroup.style.display=isPlanta?'none':'';
+  if(accGroup) accGroup.style.display=isPlanta?'none':'';
+  if(plantaLibGroup) plantaLibGroup.style.display=isPlanta?'none':'';
+}
+
 function setPlantaBottomSection(section='root'){
   S.plantaBottomSection=section||'root';
   syncPlantaBottomPanel();
+  syncPlantaGasToolbar();
 }
 
 function plantaBottomItemsForState(){
@@ -6158,6 +6166,7 @@ function syncPlantaBottomPanel(){
   lineBar.style.display=isPlanta?'none':'flex';
   if(left) left.style.display='none';
   if(right) right.style.display='none';
+  syncPlantaGasToolbar();
   if(!isPlanta) return;
   const titleEl=document.getElementById('plantaBottomTitle');
   const backEl=document.getElementById('plantaBottomBack');
