@@ -2379,6 +2379,7 @@ const S = {
   plantaBottomSection:'root',
   // last double-tap
   lastTap:0, lastTapPt:{x:0,y:0},
+  groupToolbarVisible:false,
   lastPointerType:'',
 };
 
@@ -7025,6 +7026,7 @@ function insertWallRectanglePreset(widthM=7,heightM=15){
   
   S.selectedGroup = { lines: [group.top, group.right, group.bottom, group.left] };
   S.groupTool = 'move';
+  S.groupToolbarVisible = false;
   S.groupDragMode = false;
   setTool('sel');
   
@@ -7155,6 +7157,7 @@ function findFusedWallGroup(startLine) {
 
 function clearGroupSelection() {
   S.selectedGroup = null;
+  S.groupToolbarVisible = false;
   S.groupTool = null;
   S.groupDragMode = false;
   S.groupPivot = null;
@@ -7202,7 +7205,7 @@ function deleteSelectedGroup() {
 function positionGroupToolbar() {
   const tb = document.getElementById('groupToolbar');
   if (!tb) return;
-  if (!S.selectedGroup || !S.selectedGroup.lines.length) {
+  if (!S.selectedGroup || !S.selectedGroup.lines.length || !S.groupToolbarVisible) {
     tb.style.display = 'none';
     return;
   }
@@ -7503,9 +7506,9 @@ function submitGroupAction() {
   
   S.selectedGroup = { lines: newLines, blocks: newBlocks, texts: newTexts };
   S.groupTool = 'move';
+  S.groupToolbarVisible = false;
   closeM('groupActionMod');
   redraw();
-  positionGroupToolbar();
 }
 
 function groupAction(action) {
@@ -8137,7 +8140,7 @@ function redraw(){
   updateScaleLabel();
   updateAutoContinuationButton();
   syncPlantaSelectionPanel();
-  if (S.selectedGroup) positionGroupToolbar();
+  if (S.selectedGroup && S.groupToolbarVisible) positionGroupToolbar();
 }
 
 function drawLine(ctx,l,sel,zoomScale=modelZoom(),lineWidthScale=1){
@@ -11330,7 +11333,7 @@ function placeDimText(ctx,txt,p0,p1,fs,occupied=[],opts={}){
   const short=len<Math.max(MIN_LINE_PX,tw+fs*1.4);
   const isIsoDim = isIsoProject();
   
-  // Sumamos la mitad del grosor del muro en píxeles para que el desfase sea siempre respecto a la cara externa
+  // Sumamos la mitad del grosor del muro en pï¿½xeles para que el desfase sea siempre respecto a la cara externa
   const zScale = opts.detail ? S.zoom * opts.detail.z : S.zoom;
   const wallHalfThicknessPx = (opts.line ? wallHalfWidthUnits(opts.line) : 0) * zScale;
   const isoShortBoost = short ? Math.max(fs * 0.75, Math.min(fs * 1.8, Math.max(0, tw - len) * 0.18 + fs * 0.35)) : 0;
@@ -11362,7 +11365,7 @@ function placeDimText(ctx,txt,p0,p1,fs,occupied=[],opts={}){
   for(const off of offsets){
     for(const s of shifts) candidates.push({shift:s,off,side:1});
     if (!isIsoDim && (!opts.line || !opts.line.wallRectRole)) {
-      // Para muros que no son de rectángulo, mantenemos la búsqueda por si acaso
+      // Para muros que no son de rectï¿½ngulo, mantenemos la bï¿½squeda por si acaso
       for(const s of shifts) candidates.push({shift:s,off,side:-1});
     }
   }
@@ -11422,8 +11425,8 @@ function placeDimText(ctx,txt,p0,p1,fs,occupied=[],opts={}){
     const d0 = { x: p0.x + nx * h_dim, y: p0.y + ny * h_dim };
     const d1 = { x: p1.x + nx * h_dim, y: p1.y + ny * h_dim };
     
-    // Si es un muro divisorio (no del rectángulo), el punto de inicio de la cota está en el eje central.
-    // Sumamos la mitad del espesor del muro para que las líneas de extensión comiencen fuera del muro.
+    // Si es un muro divisorio (no del rectï¿½ngulo), el punto de inicio de la cota estï¿½ en el eje central.
+    // Sumamos la mitad del espesor del muro para que las lï¿½neas de extensiï¿½n comiencen fuera del muro.
     const isPartition = opts.line && !opts.line.wallRectRole;
     const startOffsetPx = isPartition ? wallHalfThicknessPx : 0;
     
@@ -13975,6 +13978,7 @@ function hideDimInput(commit,opts={}){
             if (S.tool !== 'wall') {
               S.selectedGroup = { lines: S.createdWallGroup };
               S.groupTool = 'move';
+              S.groupToolbarVisible = false;
               S.groupDragMode = false;
               setTool('sel');
             }
@@ -15865,6 +15869,7 @@ function onUp(e){
         clearLineInteractionState(true);
         clearWallInteractionState(true);
         S.selectedGroup = null;
+        S.groupToolbarVisible = false;
         S.selLine = null;
         S.lineEditLine = null;
         S.selBlock = null;
@@ -15891,6 +15896,7 @@ function onUp(e){
         clearLineInteractionState(true);
         clearWallInteractionState(true);
         S.selectedGroup = null;
+        S.groupToolbarVisible = false;
         S.selLine = null;
         S.lineEditLine = null;
         S.selBlock = null;
@@ -15932,6 +15938,7 @@ function onUp(e){
               console.log(`[DEBUG onUp] Selected rectangle group and contents. lines=${group.lines.length}, blocks=${group.blocks?.length}, texts=${group.texts?.length}`);
               S.selectedGroup = group;
               S.groupTool = 'move';
+              S.groupToolbarVisible = true;
               S.groupDragMode = true;
               S.selLine = null;
               S.lineEditLine = null;
@@ -15947,6 +15954,7 @@ function onUp(e){
           console.log(`[DEBUG onUp] Selected fused wall group. lines=${groupLines.length}`);
           S.selectedGroup = { lines: groupLines, blocks: [], texts: [] };
           S.groupTool = 'move';
+          S.groupToolbarVisible = true;
           S.groupDragMode = true;
           S.selLine = null;
           S.lineEditLine = null;
