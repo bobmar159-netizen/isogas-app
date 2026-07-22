@@ -6110,9 +6110,10 @@ function drawWallsBatch(ctx,zoomScale=modelZoom()){
   ctx.save();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   
-  const opacity = (currentProjectKind() === 'planta')
+  const rawOpacity = (currentProjectKind() === 'planta')
     ? ((typeof S.wallOpacity === 'number') ? S.wallOpacity : 0.2)
     : ((typeof S.cajetinOpacity === 'number') ? S.cajetinOpacity : 0.5);
+  const opacity = currentProjectKind() === 'planta' ? Math.max(rawOpacity,0.62) : rawOpacity;
   ctx.globalAlpha = opacity;
   try {
     ctx.filter = 'saturate(' + Math.round(opacity * 100) + '%)';
@@ -18168,6 +18169,45 @@ let ambientDragState=null;
 let ambientResizeState=null;
 let uiTimer=null;
 let pinchScope=null;
+let pinchSelectionSnapshot=null;
+
+function capturePinchSelectionSnapshot(){
+  return {
+    selectedGroup:S.selectedGroup,
+    groupTool:S.groupTool,
+    groupDragMode:S.groupDragMode,
+    groupPivot:S.groupPivot,
+    selLine:S.selLine,
+    lineEditLine:S.lineEditLine,
+    selBlock:S.selBlock,
+    selLabel:S.selLabel,
+    selOpening:S.selOpening,
+    selDetail:S.selDetail,
+    selContinuation:S.selContinuation,
+    selectedCotaLine:S.selectedCotaLine,
+    scaleMode:S.scaleMode
+  };
+}
+
+function restorePinchSelectionSnapshot(){
+  if(!pinchSelectionSnapshot) return;
+  Object.assign(S,pinchSelectionSnapshot);
+  pinchSelectionSnapshot=null;
+  S.lineHandleDown=null;
+  S.lineDragGrip=null;
+  S.lineDragStart=null;
+  S.dragOpeningHandle=null;
+  S.selDown=null;
+  dragOpening=null;
+  dragBlk=null; dragBlkStart=null; dragBlkMoved=false;
+  dragLabel=null; dragLabelStart=null; dragLabelMoved=false;
+  ambientDragState=null; ambientResizeState=null; ambientDrawStart=null; ambientDrawDraft=null;
+  clearSelectRectState();
+  const tb=document.getElementById('groupToolbar');
+  if(S.selectedGroup) positionGroupToolbar();
+  else if(tb) tb.style.display='none';
+  syncPlantaSelectionPanel();
+}
 
 function gpp(e){
   const r=CW.getBoundingClientRect();
@@ -18332,13 +18372,15 @@ function onDn(e){
   }
 
   OC.setPointerCapture(e.pointerId);
+  if(Object.keys(aPtr).length===0) pinchSelectionSnapshot=capturePinchSelectionSnapshot();
   aPtr[e.pointerId]=sc;
   closeDrops();
 
     if(Object.keys(aPtr).length>=2){
       isPinch=true; S.drag=false; S.ds=null; S.de=null;
+      restorePinchSelectionSnapshot();
       clearProjectionGuide();
-      S.tDist=null; S.tMid=null; pinch(); clearLoupe(); return;
+      S.tDist=null; S.tMid=null; pinch(); clearLoupe(); redraw(); return;
     }
   isPinch=false;
   
@@ -19021,7 +19063,7 @@ function onMv(e){
     }
   }
 
-  if(Object.keys(aPtr).length>=2){pinch();clearLoupe();return;}
+  if(Object.keys(aPtr).length>=2){isPinch=true; restorePinchSelectionSnapshot(); pinch(); clearLoupe(); redraw(); return;}
   if(isPinch) return;
 
   if (selectionRectGestureEnabled() && S.selectRectPendingStart && !S.selectRectDrag && !S.groupDragActive && !S.lineHandleDown && !dragBlk && !dragLabelStart && !S.drag && !S.wallTapStart && !S.lineTapStart) {
@@ -20224,7 +20266,7 @@ function onUp(e){
   const hadDetailAdjust=S.detailMove || S.detailResize;
   const hadTextResize=!!resizeText;
   if(Object.keys(aPtr).length<2){isPinch=false;S.tDist=null;S.tMid=null;pinchScope=null;}
-  if(Object.keys(aPtr).length===0){S.panPt=null;}
+  if(Object.keys(aPtr).length===0){S.panPt=null;pinchSelectionSnapshot=null;}
   if(Object.keys(aPtr).length===0){S.detailPan=null;S.detailMove=null;S.detailResize=null;resizeText=null;}
   const keepProjectionGuide=shouldKeepProjectionGuideAfterPointerUp();
   clearLoupe(); DOT.style.display='none'; S.guideSnap=null; S.snapPreview=null; if(!keepProjectionGuide) clearProjectionGuide();
