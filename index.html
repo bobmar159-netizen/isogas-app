@@ -921,6 +921,7 @@ canvas{position:absolute;inset:0;}
 .styleBtn.on{background:rgba(26,127,212,.16);border-color:var(--acc2);color:#fff;}
 .sp{flex:1;}
 #vpchip{font-size:9px;font-weight:700;background:rgba(239,68,68,.2);color:var(--red);border:1px solid rgba(239,68,68,.3);padding:2px 7px;border-radius:12px;display:none;white-space:nowrap;}
+#opchip.plantaOperationChip{bottom:calc(96px + var(--safe-bottom))!important;max-width:min(76vw,340px)!important;min-width:0!important;padding:5px 9px!important;font-size:10px!important;line-height:1.18!important;pointer-events:none!important;z-index:690!important;}
 /* Left/Right bars */
 #lbar{grid-area:left;display:none;flex-direction:column;align-items:center;gap:4px;padding:8px 4px;background:rgba(24,30,40,0.95);border-right:1px solid var(--bdr);}
 #rbar{grid-area:right;display:none;flex-direction:column;align-items:center;gap:4px;padding:8px 4px;background:rgba(24,30,40,0.95);border-left:1px solid var(--bdr);}
@@ -7640,7 +7641,7 @@ function syncProjectModeUI(){
   ['bmuro','bwallgen','bwalldims','badddim','bvano','bventana','bpuerta','wallOpacitySliderContainer'].forEach(id=>{
     const el=document.getElementById(id);
     if(!el) return;
-    if(id==='bmuro' || id==='bwallgen'){
+    if(id==='bmuro' || id==='bwallgen' || id==='bvano' || id==='bventana' || id==='bpuerta'){
       el.style.display='none';
       return;
     }
@@ -8434,6 +8435,13 @@ function applyOpeningPreset(kind,widthM){
     return;
   }
   const current=S.openingDefaults?.[kind]||OPENING_DEFAULTS[kind]||OPENING_DEFAULTS.vano;
+  S.selectedGroup=null;
+  S.groupTool=null;
+  S.groupDragMode=false;
+  S.rectGenEditRectId=null;
+  closeM('rectgenmod');
+  const groupToolbar=document.getElementById('groupToolbar');
+  if(groupToolbar) groupToolbar.style.display='none';
   S.openingDefaults[kind]={
     ...current,
     widthM:Number(widthM)||current.widthM||0.9
@@ -8452,6 +8460,13 @@ function activateOpeningInsertion(kind){
     return;
   }
   setViewportWorkMode(true,{fit:false});
+  S.selectedGroup=null;
+  S.groupTool=null;
+  S.groupDragMode=false;
+  S.rectGenEditRectId=null;
+  closeM('rectgenmod');
+  const groupToolbar=document.getElementById('groupToolbar');
+  if(groupToolbar) groupToolbar.style.display='none';
   S.pendingOpeningEditId=null;
   S.pendingOpeningPlacementId=null;
   S.pendingOpeningKind=kind;
@@ -8972,9 +8987,17 @@ function insertWallRectanglePreset(widthM=7,heightM=15){
   hideAutoLabels();
   invalidatePipeLabels();
   
-  S.selectedGroup = { lines: [group.top, group.right, group.bottom, group.left], blocks: [], texts: floorText?[floorText]:[] };
-  S.groupTool = 'move';
+  S.rectGenEditRectId = rectId;
+  S.selectedGroup = null;
+  S.groupTool = null;
   S.groupDragMode = false;
+  S.selLine = null;
+  S.lineEditLine = null;
+  S.selBlock = null;
+  S.selLabel = null;
+  S.selOpening = null;
+  const groupToolbar=document.getElementById('groupToolbar');
+  if(groupToolbar) groupToolbar.style.display='none';
   setTool('sel');
   
   const widthInput = document.getElementById('rectGenWidth');
@@ -8997,6 +9020,11 @@ function insertWallRectanglePreset(widthM=7,heightM=15){
 }
 
 function getSelectedWallRectangleGroup() {
+  if (S.rectGenEditRectId) {
+    const host=(S.lines||[]).find(line=>line&&line.wallRectId===S.rectGenEditRectId);
+    const group=host?wallRectangleGroupFor(host):null;
+    if(group) return group;
+  }
   if (!S.selectedGroup || !S.selectedGroup.lines || S.selectedGroup.lines.length !== 4) return null;
   const first = S.selectedGroup.lines[0];
   return wallRectangleGroupFor(first);
@@ -9108,6 +9136,7 @@ function clearGroupSelection() {
   S.groupTool = null;
   S.groupDragMode = false;
   S.groupPivot = null;
+  S.rectGenEditRectId = null;
   const tb = document.getElementById('groupToolbar');
   if (tb) tb.style.display = 'none';
   closeM('rectgenmod');
@@ -9766,6 +9795,7 @@ function buildRectSelectionGroup(selRect,detail,mode){
 function setImportedIsoGroupSelection(hit,{showToolbar=false}={}){
   const group = importedIsoGroupFromHit(hit);
   if(!group) return null;
+  S.rectGenEditRectId=null;
   S.selectedGroup = group;
   S.groupTool = 'move';
   S.groupDragMode = true;
@@ -15082,6 +15112,12 @@ function updateOperationChip(){
     S.operationChipMessage='';
     S.operationChipUntil=0;
   }
+  const isPlanta=(S.projectKind||'iso')==='planta';
+  chip.classList.toggle('plantaOperationChip',isPlanta);
+  if(isPlanta && !S.operationChipMessage){
+    chip.style.display='none';
+    return;
+  }
   chip.textContent=S.operationChipMessage || defaultOperationChipMessage();
   chip.style.display='block';
 }
@@ -19938,7 +19974,8 @@ function onUp(e){
         }
         const group = selectRectangleGroupAndContents(l);
         if(group){
-          S.selectedGroup = group;
+          S.rectGenEditRectId=null;
+  S.selectedGroup = group;
           S.groupTool = 'move';
           S.groupDragMode = true;
           S.selLine = null;
@@ -19967,7 +20004,8 @@ function onUp(e){
             const group = selectRectangleGroupAndContents(l);
             if (group) {
               console.log(`[DEBUG onUp] Selected rectangle group and contents. lines=${group.lines.length}, blocks=${group.blocks?.length}, texts=${group.texts?.length}`);
-              S.selectedGroup = group;
+              S.rectGenEditRectId=null;
+  S.selectedGroup = group;
               S.groupTool = 'move';
               S.groupDragMode = true;
               S.selLine = null;
@@ -19982,6 +20020,7 @@ function onUp(e){
           }
           const groupLines = findFusedWallGroup(l);
           console.log(`[DEBUG onUp] Selected fused wall group. lines=${groupLines.length}`);
+          S.rectGenEditRectId=null;
           S.selectedGroup = { lines: groupLines, blocks: [], texts: [] };
           S.groupTool = 'move';
           S.groupDragMode = true;
