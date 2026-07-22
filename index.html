@@ -1854,11 +1854,11 @@ canvas{position:absolute;inset:0;}
         <input type="number" id="openingWidth" step="0.01" min="0.30" inputmode="decimal" value="0.90"/>
       </label>
       <div id="openingWidthPresets" class="doorPresetRow">
-        <button type="button" class="doorPresetBtn" data-opening-width="1.20">1.20</button>
-        <button type="button" class="doorPresetBtn" data-opening-width="1.10">1.10</button>
-        <button type="button" class="doorPresetBtn" data-opening-width="1.00">1.00</button>
-        <button type="button" class="doorPresetBtn" data-opening-width="0.90">0.90</button>
-        <button type="button" class="doorPresetBtn" data-opening-width="0.80">0.80</button>
+        <button type="button" class="doorPresetBtn" data-opening-width="1.20">1.2m</button>
+        <button type="button" class="doorPresetBtn" data-opening-width="1.10">1.1m</button>
+        <button type="button" class="doorPresetBtn" data-opening-width="1.00">1m</button>
+        <button type="button" class="doorPresetBtn" data-opening-width="0.90">0.9m</button>
+        <button type="button" class="doorPresetBtn" data-opening-width="0.80">0.8m</button>
       </div>
       <div class="doorHiddenSelects">
         <label id="openingSideWrap">Apertura
@@ -8538,6 +8538,10 @@ function syncPlantaSelectionPanel(){
   const selectedBlock = (S.selBlock && !S.selBlock.isImportedIso) ? S.selBlock : null;
   
   if(!op && !cotaLine && !selectedWall && !selectedBlock){
+    panel.style.display='none';
+    return;
+  }
+  if(op && !cotaLine && !selectedWall && !selectedBlock){
     panel.style.display='none';
     return;
   }
@@ -19156,14 +19160,11 @@ function onDn(e){
         showFrozenViewportHint();
         return;
       }
-      const sameOpening=S.selOpening&&(S.selOpening.id===opening.id);
       S.selOpening=opening; S.selLine=null; S.selBlock=null; S.selLabel=null; S.selDetail=null; S.selContinuation=null;
       S.scaleMode='cota';
       S.selDown=sc;
+      dragOpening=dtap?null:{openingId:opening.id};
       syncPlantaSelectionPanel();
-      if(sameOpening){
-        dragOpening={openingId:opening.id};
-      }
       redraw();
       return;
     }
@@ -19171,6 +19172,21 @@ function onDn(e){
 
   // SEL tool
   if(isSelectionTool()){
+    const opening=hitWallOpening(w.x,w.y);
+    if(opening){
+      if(frozenMainIso){
+        showFrozenViewportHint();
+        return;
+      }
+      S.selOpening=opening; S.selLine=null; S.selBlock=null; S.selLabel=null; S.selDetail=null; S.selContinuation=null;
+      S.lineEditLine=null;
+      S.scaleMode='cota';
+      S.selDown=sc;
+      dragOpening=dtap?null:{openingId:opening.id};
+      syncPlantaSelectionPanel();
+      redraw();
+      return;
+    }
     const rectWallHit = (!drawingDetailAtPaper(paper)&&S.vp&&!hitVP(paper.x,paper.y))?null:hitWallRectangleSide(w.x,w.y);
     if(rectWallHit && isWallLine(rectWallHit) && rectWallHit.wallRectId){
       if(frozenMainIso){
@@ -19256,19 +19272,6 @@ function onDn(e){
       dragLabelStart={sx:sc.x,sy:sc.y,x:label.x,y:label.y};
       dragLabelMoved=false;
       S.selDown=sc;
-      redraw();
-      return;
-    }
-    const opening=hitWallOpening(w.x,w.y);
-    if(opening){
-      if(frozenMainIso){
-        showFrozenViewportHint();
-        return;
-      }
-      S.selOpening=opening; S.selLine=null; S.selBlock=null; S.selLabel=null; S.selDetail=null; S.selContinuation=null;
-      S.scaleMode='cota';
-      S.selDown=sc;
-      syncPlantaSelectionPanel();
       redraw();
       return;
     }
@@ -19400,7 +19403,6 @@ function onDn(e){
     const ss=modelToDrawingScreen(target.proj,openDetail);
     showSnapDot(ss.x,ss.y,'ol');
     redraw();
-    drawLoupe(sc.x,sc.y);
     return;
   }
 
@@ -19612,7 +19614,6 @@ function onMv(e){
         showSnapDot(ss.x,ss.y,'ol');
       }
       redraw();
-      drawLoupe(sc.x,sc.y);
       return;
     }
   }
@@ -20056,7 +20057,6 @@ function onMv(e){
       const ss=modelToDrawingScreen(target.proj,openDetail);
       showSnapDot(ss.x,ss.y,'ol');
       redraw();
-      drawLoupe(sc.x,sc.y);
       return;
     }
   }
@@ -20434,6 +20434,8 @@ function onUp(e){
           showFrozenViewportHint();
           return;
         }
+        dragOpening=null;
+        S.dragOpeningHandle=null;
         S.selOpening=opening;
         S.selLine=null;
         S.selLabel=null;
