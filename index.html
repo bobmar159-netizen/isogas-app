@@ -969,6 +969,34 @@ canvas{position:absolute;inset:0;}
 #traceAutoHint{font-size:10px;line-height:1.35;color:var(--tx2);margin:0 0 8px;}
 #traceAutoMod .mbtns{gap:5px;}
 #traceAutoMod .mbtns button{padding:7px 8px;font-size:10px;}
+
+/* Ajuste de controles para telefonos Android estrechos. El viewport no se modifica. */
+@media (max-width:640px) and (orientation:portrait){
+  #topbar>.toolGroup{
+    box-sizing:border-box;
+    min-width:0;
+    max-width:calc(100vw - 12px);
+    flex:1 1 100%;
+    flex-wrap:wrap;
+    overflow:visible;
+    align-content:center;
+  }
+  #topbar>.toolGroup[data-group="viewport"],
+  #topbar>.toolGroup[data-group="lineas"]{
+    width:100%;
+  }
+  #topbar>.toolGroup[data-group="viewport"]>*,
+  #topbar>.toolGroup[data-group="lineas"]>*{
+    flex-shrink:0;
+  }
+  #topbar>.toolGroup[data-group="lineas"] .styleStrip{display:none!important;}
+  #topbar>.toolGroup[data-group="nav"],
+  #topbar>.toolGroup[data-group="escala"],
+  #topbar>.toolGroup[data-group="gabinetes"],
+  #topbar>.toolGroup[data-group="accesorios"]{
+    justify-content:flex-start;
+  }
+}
 </style>
 </head>
 <body>
