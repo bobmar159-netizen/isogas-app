@@ -19166,12 +19166,20 @@ function onDn(e){
       if(hit>=0){
         c.dragPoint=hit;
         try{OC.setPointerCapture(e.pointerId);}catch(err){}
-        redraw();drawOverlay(null);return;
+        redraw();drawOverlay(null);drawLoupe(sc.x,sc.y);return;
       }
     }
-    if(handleTraceCalibrationTap(w)) return;
+    if(c.phase===1||c.phase===2){
+      const local=traceWorldToLocal(S.trace,w);
+      if(!tracePointInsideImage(S.trace,local)){toast('Toca dentro del plano base');return;}
+      c.pointerDown={pointerId:e.pointerId,startSc:{...sc}};
+      aPtr[e.pointerId]=sc;
+      try{OC.setPointerCapture(e.pointerId);}catch(err){}
+      updateTraceCalibrationHover(w);
+      requestWallAutoPan(sc);
+      redraw();drawOverlay(null);drawLoupe(sc.x,sc.y);return;
+    }
   }
-
   if(ambientResizeState){
     const detail=ambientResizeState.detail||drawingDetailAtPaper(paper);
     const wAmbient=screenToDrawingModel(sc.x,sc.y,detail);
@@ -20024,12 +20032,22 @@ function cancelWallAutoPanLoop(){
 function wallAutoPanFrame(){
   wallAutoPanFrameId=0;
   const sc=wallAutoPanLastSc;
-  if(!sc||!isWallDrawingTool()||!S.drag||!S.wallPointerDown){
+  const wallActive=isWallDrawingTool()&&S.drag&&S.wallPointerDown;
+  const calibrationActive=!!(S.traceCalibration?.pointerDown);
+  if(!sc||(!wallActive&&!calibrationActive)){
     wallAutoPanLastSc=null;
     return;
   }
   const moved=autoPanDrawingViewport(sc);
-  if(moved&&S.wallGesture==='freehand') updateWallFreehandPreviewAtScreen(sc);
+  if(moved){
+    redraw();
+    if(wallActive&&S.wallGesture==='freehand') updateWallFreehandPreviewAtScreen(sc);
+    if(calibrationActive){
+      updateTraceCalibrationHover(screenToModel(sc.x,sc.y));
+      drawOverlay(null);
+      drawLoupe(sc.x,sc.y);
+    }
+  }
   const rect=CW?.getBoundingClientRect?.();
   if(!rect||!rect.width||!rect.height){wallAutoPanLastSc=null;return;}
   const margin=Math.min(AUTO_PAN_EDGE_PX,Math.max(54,Math.min(rect.width,rect.height)*.14));
@@ -20041,7 +20059,9 @@ function wallAutoPanFrame(){
 }
 
 function requestWallAutoPan(sc){
-  if(!sc||!isWallDrawingTool()||!S.drag||!S.wallPointerDown) return;
+  const wallActive=isWallDrawingTool()&&S.drag&&S.wallPointerDown;
+  const calibrationActive=!!(S.traceCalibration?.pointerDown);
+  if(!sc||(!wallActive&&!calibrationActive)) return;
   wallAutoPanLastSc={x:sc.x,y:sc.y};
   if(!wallAutoPanFrameId){
     const raf=typeof requestAnimationFrame==='function'?requestAnimationFrame:(cb=>setTimeout(cb,16));
@@ -20087,7 +20107,13 @@ function onMv(e){
 
   if(S.traceCalibration&&Number.isInteger(S.traceCalibration.dragPoint)){
     moveTraceCalibrationPoint(screenToModel(sc.x,sc.y),S.traceCalibration.dragPoint);
-    redraw();drawOverlay(null);return;
+    redraw();drawOverlay(null);drawLoupe(sc.x,sc.y);return;
+  }
+
+  if(S.traceCalibration?.pointerDown){
+    updateTraceCalibrationHover(screenToModel(sc.x,sc.y));
+    requestWallAutoPan(sc);
+    redraw();drawOverlay(null);drawLoupe(sc.x,sc.y);return;
   }
 
   if(ambientResizeState){
@@ -20118,7 +20144,8 @@ function onMv(e){
     (isDrawGestureTool()&&S.drag&&S.ds)
     || (isWallDrawingTool()&&(!!S.wallTapStart||!!S.wallPointerDown||(S.drag&&S.wallGesture==='freehand')))
     || (S.lineEditLine&&!!S.lineDragGrip);
-  if(shouldAutoPan) autoPanDrawingViewport(sc);
+  const didAutoPan=shouldAutoPan&&autoPanDrawingViewport(sc);
+  if(didAutoPan&&(isWallDrawingTool()||S.traceCalibration)) redraw();
 
   const paper=tw(sc.x,sc.y);
   const w=screenToModel(sc.x,sc.y);
@@ -20911,6 +20938,17 @@ function onUp(e){
   if(S.traceCalibration&&Number.isInteger(S.traceCalibration.dragPoint)){
     S.traceCalibration.dragPoint=null;
     try{OC.releasePointerCapture(e.pointerId);}catch(err){}
+    clearLoupe();
+    redraw();drawOverlay(null);return;
+  }
+
+  if(S.traceCalibration?.pointerDown){
+    const c=S.traceCalibration;
+    c.pointerDown=null;
+    const releaseWorld=c.hover?.target||screenToModel(sc.x,sc.y);
+    try{OC.releasePointerCapture(e.pointerId);}catch(err){}
+    handleTraceCalibrationTap(releaseWorld);
+    clearLoupe();
     redraw();drawOverlay(null);return;
   }
 
@@ -24980,13 +25018,13 @@ function syncTraceUI(){
 
 function updateTraceCalibrationHover(worldPoint){
   const c=S.traceCalibration;
-  if(!c||c.phase!==2||!c.worldPoints.length) return;
-  const first=c.worldPoints[0];
+  if(!c||(c.phase!==1&&c.phase!==2)) return;
   const raw={x:worldPoint.x,y:worldPoint.y};
   const snap=traceSnapAll(raw.x,raw.y,{radiusPx:36});
   let target=snap?{...snap.pt}:{...raw};
   let axis=null;
-  if(!snap){
+  const first=c.worldPoints?.[0];
+  if(c.phase===2&&first&&!snap){
     const horizontal={x:raw.x,y:first.y};
     const vertical={x:first.x,y:raw.y};
     const dh=Math.abs(raw.y-first.y),dv=Math.abs(raw.x-first.x);
@@ -25017,6 +25055,15 @@ function drawTraceCalibrationOverlay(ctx,zoomScale){
   if(!c) return;
   const first=c.worldPoints?.[0]||null;
   if(first) drawTraceCalibrationMarker(ctx,first,zoomScale,'#22d3ee','1',true);
+  if(c.phase===1&&c.hover){
+    const hover=c.hover,target=hover.target,raw=hover.raw;
+    if(raw&&target&&Math.hypot(raw.x-target.x,raw.y-target.y)>0.4/Math.max(zoomScale,0.001)){
+      ctx.save();ctx.lineWidth=1.25/Math.max(zoomScale,0.001);ctx.strokeStyle='rgba(192,132,252,.95)';ctx.setLineDash([5/zoomScale,4/zoomScale]);
+      ctx.beginPath();ctx.moveTo(raw.x,raw.y);ctx.lineTo(target.x,target.y);ctx.stroke();ctx.setLineDash([]);ctx.restore();
+    }
+    drawTraceCalibrationMarker(ctx,target,zoomScale,hover.snap?.type==='ep'?'#facc15':'#22d3ee','1',hover.snap?.type==='ep');
+    return;
+  }
   if(c.phase===3&&c.worldPoints?.[1]){
     const second=c.worldPoints[1];
     ctx.save();ctx.lineWidth=2/Math.max(zoomScale,0.001);ctx.strokeStyle='rgba(34,211,238,.95)';ctx.setLineDash([10/zoomScale,6/zoomScale]);
@@ -25075,7 +25122,7 @@ function startTraceCalibration(){
   if(!S.trace) return;
   if(!S.vpEdit) setViewportWorkMode(true,{fit:false});
   setTool('sel');
-  S.traceCalibration={phase:1,localPoints:[],worldPoints:[],snaps:[],hover:null,dragPoint:null};
+  S.traceCalibration={phase:1,localPoints:[],worldPoints:[],snaps:[],hover:null,dragPoint:null,pointerDown:null};
   closeM('traceCalibmod');
   toast('Calca: toca el primer punto del plano base');
   redraw();drawOverlay(null);
@@ -26984,7 +27031,7 @@ document.getElementById('traceOpacity')?.addEventListener('input',e=>{
 });
 document.getElementById('traceCalibCancel')?.addEventListener('click',()=>{S.traceCalibration=null;closeM('traceCalibmod');redraw();drawOverlay(null);});
 document.getElementById('traceCalibRemark')?.addEventListener('click',()=>{
-  S.traceCalibration={phase:1,localPoints:[],worldPoints:[],snaps:[],hover:null,dragPoint:null};
+  S.traceCalibration={phase:1,localPoints:[],worldPoints:[],snaps:[],hover:null,dragPoint:null,pointerDown:null};
   closeM('traceCalibmod');toast('Calca: vuelve a marcar el primer punto');redraw();drawOverlay(null);
 });
 document.getElementById('traceCalibSave')?.addEventListener('click',applyTraceCalibration);
