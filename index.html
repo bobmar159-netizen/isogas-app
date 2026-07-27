@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8"/>
@@ -10,6 +10,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600&display=swap" rel="stylesheet"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;
   user-select:none;touch-action:none;}
@@ -812,6 +813,7 @@ canvas{position:absolute;inset:0;}
 }
 .toolGroup[data-group="gabinetes"] .tool-dropdown-item:last-child{grid-column:1/-1;}
 .tool-dropdown-item:active{transform:scale(.97);}
+.tool-dropdown-item.on{background:rgba(26,127,212,.28);border-color:var(--acc2);color:#bde0ff;}
 .tool-dropdown-title{
   grid-column:1/-1;
   min-height:18px;
@@ -941,6 +943,32 @@ canvas{position:absolute;inset:0;}
 .thkBtn{width:28px;height:28px;border-radius:6px;background:var(--sur2);border:1px solid var(--bdr);display:flex;align-items:center;justify-content:center;color:var(--tx2);font-size:11px;cursor:pointer;}
 .thkBtn:active{transform:scale(.86);}
 #textmod { background: rgba(0,0,0,0.3) !important; }
+.tracePanel{
+  position:absolute;left:10px;top:10px;z-index:710;display:none;align-items:center;gap:7px;
+  padding:6px 8px;border:1px solid rgba(79,168,232,.28);border-radius:10px;
+  background:rgba(18,24,34,.94);box-shadow:0 8px 22px rgba(0,0,0,.28);backdrop-filter:blur(12px);
+  color:#dbeafe;font-size:10px;font-weight:800;pointer-events:auto;touch-action:auto;
+}
+.tracePanel input[type=range]{width:62px;accent-color:var(--acc2);touch-action:pan-x;}
+.tracePanel button{height:24px;padding:0 7px;border-radius:7px;border:1px solid rgba(255,255,255,.13);background:rgba(34,43,58,.96);color:#dbeafe;font-size:9px;font-weight:800;cursor:pointer;touch-action:auto;}
+.tracePanel button.on{border-color:#4fa8e8;background:rgba(26,127,212,.28);color:#fff;}
+.tracePanel .traceValue{min-width:25px;color:#7dd3fc;text-align:right;}
+/* El calibrador queda pequeÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±o y no bloquea el plano para poder mover los puntos. */
+#traceCalibmod{align-items:flex-end;justify-content:center;padding:12px;background:transparent;pointer-events:none;}
+#traceCalibmod.open{display:flex;}
+#traceCalibmod .mod{width:min(320px,calc(100vw - 24px));min-width:0;max-width:320px;padding:12px;border-radius:12px;pointer-events:auto;}
+#traceCalibmod .mod h3{margin-bottom:6px;}
+#traceCalibmod .mod p{margin-bottom:7px;}
+#traceCalibmod .mbtns{gap:5px;}
+#traceCalibmod .mbtns button{padding:7px 8px;font-size:10px;}
+#traceAutoMod{align-items:flex-end;justify-content:center;padding:12px;background:rgba(0,0,0,.25);}
+#traceAutoMod .mod{width:min(360px,calc(100vw - 24px));min-width:0;max-width:360px;padding:13px;border-radius:13px;}
+#traceAutoStats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:9px 0 11px;}
+#traceAutoStats span{display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 4px;border-radius:8px;background:rgba(255,255,255,.05);font-size:10px;color:var(--tx2);}
+#traceAutoStats b{font-size:16px;color:#fff;}
+#traceAutoHint{font-size:10px;line-height:1.35;color:var(--tx2);margin:0 0 8px;}
+#traceAutoMod .mbtns{gap:5px;}
+#traceAutoMod .mbtns button{padding:7px 8px;font-size:10px;}
 </style>
 </head>
 <body>
@@ -975,6 +1003,11 @@ canvas{position:absolute;inset:0;}
     <div class="tbtn txt" id="bpuerta" title="Puerta en muro" style="display:none;">Puerta</div>
     <div class="tbtn on txt" id="bsnap" title="Snap a rejilla">Sn</div>
     <div class="tbtn on txt" id="bgrid" title="Mostrar rejilla">Grid</div>
+    <div class="tbtn txt" id="btrace" title="Cargar plano base para calcar" style="display:none;">Calcar</div>
+    <div class="tbtn txt" id="btracecal" title="Calibrar plano base con dos puntos" style="display:none;">Calibrar</div>
+    <div class="tbtn txt" id="btraceauto" title="Detectar y generar muros, puertas y ventanas" style="display:none;">Auto</div>
+    <div class="tbtn txt" id="btracemanual" title="Calcar manualmente usando muros, snap y lupa" style="display:none;">Manual</div>
+    <div class="tbtn del txt" id="btraceclear" title="Quitar plano base" style="display:none;">Quitar</div>
     <div class="tbtn on txt" id="biso" title="Modo Isometrico">ISO</div>
     <button type="button" class="tbtn txt" id="bIsoToPlanta" title="Convertir ISO a Planta">ISO&gt;P</button>
     <button type="button" class="tbtn txt" id="bImportIsoBtn" title="Importar ISO" style="display:none;">Imp ISO</button>
@@ -1140,6 +1173,13 @@ canvas{position:absolute;inset:0;}
       <span style="opacity:0.7;">Perimetro:</span>
       <span id="tooltipPerimeterVal" style="font-weight:bold;">0.00 m</span>
     </div>
+  </div>
+  <div id="tracePanel" class="tracePanel" aria-label="Controles del plano base">
+    <span>Plano base</span>
+    <button type="button" id="traceVisibleToggle" title="Mostrar u ocultar plano">Ver</button>
+    <span>Op</span><input type="range" id="traceOpacity" min="0.05" max="0.80" step="0.05" value="0.60"/><span class="traceValue" id="traceOpacityVal">60%</span>
+    <button type="button" id="traceSnapToggle" title="Activar o desactivar snap del plano">Snap</button>
+    <button type="button" id="traceSmartToggle" title="Priorizar muros y ventanas, ignorando la mayoria de cotas y textos">Arq</button>
   </div>
   <div id="opchip" style="position:fixed; left:50%; bottom:18px; transform:translateX(-50%); z-index:2100; min-width:180px; max-width:min(88vw,420px); padding:7px 12px; border-radius:999px; background:rgba(15,23,42,0.9); border:1px solid rgba(125,211,252,0.28); color:#dbeafe; font-size:11px; font-weight:700; text-align:center; box-shadow:0 10px 28px rgba(0,0,0,0.35); backdrop-filter:blur(8px);">Seleccion simple: toca uno por uno o arrastra para enmarcar</div>
   <div id="plantaSheet" aria-hidden="true">
@@ -1428,6 +1468,7 @@ canvas{position:absolute;inset:0;}
       </div>
     </div>
     <input type="file" id="projectFile" accept="application/json,.json" style="display:none"/>
+    <input type="file" id="traceFileInput" accept="image/jpeg,image/png,.jpg,.jpeg,.pdf,application/pdf" style="display:none"/>
   </div>
 </div>
 
@@ -1888,6 +1929,36 @@ canvas{position:absolute;inset:0;}
   </div>
 </div>
 
+<div id="traceAutoMod" class="mbg">
+  <div class="mod">
+    <h3>Generar plano automaticamente</h3>
+    <p id="traceAutoHint">Se analizaran lineas arquitectonicas de la imagen calibrada. El resultado quedara editable al confirmar.</p>
+    <div id="traceAutoStats">
+      <span><b id="traceAutoWallCount">0</b>Muros</span>
+      <span><b id="traceAutoColumnCount">0</b>Columnas</span>
+      <span><b id="traceAutoOpeningCount">0</b>Aberturas</span>
+    </div>
+    <div class="mbtns">
+      <button class="mcx" id="traceAutoCancel" type="button">Cancelar</button>
+      <button class="mcx" id="traceAutoRerun" type="button">Reanalizar</button>
+      <button class="mok" id="traceAutoCommit" type="button">Crear objetos</button>
+    </div>
+  </div>
+</div>
+<div id="traceCalibmod" class="mbg">
+  <div class="mod" style="max-width:320px;">
+    <h3>Calibrar plano base</h3>
+    <p>Ingresa la distancia real entre los dos puntos seleccionados.</p>
+    <label style="display:flex;flex-direction:column;gap:5px;font-size:11px;color:var(--tx2);margin-bottom:12px;">Distancia real (m)
+      <input id="traceCalibDistance" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="4.50"/>
+    </label>
+    <div class="mbtns">
+      <button class="mcx" id="traceCalibCancel" type="button">Cancelar</button>
+      <button class="mcx" id="traceCalibRemark" type="button">Volver a marcar</button>
+      <button class="mok" id="traceCalibSave" type="button">Aplicar escala</button>
+    </div>
+  </div>
+</div>
 <div id="toast"></div>
 <div id="plantaSelectionPanel" class="plantaSelectionPanel" aria-label="Editor de abertura">
   <div class="plantaSelectionTitle" id="plantaSelectionTitle">Abertura</div>
@@ -1922,7 +1993,7 @@ canvas{position:absolute;inset:0;}
 </div>
 
 <script>
-﻿/* Imported from puerta.dxf. Source entities were exported on layer 0. */
+/* Imported from puerta.dxf. Source entities were exported on layer 0. */
 const DOOR_DXF_SOURCE = Object.freeze({
   minX:-1.06147445, maxX:-0.06147445, minY:-0.28374756, maxY:0.71872226, wallY:-0.24374756, knobX:-0.58483339, knobY:0.51900309,
   layers:["0"],
@@ -2929,7 +3000,14 @@ const S = {
   wallApproachHint:null,
   wallDimsVisible:false,
   pendingDimensionPick:false,
+  confirmWallCircuit:false,
   wallOpacity:0.2,
+  trace:null,
+  traceCalibration:null,
+  traceLoadToken:0,
+  traceAutoPreview:null,
+  traceAutoBusy:false,
+  traceAutoCommitBusy:false,
   rectSelectStart:null,
   rectSelectCurrent:null,
   rectSelectDragging:false,
@@ -3141,7 +3219,9 @@ function ambientHoleCoveredByCells(hole,cells){
 }
 function ambientDisplayRect(zone){
   const rect=ambientNormalizedRect(zone);
-  if(isPlantaProject()){
+  // Diagnostic copy: use only the zone rectangle, without wall/room geometry.
+  return {x:rect.x,y:rect.y,w:rect.w,h:rect.h,x2:rect.x2,y2:rect.y2,cx:rect.cx,cy:rect.cy,cells:Array.isArray(zone.cells)?zone.cells:null,holes:[]};
+  if(isPlantaProject() && !zone.detached){
     const seedX=Number.isFinite(Number(zone.seedX)) ? Number(zone.seedX) : rect.cx;
     const seedY=Number.isFinite(Number(zone.seedY)) ? Number(zone.seedY) : rect.cy;
     const room=ambientClosedRoomHit(seedX,seedY);
@@ -3157,8 +3237,52 @@ function ambientDisplayRect(zone){
   }
   const inset=Math.min(rect.w*0.035,rect.h*0.035,Math.max(1.2,UNITS_PER_M*0.025));
   const fallback={x:rect.x+inset,y:rect.y+inset,w:Math.max(0.1,rect.w-inset*2),h:Math.max(0.1,rect.h-inset*2),x2:rect.x2-inset,y2:rect.y2-inset,cx:rect.cx,cy:rect.cy};
-  fallback.holes=ambientInternalIslandRects(fallback, zone.sourceRectId||null);
+  fallback.holes=zone.detached?[]:ambientInternalIslandRects(fallback, zone.sourceRectId||null);
   return fallback;
+}
+
+function ambientShapeCenter(zone){
+  const rect=ambientDisplayRect(zone);
+  const cells=Array.isArray(rect?.cells)?rect.cells.filter(cell=>cell && cell.w>0 && cell.h>0):[];
+  if(!cells.length) return {x:rect.cx,y:rect.cy};
+  let area=0, cx=0, cy=0;
+  for(const cell of cells){
+    const a=cell.w*cell.h;
+    area+=a; cx+=(cell.x+cell.w*0.5)*a; cy+=(cell.y+cell.h*0.5)*a;
+  }
+  return area>0 ? {x:cx/area,y:cy/area} : {x:rect.cx,y:rect.cy};
+}
+function ambientCellBoundarySegments(zone){
+  const rect=zone && Array.isArray(zone.cells) ? zone : ambientDisplayRect(zone);
+  const cells=Array.isArray(rect?.cells)?rect.cells.filter(cell=>cell && cell.w>0 && cell.h>0):[];
+  if(!cells.length) return null;
+  const mergeTolerance=Math.max(UNITS_PER_M*0.09,0.75);
+  const nodes=[];
+  const nodeFor=point=>{
+    let best=-1, bestDist=Infinity;
+    for(let i=0;i<nodes.length;i++){
+      const dist=Math.hypot(nodes[i].x-point.x,nodes[i].y-point.y);
+      if(dist<=mergeTolerance&&dist<bestDist){best=i;bestDist=dist;}
+    }
+    if(best>=0) return best;
+    nodes.push({x:point.x,y:point.y});
+    return nodes.length-1;
+  };
+  const edges=new Map();
+  const addEdge=(a,b)=>{
+    const ia=nodeFor(a), ib=nodeFor(b);
+    if(ia===ib) return;
+    const key=ia<ib ? ia+'|'+ib : ib+'|'+ia;
+    if(edges.has(key)) edges.delete(key); else edges.set(key,{a:ia,b:ib});
+  };
+  for(const cell of cells){
+    const x=cell.x,y=cell.y,x2=x+cell.w,y2=y+cell.h;
+    addEdge({x,y},{x:x2,y});
+    addEdge({x:x2,y},{x:x2,y:y2});
+    addEdge({x:x2,y:y2},{x,y:y2});
+    addEdge({x,y:y2},{x,y});
+  }
+  return [...edges.values()].map(edge=>({a:{...nodes[edge.a]},b:{...nodes[edge.b]}}));
 }
 
 function normalizeAmbientZone(zone){
@@ -3171,6 +3295,17 @@ function normalizeAmbientZone(zone){
   zone.heightM = Math.max(0.5, Number(zone.heightM)||AMBIENT_DEFAULT_HEIGHT_M);
   zone.colorId = ambientPaletteEntry(zone.colorId).id;
   zone.colorOnly = !!zone.colorOnly;
+  zone.detached = !!zone.detached;
+  if(Number.isFinite(Number(zone.textOffsetX))) zone.textOffsetX=Number(zone.textOffsetX); else delete zone.textOffsetX;
+  if(Number.isFinite(Number(zone.textOffsetY))) zone.textOffsetY=Number(zone.textOffsetY); else delete zone.textOffsetY;
+  if(Array.isArray(zone.cells)){
+    zone.cells = zone.cells.map(cell=>({
+      x:Number(cell.x)||0, y:Number(cell.y)||0,
+      w:Math.max(0,Number(cell.w)||0), h:Math.max(0,Number(cell.h)||0)
+    })).filter(cell=>cell.w>0 && cell.h>0);
+  }else{
+    delete zone.cells;
+  }
   zone.artifactRows = ambientNormalizeArtifactRows(zone.artifactRows, zone.artifacts, {keepEmpty:false});
   zone.artifacts = ambientRowsToArtifacts(zone.artifactRows.length ? zone.artifactRows : ambientNormalizeArtifactRows(null, zone.artifacts));
   if(Number.isFinite(Number(zone.seedX))) zone.seedX=Number(zone.seedX); else delete zone.seedX;
@@ -3188,11 +3323,12 @@ function ambientCreateFromRect(rect, opts={}){
     colorId: opts.colorId || ambientNextColorId(),
     colorOnly: !!opts.colorOnly,
     artifacts: ambientCloneArtifacts(opts.artifacts),
-    artifactRows: ambientNormalizeArtifactRows(opts.artifactRows, opts.artifacts, {keepEmpty:false}),
+    artifactRows: ambientNormalizeArtifactRows(opts.artifactRows, opts.artifacts, {fallbackRow:!opts.colorOnly, roomName:opts.roomName||'COCINA', keepEmpty:false}),
     sourceRectId: opts.sourceRectId || null,
     floorLevel: opts.floorLevel ?? null,
     seedX: Number.isFinite(Number(opts.seedX)) ? Number(opts.seedX) : null,
-    seedY: Number.isFinite(Number(opts.seedY)) ? Number(opts.seedY) : null
+    seedY: Number.isFinite(Number(opts.seedY)) ? Number(opts.seedY) : null,
+    cells: Array.isArray(opts.cells) ? opts.cells : null
   });
   if(!opts.keepColorCursor) bumpAmbientColorCursor();
   return zone;
@@ -3307,7 +3443,10 @@ function ambientTextLayout(zone, zoomScale=modelZoom(), ctx=null){
   const outsideW=Math.max(...outsideLines.map((line,idx)=>measure(line,outsideFonts[idx])), outsidePx*4);
   const insideH=insideFonts.reduce((sum,px)=>sum+px,0) + Math.max(0,insideFonts.length-1)*lineGap;
   const outsideH=outsideFonts.reduce((sum,px)=>sum+px,0) + Math.max(0,outsideFonts.length-1)*lineGap;
-  const inside={lines:insideLines,fonts:insideFonts,boxW:insideW,totalH:insideH,x:rect.cx,y:rect.cy};
+  const shapeCenter=ambientShapeCenter(zone);
+  const textX=shapeCenter.x+(Number(zone.textOffsetX)||0);
+  const textY=shapeCenter.y+(Number(zone.textOffsetY)||0);
+  const inside={lines:insideLines,fonts:insideFonts,boxW:insideW,totalH:insideH,x:textX,y:textY};
   const outsideAnchor=ambientFloorLabelAnchor(zone, rect, zoomScale, measureCtx);
   const outsideX=outsideAnchor ? outsideAnchor.x : rect.cx;
   const outsideY=outsideAnchor ? outsideAnchor.y + outsideGap + outsideH*0.5 : rect.y2 + outsideGap + outsideH*0.5;
@@ -3320,16 +3459,72 @@ function ambientTextLayout(zone, zoomScale=modelZoom(), ctx=null){
 }
 
 function ambientHandlePoints(zone){
-  const rect=ambientNormalizedRect(zone);
+  const rect=ambientDisplayRect(zone);
+  const cells=Array.isArray(rect.cells)?rect.cells.filter(cell=>cell && cell.w>0 && cell.h>0):[];
+  const boundary=ambientCellBoundarySegments(zone)||[];
+  if(cells.length>1 && boundary.length){
+    const tolerance=Math.max(UNITS_PER_M*0.045,0.75);
+    const points=[];
+    const near=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y)<=tolerance;
+    for(const seg of boundary){
+      for(const point of [seg.a,seg.b]){
+        if(!points.some(existing=>near(existing,point))) points.push({x:point.x,y:point.y});
+      }
+    }
+    const corners=points.filter(point=>{
+      const incident=[];
+      for(const seg of boundary){
+        if(near(seg.a,point)) incident.push(seg.b);
+        else if(near(seg.b,point)) incident.push(seg.a);
+      }
+      const uniqueIncident=[];
+      for(const neighbor of incident){
+        if(!uniqueIncident.some(existing=>near(existing,neighbor))) uniqueIncident.push(neighbor);
+      }
+      if(uniqueIncident.length<2) return true;
+      const base={x:uniqueIncident[0].x-point.x,y:uniqueIncident[0].y-point.y};
+      const baseLen=Math.hypot(base.x,base.y)||1;
+      const hasTurn=uniqueIncident.slice(1).some(neighbor=>{
+        const next={x:neighbor.x-point.x,y:neighbor.y-point.y};
+        const nextLen=Math.hypot(next.x,next.y)||1;
+        return Math.abs(base.x*next.y-base.y*next.x) > baseLen*nextLen*0.02;
+      });
+      return hasTurn || uniqueIncident.length!==2;
+    });
+    const uniqueCorners=[];
+    for(const point of corners){
+      if(!uniqueCorners.some(existing=>near(existing,point))) uniqueCorners.push(point);
+    }
+    if(uniqueCorners.length) return uniqueCorners.map((point,index)=>({key:'v'+index,x:point.x,y:point.y,vertex:true}));
+  }
   return [
-    {key:'nw',x:rect.x,y:rect.y},{key:'n',x:rect.cx,y:rect.y},{key:'ne',x:rect.x2,y:rect.y},
-    {key:'e',x:rect.x2,y:rect.cy},{key:'se',x:rect.x2,y:rect.y2},{key:'s',x:rect.cx,y:rect.y2},
-    {key:'sw',x:rect.x,y:rect.y2},{key:'w',x:rect.x,y:rect.cy}
+    {key:'nw',x:rect.x,y:rect.y},
+    {key:'ne',x:rect.x2,y:rect.y},
+    {key:'se',x:rect.x2,y:rect.y2},
+    {key:'sw',x:rect.x,y:rect.y2}
   ];
 }
 
+function ambientScreenHandleHit(sc, detail=null){
+  if(!sc) return null;
+  const active=selectedAmbientZone();
+  const zones=active ? [active] : [];
+  const radius=28;
+  for(let i=zones.length-1;i>=0;i--){
+    const zone=zones[i];
+    if(!zone) continue;
+    const rect=ambientDisplayRect(zone);
+    const handles=ambientHandlePoints(zone);
+    for(const handle of handles){
+      const screen=modelToDrawingScreen(handle,detail);
+      if(Math.hypot(sc.x-screen.x,sc.y-screen.y)<=radius) return {zone,target:'handle',handle:handle.key};
+    }
+  }
+  return null;
+}
+
 function ambientHitHandle(zone, wx, wy, zoomScale=modelZoom()){
-  const radius=11/zoomScale;
+  const radius=16/zoomScale;
   const handles=ambientHandlePoints(zone);
   for(const handle of handles){ if(Math.hypot(wx-handle.x, wy-handle.y) <= radius) return handle; }
   return null;
@@ -3345,10 +3540,104 @@ function ambientHitText(zone, wx, wy, zoomScale=modelZoom()){
   const bottom=group.y + group.totalH*0.5 + pad;
   return wx>=left && wx<=right && wy>=top && wy<=bottom;
 }
+function ambientHitBoundary(zone, wx, wy, zoomScale=modelZoom()){
+  if(!zone) return false;
+  const rect=ambientDisplayRect(zone);
+  const segments=ambientCellBoundarySegments(zone);
+  const edges=segments && segments.length ? segments : [
+    [{x:rect.x,y:rect.y},{x:rect.x2,y:rect.y}],
+    [{x:rect.x2,y:rect.y},{x:rect.x2,y:rect.y2}],
+    [{x:rect.x2,y:rect.y2},{x:rect.x,y:rect.y2}],
+    [{x:rect.x,y:rect.y2},{x:rect.x,y:rect.y}]
+  ];
+  const radius=18/Math.max(zoomScale,0.001);
+  return edges.some(edge=>distToSegment({x:wx,y:wy},edge.a||edge[0],edge.b||edge[1])<=radius);
+}
+function ambientHitCenter(zone, wx, wy, zoomScale=modelZoom()){
+  const rect=ambientDisplayRect(zone);
+  if(!rect) return false;
+  const center=ambientShapeCenter(zone);
+  const halfW=Math.min(Math.max(28/zoomScale,rect.w*0.24),rect.w*0.45);
+  const halfH=Math.min(Math.max(28/zoomScale,rect.h*0.24),rect.h*0.45);
+  if(Math.abs(wx-center.x)>halfW || Math.abs(wy-center.y)>halfH) return false;
+  return ambientZoneContainsPoint(zone,wx,wy);
+}
 
 function ambientHitBody(zone, wx, wy){
   const rect=ambientNormalizedRect(zone);
   return wx>=rect.x && wx<=rect.x2 && wy>=rect.y && wy<=rect.y2;
+}
+
+function ambientZoneContainsPoint(zone, wx, wy){
+  if(!zone) return false;
+  const rect=ambientDisplayRect(zone);
+  if(!rect) return false;
+  const x2=Number.isFinite(rect.x2) ? rect.x2 : (rect.x + rect.w);
+  const y2=Number.isFinite(rect.y2) ? rect.y2 : (rect.y + rect.h);
+  const insideBase = wx>=rect.x && wx<=x2 && wy>=rect.y && wy<=y2;
+  const insideCells = (Array.isArray(rect.cells) && rect.cells.length)
+    ? rect.cells.some(cell=>wx>=cell.x && wx<=cell.x+cell.w && wy>=cell.y && wy<=cell.y+cell.h)
+    : insideBase;
+  if(!insideCells) return false;
+  const inHole = (Array.isArray(rect.holes) ? rect.holes : [])
+    .some(hole=>wx>=hole.x && wx<=hole.x+hole.w && wy>=hole.y && wy<=hole.y+hole.h);
+  return !inHole;
+}
+
+function ambientZoneAtPoint(wx, wy){
+  ensureAmbientState();
+  for(let i=S.ambientZones.length-1;i>=0;i--){
+    const zone=normalizeAmbientZone(S.ambientZones[i]);
+    if(zone && ambientZoneContainsPoint(zone, wx, wy)) return zone;
+  }
+  return null;
+}
+
+function openingDominantAmbientColorId(op){
+  if(!isPlantaProject() || !op || op.kind!=='puerta') return null;
+  const g=wallOpeningGeometry(op);
+  if(!g) return null;
+  const wallHalf=wallHalfWidthUnits(g.line);
+  const sampleOffset=Math.max(wallHalf + UNITS_PER_M*0.08, wallHalf*1.15);
+  const posZone=ambientZoneAtPoint(g.center.x + g.n.x*sampleOffset, g.center.y + g.n.y*sampleOffset);
+  const negZone=ambientZoneAtPoint(g.center.x - g.n.x*sampleOffset, g.center.y - g.n.y*sampleOffset);
+  const posColor=posZone?.colorId || null;
+  const negColor=negZone?.colorId || null;
+  if(posColor && negColor){
+    if(posColor===negColor) return posColor;
+    return (Number(op.side) || 1) >= 0 ? posColor : negColor;
+  }
+  return posColor || negColor || null;
+}
+
+function drawDoorAmbientStrip(ctx, op, zoomScale=modelZoom()){
+  if(!isPlantaProject() || !op || op.kind!=='puerta') return;
+  const colorId=openingDominantAmbientColorId(op);
+  if(!colorId) return;
+  const g=wallOpeningGeometry(op);
+  if(!g) return;
+  const wallHalf=wallHalfWidthUnits(g.line);
+  if(wallHalf<=0.01) return;
+  const palette=ambientPaletteEntry(colorId);
+  const alpha=Math.max(0.06, Math.min(0.55, Number(S.wallOpacity)||0.2));
+  ctx.save();
+  ctx.fillStyle=ambientHexToRgba(palette.hex, alpha);
+  ctx.beginPath();
+  ctx.moveTo(g.q0.x-g.n.x*wallHalf,g.q0.y-g.n.y*wallHalf);
+  ctx.lineTo(g.q1.x-g.n.x*wallHalf,g.q1.y-g.n.y*wallHalf);
+  ctx.lineTo(g.q1.x+g.n.x*wallHalf,g.q1.y+g.n.y*wallHalf);
+  ctx.lineTo(g.q0.x+g.n.x*wallHalf,g.q0.y+g.n.y*wallHalf);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawDoorAmbientStrips(ctx, zoomScale=modelZoom()){
+  if(!isPlantaProject()) return;
+  ensureWallIds();
+  for(const op of S.wallOpenings||[]){
+    if(op && op.kind==='puerta') drawDoorAmbientStrip(ctx, op, zoomScale);
+  }
 }
 
 function findColorFillHit(wx, wy){
@@ -3359,26 +3648,31 @@ function findColorFillHit(wx, wy){
     const rect=ambientDisplayRect(zone);
     const inside=wx>=rect.x && wx<=rect.x2 && wy>=rect.y && wy<=rect.y2;
     if(!inside) continue;
-    const inHole=(Array.isArray(rect.holes)?rect.holes:[]).some(h=>wx>=h.x && wx<=h.x+h.w && wy>=h.y && wy<=h.y+h.h);
-    if(!inHole) return zone;
+    if(ambientZoneContainsPoint(zone,wx,wy)) return zone;
   }
   return null;
 }
 function findAmbientHit(wx, wy, zoomScale=modelZoom(), opts={}){
   ensureAmbientState();
   const includeBody = !!opts.includeBody;
+  const includeCenter = !!opts.includeCenter;
   const includeActiveBody = includeBody || !!opts.includeActiveBody;
   const active=selectedAmbientZone();
   if(active){
     const handle=ambientHitHandle(active,wx,wy,zoomScale);
     if(handle) return {zone:active,target:'handle',handle:handle.key};
     if(ambientHitText(active,wx,wy,zoomScale)) return {zone:active,target:'text'};
+    if(opts.includeBoundary && ambientHitBoundary(active,wx,wy,zoomScale)) return {zone:active,target:'boundary'};
+    if(includeCenter && ambientHitCenter(active,wx,wy,zoomScale)) return {zone:active,target:'center'};
     if(includeActiveBody && ambientHitBody(active,wx,wy)) return {zone:active,target:'body'};
   }
   for(let i=S.ambientZones.length-1;i>=0;i--){
     const zone=normalizeAmbientZone(S.ambientZones[i]);
     if(active && zone===active) continue;
+    const handle=ambientHitHandle(zone,wx,wy,zoomScale);
+    if(handle) return {zone:zone,target:'handle',handle:handle.key};
     if(ambientHitText(zone,wx,wy,zoomScale)) return {zone:zone,target:'text'};
+    if(includeCenter && ambientHitCenter(zone,wx,wy,zoomScale)) return {zone:zone,target:'center'};
     if(includeBody && ambientHitBody(zone,wx,wy)) return {zone:zone,target:'body'};
   }
   return null;
@@ -3587,6 +3881,16 @@ function ambientSnapDraggedRect(rect, zoomScale=modelZoom()){
       considerDy(seg.y1, rect.y2, seg.x1, seg.x2);
     }
   }
+  let pointSnap=null;
+  if(isPlantaProject()){
+    const anchors=[{x:rect.x,y:rect.y},{x:rect.cx,y:rect.y},{x:rect.x2,y:rect.y},{x:rect.x2,y:rect.cy},{x:rect.x2,y:rect.y2},{x:rect.cx,y:rect.y2},{x:rect.x,y:rect.y2},{x:rect.x,y:rect.cy},{x:rect.cx,y:rect.cy}];
+    const snapRadius=Math.max(24/Math.max(zoomScale,0.001),UNITS_PER_M*0.08);
+    for(const anchor of anchors){
+      const candidate=snapAll(anchor.x,anchor.y,{force:true});
+      if(candidate && candidate.d<=snapRadius && (!pointSnap || candidate.d<pointSnap.d)) pointSnap={dx:candidate.pt.x-anchor.x,dy:candidate.pt.y-anchor.y,pt:candidate.pt,d:candidate.d};
+    }
+  }
+  if(pointSnap) return {x:rect.x+pointSnap.dx,y:rect.y+pointSnap.dy,snapPt:pointSnap.pt};
   return {
     x: rect.x + (bestDx.abs<Infinity ? bestDx.dx : 0),
     y: rect.y + (bestDy.abs<Infinity ? bestDy.dy : 0),
@@ -3598,17 +3902,55 @@ function ambientZoneBySourceRect(rectId){
   return ensureAmbientState().find(zone=>zone && zone.sourceRectId===rectId) || null;
 }
 
-function ambientResizeZone(zone, handleKey, pt){
+function ambientResizeZone(zone, handleKey, pt, baseRect=null){
   if(!zone || !handleKey || !pt) return;
-  const rect=ambientNormalizedRect(zone);
+  const rect=baseRect || ambientDisplayRect(zone);
+  const sourceCells=Array.isArray(rect.cells) && rect.cells.length ? rect.cells.map(cell=>({...cell})) : null;
+  const snapRadius=Math.max(24/Math.max(modelZoom(),0.001),UNITS_PER_M*0.08);
+  if(handleKey.startsWith('v') && sourceCells){
+    const vertex=ambientHandlePoints(rect).find(handle=>handle.key===handleKey);
+    if(vertex){
+      const snap=snapAll(pt.x,pt.y,{force:true});
+      const target=snap && snap.d<=snapRadius ? snap.pt : pt;
+      const tol=0.05, minCell=Math.max(0.02,AMBIENT_MIN_SIZE*0.06);
+      const next=sourceCells.map(cell=>{
+        const x1=cell.x,y1=cell.y,x2=cell.x+cell.w,y2=cell.y+cell.h;
+        let nx=x1,ny=y1,nx2=x2,ny2=y2;
+        if(Math.abs(x1-vertex.x)<=tol) nx=Math.min(target.x,x2-minCell); else if(Math.abs(x2-vertex.x)<=tol) nx2=Math.max(target.x,x1+minCell);
+        if(Math.abs(y1-vertex.y)<=tol) ny=Math.min(target.y,y2-minCell); else if(Math.abs(y2-vertex.y)<=tol) ny2=Math.max(target.y,y1+minCell);
+        return {x:nx,y:ny,w:Math.max(minCell,nx2-nx),h:Math.max(minCell,ny2-ny)};
+      });
+      const xs=next.flatMap(cell=>[cell.x,cell.x+cell.w]);
+      const ys=next.flatMap(cell=>[cell.y,cell.y+cell.h]);
+      zone.x=Math.min(...xs); zone.y=Math.min(...ys); zone.w=Math.max(AMBIENT_MIN_SIZE,Math.max(...xs)-zone.x); zone.h=Math.max(AMBIENT_MIN_SIZE,Math.max(...ys)-zone.y);
+      zone.cells=next; zone.sourceRectId=null; zone.detached=true; delete zone.seedX; delete zone.seedY;
+      normalizeAmbientZone(zone);
+      return;
+    }
+  }
+  const oldW=Math.max(AMBIENT_MIN_SIZE,rect.w), oldH=Math.max(AMBIENT_MIN_SIZE,rect.h);
   let left=rect.x, right=rect.x2, top=rect.y, bottom=rect.y2;
-  if(handleKey.includes('w')) left = Math.min(pt.x, right - AMBIENT_MIN_SIZE);
-  if(handleKey.includes('e')) right = Math.max(pt.x, left + AMBIENT_MIN_SIZE);
-  if(handleKey.includes('n')) top = Math.min(pt.y, bottom - AMBIENT_MIN_SIZE);
-  if(handleKey.includes('s')) bottom = Math.max(pt.y, top + AMBIENT_MIN_SIZE);
-  if(handleKey==='n' || handleKey==='s'){ left=rect.x; right=rect.x2; }
-  if(handleKey==='e' || handleKey==='w'){ top=rect.y; bottom=rect.y2; }
-  zone.x = left; zone.y = top; zone.w = right-left; zone.h = bottom-top; zone.sourceRectId = null;
+  if(handleKey.includes('w')) left=Math.min(pt.x,right-AMBIENT_MIN_SIZE);
+  if(handleKey.includes('e')) right=Math.max(pt.x,left+AMBIENT_MIN_SIZE);
+  if(handleKey.includes('n')) top=Math.min(pt.y,bottom-AMBIENT_MIN_SIZE);
+  if(handleKey.includes('s')) bottom=Math.max(pt.y,top+AMBIENT_MIN_SIZE);
+  if(handleKey==='n'||handleKey==='s'){left=rect.x;right=rect.x2;}
+  if(handleKey==='e'||handleKey==='w'){top=rect.y;bottom=rect.y2;}
+  const handlePoint={x:handleKey.includes('w')?left:handleKey.includes('e')?right:(left+right)*0.5,y:handleKey.includes('n')?top:handleKey.includes('s')?bottom:(top+bottom)*0.5};
+  const snap=snapAll(handlePoint.x,handlePoint.y,{force:true});
+  if(snap && snap.d<=snapRadius){
+    if(handleKey.includes('w')) left=snap.pt.x; if(handleKey.includes('e')) right=snap.pt.x;
+    if(handleKey.includes('n')) top=snap.pt.y; if(handleKey.includes('s')) bottom=snap.pt.y;
+  }
+  if(handleKey.includes('w')) left=Math.min(left,right-AMBIENT_MIN_SIZE);
+  if(handleKey.includes('e')) right=Math.max(right,left+AMBIENT_MIN_SIZE);
+  if(handleKey.includes('n')) top=Math.min(top,bottom-AMBIENT_MIN_SIZE);
+  if(handleKey.includes('s')) bottom=Math.max(bottom,top+AMBIENT_MIN_SIZE);
+  zone.x=left; zone.y=top; zone.w=right-left; zone.h=bottom-top; zone.sourceRectId=null; zone.detached=true; delete zone.seedX; delete zone.seedY;
+  if(sourceCells){
+    const sx=zone.w/oldW,sy=zone.h/oldH;
+    zone.cells=sourceCells.map(cell=>({x:left+(cell.x-rect.x)*sx,y:top+(cell.y-rect.y)*sy,w:cell.w*sx,h:cell.h*sy}));
+  }else delete zone.cells;
   normalizeAmbientZone(zone);
 }
 
@@ -3672,8 +4014,7 @@ function drawAmbientZones(ctx, zoomScale=modelZoom(), showSelection=true){
   for(const zone of S.ambientZones){ if(zone) drawSingleAmbientZone(ctx, normalizeAmbientZone(zone), zoomScale, zone===active, showSelection, false); }
   if(ambientDrawDraft) drawSingleAmbientZone(ctx, ambientDrawDraft, zoomScale, false, false, true);
 }
-function drawSelectedAmbientOverlayFullStrength(ctx, zoomScale=modelZoom()){
-  const zone=selectedAmbientZone();
+function drawAmbientSelectionOverlay(ctx, zone, zoomScale=modelZoom()){
   if(!zone) return;
   const rect=ambientDisplayRect(zone);
   ctx.save();
@@ -3682,13 +4023,14 @@ function drawSelectedAmbientOverlayFullStrength(ctx, zoomScale=modelZoom()){
   ctx.strokeStyle='#7dd3fc';
   ctx.lineWidth=Math.max(1.45/zoomScale,0.9);
   ctx.setLineDash([7/zoomScale,4.5/zoomScale]);
-  ctx.strokeRect(rect.x, rect.y, rect.w, rect.h);
+  const boundary=ambientCellBoundarySegments(zone);
+  if(boundary && boundary.length){
+    ctx.beginPath();
+    for(const seg of boundary){ctx.moveTo(seg.a.x,seg.a.y);ctx.lineTo(seg.b.x,seg.b.y);}
+    ctx.stroke();
+  }else ctx.strokeRect(rect.x,rect.y,rect.w,rect.h);
   ctx.setLineDash([]);
-  const handles=[
-    {x:rect.x,y:rect.y},{x:rect.cx,y:rect.y},{x:rect.x2,y:rect.y},
-    {x:rect.x2,y:rect.cy},{x:rect.x2,y:rect.y2},{x:rect.cx,y:rect.y2},
-    {x:rect.x,y:rect.y2},{x:rect.x,y:rect.cy}
-  ];
+  const handles=ambientHandlePoints(zone);
   const r=Math.max(4.8/zoomScale,2.2/zoomScale);
   for(const handle of handles){
     ctx.beginPath();
@@ -3700,6 +4042,9 @@ function drawSelectedAmbientOverlayFullStrength(ctx, zoomScale=modelZoom()){
     ctx.stroke();
   }
   ctx.restore();
+}
+function drawSelectedAmbientOverlayFullStrength(ctx, zoomScale=modelZoom()){
+  drawAmbientSelectionOverlay(ctx, selectedAmbientZone(), zoomScale);
 }
 function ambientCollectArtifactRows(){
   const modal=document.getElementById('ambientmod');
@@ -3745,7 +4090,7 @@ function ambientPreviewFromModal(zone){
   const artifactRows=ambientCollectArtifactRows();
   const current=ambientNormalizedRect(zone);
   const newW=widthM * UNITS_PER_M, newH=heightDrawM * UNITS_PER_M;
-  return normalizeAmbientZone({ id: zone.id, x: current.cx - newW*0.5, y: current.cy - newH*0.5, w: newW, h: newH, roomName, unit, heightM, colorId, artifactRows, artifacts: ambientRowsToArtifacts(artifactRows), sourceRectId: zone.sourceRectId||null, floorLevel: zone.floorLevel ?? null, seedX: zone.seedX, seedY: zone.seedY });
+  return normalizeAmbientZone({ id: zone.id, x: current.cx - newW*0.5, y: current.cy - newH*0.5, w: newW, h: newH, roomName, unit, heightM, colorId, artifactRows, artifacts: ambientRowsToArtifacts(artifactRows), sourceRectId: zone.sourceRectId||null, floorLevel: zone.floorLevel ?? null, seedX: zone.seedX, seedY: zone.seedY, textOffsetX: zone.textOffsetX, textOffsetY: zone.textOffsetY });
 }
 
 function ambientRefreshModalPreview(){
@@ -5751,11 +6096,13 @@ function drawPlantaSelectionOverlayFullStrength(){
   const finalSelectedOpenings=currentSelectedWallOpenings();
   const finalSelectedTexts=currentSelectedCustomTexts();
   const finalSelectedAmbient=selectedAmbientZone();
-  if(!finalSelectedWalls.length && !finalSelectedOpenings.length && !finalSelectedTexts.length && !finalSelectedAmbient) return;
+  const draftAmbient=isAreaFillTool() ? ambientDrawDraft : null;
+  if(!finalSelectedWalls.length && !finalSelectedOpenings.length && !finalSelectedTexts.length && !finalSelectedAmbient && !draftAmbient) return;
   withModelTransform(selx,(zs)=>{
     selx.globalAlpha=1;
     try { selx.filter='none'; } catch(e) {}
     if(finalSelectedAmbient) drawSelectedAmbientOverlayFullStrength(selx,zs);
+    if(draftAmbient) drawAmbientSelectionOverlay(selx,draftAmbient,zs);
     const selectedOpeningHostLines=[...new Set(finalSelectedOpenings.map(op=>S.lines.find(line=>line&&line.id===op.wallId)).filter(Boolean))];
     const prevOpeningFading=fadingActive;
     fadingActive=false;
@@ -6879,6 +7226,7 @@ const WALL_LINE_SNAP_R = SNAP_R * 0.78;
 const WALL_PROJ_SNAP_R = PROJ_SNAP_R * 1.05;
 
 function resetWallGestureState(){
+  cancelWallAutoPanLoop();
   S.wallPointerDown=null;
   S.wallGesture=null;
   S.wallFreehandPts=[];
@@ -7514,7 +7862,7 @@ function blockEndpointSnapCandidate(block,wx,wy,baseR){
 }
 
 function snapAll(wx,wy,opts={}){
-  if(!S.snap) return null;
+  if(!S.snap && !opts.force) return null;
   const r=SNAP_R/modelZoom();
   const ignoreLine=opts?.ignoreLine||null;
   let best=null;
@@ -7548,6 +7896,9 @@ function snapAll(wx,wy,opts={}){
     if(b.isImportedIso && S.importedIsoVisible === false) continue;
     best=pickBetterSnapCandidate(best,blockEndpointSnapCandidate(b,wx,wy,r));
   }
+  const traceSnap=traceSnapAll(wx,wy,opts);
+  best=pickBetterSnapCandidate(best,traceSnap);
+
   // 3) On-line snap (midpoints included)
   for(const l of S.lines){
     if(l===ignoreLine) continue;
@@ -8076,6 +8427,7 @@ function updateImportedIsoVisibilityUI() {
 function syncProjectModeUI(){
   ensureAmbientUI();
   const isPlanta=isPlantaProject();
+  syncTraceUI();
   ['bmuro','bwallgen','bwalldims','badddim','bvano','bventana','bpuerta','wallOpacitySliderContainer'].forEach(id=>{
     const el=document.getElementById(id);
     if(!el) return;
@@ -8876,6 +9228,8 @@ function applyOpeningPreset(kind,widthM){
     toast(openingKindLabel(kind)+' solo disponible en Planta');
     return;
   }
+  const activeOpeningTool=openingToolName(kind);
+  if(S.tool===activeOpeningTool && !S.pendingOpeningEditId){ setTool('sel'); redraw(); return; }
   const current=S.openingDefaults?.[kind]||OPENING_DEFAULTS[kind]||OPENING_DEFAULTS.vano;
   S.selectedGroup=null;
   S.groupTool=null;
@@ -8939,6 +9293,8 @@ function openOpeningTool(kind){
     toast(openingKindLabel(kind)+' solo disponible en Planta');
     return;
   }
+  const activeOpeningTool=openingToolName(kind);
+  if(S.tool===activeOpeningTool && !S.pendingOpeningEditId){ setTool('sel'); redraw(); return; }
   const title=document.getElementById('openingTitle');
   const width=document.getElementById('openingWidth');
   const sideWrap=document.getElementById('openingSideWrap');
@@ -11570,6 +11926,7 @@ function drawGrid(){
       gx.drawImage(S.cajetin,tl.x,tl.y,pw,ph);
       gx.restore();
     }
+    if(isPlanta) withModelTransform(gx,()=>drawTraceUnderlay(gx));
     drawFormat(gx,true);
     if(S.grid) drawViewportGrid();
     gx.restore();
@@ -11594,6 +11951,8 @@ function drawGrid(){
       gx.restore();
     });
   }
+
+  if(isPlanta) withModelTransform(gx,()=>drawTraceUnderlay(gx));
 
   // Cajetin
   if(S.cajetin && !isPlanta){
@@ -11806,6 +12165,7 @@ function redraw(){
     if (isPlantaProject()) fadingActive = true;
 
     drawAmbientZones(mx,zs,true);
+    drawDoorAmbientStrips(mx,zs);
     drawBlockGroup(mx,blocksForDraw(b=>!isOverlayPlantaGasBlock(b)),S.selBlock,zs,true);
     drawWallsBatch(mx,zs);
     mx.globalAlpha = 1;
@@ -15635,6 +15995,7 @@ function drawOneDetailViewport(d){
   withDetailTransform(mx,d,(zs)=>{
     // Presentation view: drawing details do NOT show selection borders or highlights!
     drawAmbientZones(mx,zs,false);
+    drawDoorAmbientStrips(mx,zs);
     drawBlockGroup(mx,blocksForDraw(b=>!isOverlayPlantaGasBlock(b)),null,zs,false);
     drawWallsBatch(mx,zs);
     for(const l of S.lines) if(!isWallLine(l)) drawLine(mx,l,false,zs);
@@ -17152,6 +17513,13 @@ function drawOverlay(curW,detail=null){
   if(detail) withDetailTransform(ox,detail,draw);
   else withModelTransform(ox,draw);
 
+  if(S.traceCalibration){
+    withModelTransform(ox,(zs)=>drawTraceCalibrationOverlay(ox,zs));
+  }
+  if(S.traceAutoPreview){
+    withModelTransform(ox,(zs)=>drawTraceAutoPreview(ox,zs));
+  }
+
   if (S.selectRectDrag && S.selectRectStart && S.selectRectCurrent) {
     const palette = selectRectPalette(currentRectSelectionMode());
     ox.save();
@@ -17180,12 +17548,14 @@ function autoPanDrawingViewport(sc){
   if(!CW) return false;
   const rect=CW.getBoundingClientRect();
   if(!rect.width||!rect.height) return false;
-  const margin=Math.min(AUTO_PAN_EDGE_PX,Math.max(54,Math.min(rect.width,rect.height)*0.14));
+  const width=rect.width,height=rect.height;
+  const margin=Math.min(AUTO_PAN_EDGE_PX,Math.max(54,Math.min(width,height)*0.14));
   let dx=0, dy=0;
-  if(sc.x<rect.left+margin) dx=(rect.left+margin)-sc.x;
-  else if(sc.x>rect.right-margin) dx=(rect.right-margin)-sc.x;
-  if(sc.y<rect.top+margin) dy=(rect.top+margin)-sc.y;
-  else if(sc.y>rect.bottom-margin) dy=(rect.bottom-margin)-sc.y;
+  // gpp() returns coordinates relative to the canvas, while the DOM rect is screen-relative.
+  if(sc.x<margin) dx=margin-sc.x;
+  else if(sc.x>width-margin) dx=(width-margin)-sc.x;
+  if(sc.y<margin) dy=margin-sc.y;
+  else if(sc.y>height-margin) dy=(height-margin)-sc.y;
   if(Math.abs(dx)<0.5&&Math.abs(dy)<0.5) return false;
   const stepX=Math.sign(dx)*Math.min(AUTO_PAN_MAX_STEP,Math.max(2,Math.abs(dx)*0.22));
   const stepY=Math.sign(dy)*Math.min(AUTO_PAN_MAX_STEP,Math.max(2,Math.abs(dy)*0.22));
@@ -17548,8 +17918,12 @@ function historyState(){
     blocks:S.blocks,
     texts:S.texts,
     pipeLabels:S.pipeLabels,
+    ambientZones:(S.ambientZones||[]).map(zone=>normalizeAmbientZone(JSON.parse(JSON.stringify(zone)))),
+    ambientColorCursor:Number.isFinite(S.ambientColorCursor)?S.ambientColorCursor:0,
+    colorFillSelectedColorId:S.colorFillSelectedColorId||null,
     vp:S.vp,
-    detailVPs:detailList()
+    detailVPs:detailList(),
+     wallOpenings:S.wallOpenings
   };
 }
 function pushH(){
@@ -17562,13 +17936,19 @@ function applyState(sn){
   S.lines=sn.lines; S.blocks=sn.blocks; S.vp=sn.vp;
   S.texts=Array.isArray(sn.texts)?sn.texts:[];
   S.pipeLabels=Array.isArray(sn.pipeLabels)?sn.pipeLabels:[];
+   S.wallOpenings=Array.isArray(sn.wallOpenings)?sn.wallOpenings:[];
+  S.ambientZones=Array.isArray(sn.ambientZones)?sn.ambientZones.map(zone=>normalizeAmbientZone(zone)):[];
+  S.ambientColorCursor=Number.isFinite(sn.ambientColorCursor)?sn.ambientColorCursor:0;
+  S.colorFillSelectedColorId=sn.colorFillSelectedColorId||null;
+  S.selAmbient=null; S.ambientModalZone=null; S.colorFillModalZone=null;
   S.detailVPs=sn.detailVPs||[sn.detailVP].filter(Boolean);
   S.autoContinuationEnabled=false;
   S.autoContinuations=[];
   for(const d of S.detailVPs) if(d) d.active=false;
   S.detailVP=S.detailVPs[S.detailVPs.length-1]||null;
   S.activeDetail=null; S.selDetail=null;
-  S.selLine=null; S.selBlock=null; S.selContinuation=null; redraw();
+  S.selLine=null; S.selBlock=null; S.selContinuation=null;
+  closeM('ambientmod'); closeM('colorfillmod'); syncColorFillQuickPalette(); redraw();
 }
 function undo(){if(!S.hist.length)return;S.fut.push(JSON.stringify(historyState()));applyState(JSON.parse(S.hist.pop()));}
 function redo(){if(!S.fut.length)return;S.hist.push(JSON.stringify(historyState()));applyState(JSON.parse(S.fut.pop()));}
@@ -17604,6 +17984,7 @@ if(DIMSHIELD){
   DIMSHIELD.addEventListener('pointerdown',e=>{
     e.preventDefault();
     e.stopPropagation();
+    if(confirmWallCircuitFromOutside()) return;
     hideDimInput(true);
   });
   ['pointerup','click','touchstart','touchend'].forEach(evt=>{
@@ -18001,6 +18382,17 @@ function focusNextAccessory(input){
   if(next) setTimeout(()=>showSmallNumberPad(next,{decimal:false}),40);
 }
 
+function confirmWallCircuitFromOutside(){
+  const group=Array.isArray(S.createdWallGroup)?S.createdWallGroup.filter(Boolean):[];
+  const pending=Array.isArray(S.pendingMeasures)?S.pendingMeasures.filter(Boolean):[];
+  const current=S.editDimLine;
+  if(S.tool!=='wall'||group.length<2||!current||!current.awaitMeasure) return false;
+  if(!pending.length) return false;
+  S.confirmWallCircuit=true;
+  hideDimInput(true);
+  return true;
+}
+
 function hideDimInput(commit,opts={}){
   const wde = document.getElementById('wallDimEditor');
   if (wde) wde.style.display = 'none';
@@ -18126,7 +18518,27 @@ function hideDimInput(commit,opts={}){
         S.polyAnchor={...line.pts[line.pts.length-1]};
         invalidatePipeLabels();
         
-        if (S.pendingMeasures && S.pendingMeasures.length > 0) {
+        if(S.confirmWallCircuit){
+          const circuit=Array.isArray(S.createdWallGroup)?S.createdWallGroup.filter(Boolean):[];
+          const remaining=Array.isArray(S.pendingMeasures)?S.pendingMeasures.filter(Boolean):[];
+          for(const nextLine of remaining){
+            const fallback=Number(nextLine.draftMeasure)||lineMeasureM(nextLine);
+            if(Number.isFinite(fallback)&&fallback>0){
+              nextLine.label=fallback.toFixed(2).replace(/0+$/,'').replace(/\.$/,'');
+            }
+            delete nextLine.draftMeasure;
+            nextLine.awaitMeasure=false;
+          }
+          S.pendingMeasures=null;
+          if(circuit.length>0){
+            S.selectedGroup={lines:circuit};
+            S.groupTool='move';
+            S.groupDragMode=false;
+            setTool('sel');
+          }
+          S.createdWallGroup=null;
+          S.confirmWallCircuit=false;
+        } else if (S.pendingMeasures && S.pendingMeasures.length > 0) {
           const nextLine = S.pendingMeasures.shift();
           const activeDetail = S.drawDetail;
           setTimeout(() => {
@@ -18607,6 +19019,7 @@ let resizeText=null;
 let ambientDrawStart=null;
 let ambientDrawDraft=null;
 let ambientDragState=null;
+let ambientTextDragState=null;
 let ambientResizeState=null;
 let uiTimer=null;
 let pinchScope=null;
@@ -18642,7 +19055,7 @@ function restorePinchSelectionSnapshot(){
   dragOpening=null;
   dragBlk=null; dragBlkStart=null; dragBlkMoved=false;
   dragLabel=null; dragLabelStart=null; dragLabelMoved=false;
-  ambientDragState=null; ambientResizeState=null; ambientDrawStart=null; ambientDrawDraft=null;
+  ambientDragState=null; ambientTextDragState=null; ambientResizeState=null; ambientDrawStart=null; ambientDrawDraft=null;
   clearSelectRectState();
   const tb=document.getElementById('groupToolbar');
   if(S.selectedGroup) positionGroupToolbar();
@@ -18706,10 +19119,77 @@ function onDn(e){
   const paper=tw(sc.x,sc.y);
   const w=screenToModel(sc.x,sc.y);
 
+  // Presentation is a read-only navigation view: keep only pan and pinch-zoom.
+  if(!S.vpEdit){
+    if(S.tool!=='pan') setTool('pan');
+    clearLineInteractionState(true);
+    clearWallInteractionState(true);
+    clearGroupSelection();
+    S.selAmbient=null;
+    S.selLabel=null;
+    S.selBlock=null;
+    S.selLine=null;
+    S.selOpening=null;
+    S.selDetail=null;
+    S.selContinuation=null;
+    S.lineEditLine=null;
+    S.editDimLine=null;
+    S.selectedCotaLine=null;
+    S.draggingCota=false;
+    OC.setPointerCapture(e.pointerId);
+    if(Object.keys(aPtr).length===0) pinchSelectionSnapshot=capturePinchSelectionSnapshot();
+    aPtr[e.pointerId]=sc;
+    closeDrops();
+    if(Object.keys(aPtr).length>=2){
+      isPinch=true;
+      S.drag=false;
+      S.ds=null;
+      S.de=null;
+      restorePinchSelectionSnapshot();
+      clearProjectionGuide();
+      S.tDist=null;
+      S.tMid=null;
+      pinch();
+      clearLoupe();
+      redraw();
+    } else {
+      isPinch=false;
+      S.panPt=sc;
+    }
+    return;
+  }
+
+  if(S.traceCalibration){
+    const c=S.traceCalibration;
+    if(c.phase===3){
+      const hit=traceCalibrationHandleAt(w);
+      if(hit>=0){
+        c.dragPoint=hit;
+        try{OC.setPointerCapture(e.pointerId);}catch(err){}
+        redraw();drawOverlay(null);return;
+      }
+    }
+    if(handleTraceCalibrationTap(w)) return;
+  }
+
   if(ambientResizeState){
     const detail=ambientResizeState.detail||drawingDetailAtPaper(paper);
     const wAmbient=screenToDrawingModel(sc.x,sc.y,detail);
-    ambientResizeZone(ambientResizeState.zone, ambientResizeState.handle, wAmbient);
+    ambientResizeZone(ambientResizeState.zone, ambientResizeState.handle, wAmbient, ambientResizeState.rect);
+    redraw();
+    return;
+  }
+
+  if(ambientTextDragState){
+    const detail=ambientTextDragState.detail||drawingDetailAtPaper(paper);
+    const wText=screenToDrawingModel(sc.x,sc.y,detail);
+    const wStart=screenToDrawingModel(ambientTextDragState.sx,ambientTextDragState.sy,detail);
+    const dx=wText.x-wStart.x, dy=wText.y-wStart.y;
+    const moved=Math.hypot(sc.x-ambientTextDragState.sx,sc.y-ambientTextDragState.sy)>6;
+    if(moved && !ambientTextDragState.historyPushed){ pushH(); ambientTextDragState.historyPushed=true; }
+    ambientTextDragState.zone.textOffsetX=ambientTextDragState.offsetX+dx;
+    ambientTextDragState.zone.textOffsetY=ambientTextDragState.offsetY+dy;
+    normalizeAmbientZone(ambientTextDragState.zone);
     redraw();
     return;
   }
@@ -18725,6 +19205,10 @@ function onDn(e){
     const snapped=ambientSnapDraggedRect(raw, detail ? (S.zoom * detail.z) : modelZoom());
     const snapDx=snapped.x-raw.x, snapDy=snapped.y-raw.y;
     ambientDragState.zone.x = snapped.x; ambientDragState.zone.y = snapped.y;
+    if(Array.isArray(ambientDragState.cells)){
+      const moveX=dx+snapDx, moveY=dy+snapDy;
+      ambientDragState.zone.cells=ambientDragState.cells.map(cell=>({...cell,x:cell.x+moveX,y:cell.y+moveY}));
+    }
     if(ambientDragState.seed){ ambientDragState.zone.seedX = ambientDragState.seed.x + dx + snapDx; ambientDragState.zone.seedY = ambientDragState.seed.y + dy + snapDy; }
     ambientDragState.zone.sourceRectId = null; normalizeAmbientZone(ambientDragState.zone);
     if(snapped.snapPt){ const ss=modelToDrawingScreen(snapped.snapPt,detail); showSnapDot(ss.x,ss.y,'ol'); } else { DOT.style.display='none'; }
@@ -18817,6 +19301,25 @@ function onDn(e){
   aPtr[e.pointerId]=sc;
   closeDrops();
 
+  {
+    const resizeDetail=drawingDetailAtPaper(paper);
+    const resizeWorld=screenToDrawingModel(sc.x,sc.y,resizeDetail);
+    const resizeZoom=resizeDetail ? (S.zoom * resizeDetail.z) : modelZoom();
+    const resizeHit=ambientScreenHandleHit(sc,resizeDetail) || findAmbientHit(resizeWorld.x,resizeWorld.y,resizeZoom,{includeActiveBody:false});
+    if(resizeHit && resizeHit.target==='handle'){
+      setOperationChipMessage('Pinza detectada',{stickyMs:1000});
+      S.selectedGroup=null; S.groupTool=null; S.groupDragMode=false;
+      S.selAmbient=resizeHit.zone;
+      S.selLine=null; S.lineEditLine=null; S.selBlock=null; S.selLabel=null; S.selOpening=null; S.selDetail=null; S.selContinuation=null; S.selectedCotaLine=null;
+      S.scaleMode='cota';
+      ambientResizeState={zone:resizeHit.zone,handle:resizeHit.handle,detail:resizeDetail||null,rect:ambientDisplayRect(resizeHit.zone)};
+      S.selDown=sc;
+      syncPlantaSelectionPanel();
+      redraw();
+      return;
+    }
+  }
+
     if(Object.keys(aPtr).length>=2){
       isPinch=true; S.drag=false; S.ds=null; S.de=null;
       restorePinchSelectionSnapshot();
@@ -18829,28 +19332,36 @@ function onDn(e){
     const ambientDetail=drawingDetailAtPaper(paper);
     const ambientWorld=screenToDrawingModel(sc.x,sc.y,ambientDetail);
     const ambientZoom=ambientDetail ? (S.zoom * ambientDetail.z) : modelZoom();
-    const ambientHit=findAmbientHit(ambientWorld.x, ambientWorld.y, ambientZoom,{includeActiveBody:false});
+    const ambientHit=findAmbientHit(ambientWorld.x, ambientWorld.y, ambientZoom,{includeBoundary:isSelectionTool()});
     if(isColorFillTool()){
+      if(ambientHit && ambientHit.target==='handle'){
+        S.selAmbient=ambientHit.zone;
+        S.selLine=null; S.selBlock=null; S.selLabel=null; S.selOpening=null; S.selDetail=null; S.selContinuation=null;
+        ambientResizeState={zone:ambientHit.zone,handle:ambientHit.handle,detail:ambientDetail||null,rect:ambientDisplayRect(ambientHit.zone)};
+        S.selDown=sc; redraw(); return;
+      }
       const colorHit=findColorFillHit(ambientWorld.x,ambientWorld.y);
       if(colorHit){ const nextColor=colorFillCurrentColorId(); if(colorHit.colorId!==nextColor){ pushH(); colorHit.colorId=nextColor; normalizeAmbientZone(colorHit); toast('Color aplicado'); } S.selAmbient=null; redraw(); return; }
       ambientDrawStart={sc:{...sc},detail:ambientDetail||null,w:{...ambientWorld},colorOnly:true,colorId:colorFillCurrentColorId()};
       ambientDrawDraft=null; S.selDown=sc; return;
     }    if(isAmbientTool()){
-      if(ambientHit && ambientHit.target==='text'){
+      if(ambientHit && (ambientHit.target==='text'||ambientHit.target==='handle')){
         S.selAmbient=ambientHit.zone;
         S.selLine=null; S.selBlock=null; S.selLabel=null; S.selOpening=null; S.selDetail=null; S.selContinuation=null;
-        if(ambientHit.target==='handle') ambientResizeState={zone:ambientHit.zone,handle:ambientHit.handle,detail:ambientDetail||null};
-        else { const ar=ambientNormalizedRect(ambientHit.zone); ambientDragState={zone:ambientHit.zone,detail:ambientDetail||null,sx:sc.x,sy:sc.y,rect:ar,seed:{x:Number.isFinite(Number(ambientHit.zone.seedX))?Number(ambientHit.zone.seedX):ar.cx,y:Number.isFinite(Number(ambientHit.zone.seedY))?Number(ambientHit.zone.seedY):ar.cy},moved:false}; }
+        if(ambientHit.target==='handle') ambientResizeState={zone:ambientHit.zone,handle:ambientHit.handle,detail:ambientDetail||null,rect:ambientDisplayRect(ambientHit.zone)};
+                else if(ambientHit.target==='text'){ const ar=ambientNormalizedRect(ambientHit.zone); ambientTextDragState={zone:ambientHit.zone,detail:ambientDetail||null,sx:sc.x,sy:sc.y,offsetX:Number(ambientHit.zone.textOffsetX)||0,offsetY:Number(ambientHit.zone.textOffsetY)||0,historyPushed:false}; }
+        else { const ar=ambientNormalizedRect(ambientHit.zone); ambientDragState={zone:ambientHit.zone,detail:ambientDetail||null,sx:sc.x,sy:sc.y,rect:ar,cells:Array.isArray(ambientHit.zone.cells)?ambientHit.zone.cells.map(cell=>({...cell})):null,seed:{x:Number.isFinite(Number(ambientHit.zone.seedX))?Number(ambientHit.zone.seedX):ar.cx,y:Number.isFinite(Number(ambientHit.zone.seedY))?Number(ambientHit.zone.seedY):ar.cy},moved:false}; }
         S.selDown=sc; redraw(); return;
       }
       ambientDrawStart={sc:{...sc},detail:ambientDetail||null,w:{...ambientWorld},colorOnly:false};
       ambientDrawDraft=null; S.selDown=sc; return;
     }
-    if(isSelectionTool() && ambientHit && ambientHit.target==='text'){
+    if(isSelectionTool() && ambientHit && (ambientHit.target==='text'||ambientHit.target==='boundary'||ambientHit.target==='handle')){
       S.selAmbient=ambientHit.zone;
       S.selLine=null; S.selBlock=null; S.selLabel=null; S.selOpening=null; S.selDetail=null; S.selContinuation=null;
-      if(ambientHit.target==='handle') ambientResizeState={zone:ambientHit.zone,handle:ambientHit.handle,detail:ambientDetail||null};
-      else { const ar=ambientNormalizedRect(ambientHit.zone); ambientDragState={zone:ambientHit.zone,detail:ambientDetail||null,sx:sc.x,sy:sc.y,rect:ar,seed:{x:Number.isFinite(Number(ambientHit.zone.seedX))?Number(ambientHit.zone.seedX):ar.cx,y:Number.isFinite(Number(ambientHit.zone.seedY))?Number(ambientHit.zone.seedY):ar.cy},moved:false}; }
+      if(ambientHit.target==='handle') ambientResizeState={zone:ambientHit.zone,handle:ambientHit.handle,detail:ambientDetail||null,rect:ambientDisplayRect(ambientHit.zone)};
+              else if(ambientHit.target==='text'){ const ar=ambientNormalizedRect(ambientHit.zone); ambientTextDragState={zone:ambientHit.zone,detail:ambientDetail||null,sx:sc.x,sy:sc.y,offsetX:Number(ambientHit.zone.textOffsetX)||0,offsetY:Number(ambientHit.zone.textOffsetY)||0,historyPushed:false}; }
+        else { const ar=ambientNormalizedRect(ambientHit.zone); ambientDragState={zone:ambientHit.zone,detail:ambientDetail||null,sx:sc.x,sy:sc.y,rect:ar,cells:Array.isArray(ambientHit.zone.cells)?ambientHit.zone.cells.map(cell=>({...cell})):null,seed:{x:Number.isFinite(Number(ambientHit.zone.seedX))?Number(ambientHit.zone.seedX):ar.cx,y:Number.isFinite(Number(ambientHit.zone.seedY))?Number(ambientHit.zone.seedY):ar.cy},moved:false}; }
       S.selDown=sc; redraw(); return;
     }
   }
@@ -19091,6 +19602,15 @@ function onDn(e){
     
     S.lineHandleDown=null;
     S.lineEditLine = null;
+    if(S.selLine&&isWallLine(S.selLine)){
+      S.selLine=null;
+      S.selDown=null;
+      S.selectedGrip=null;
+      clearGroupSelection();
+      S.scaleMode='cota';
+      setTool('sel');
+      syncPlantaSelectionPanel();
+    }
     redraw();
     return;
   }
@@ -19165,6 +19685,7 @@ function onDn(e){
       S.selDown=sc;
       dragOpening=dtap?null:{openingId:opening.id};
       syncPlantaSelectionPanel();
+      updateToolButtons();
       redraw();
       return;
     }
@@ -19184,6 +19705,7 @@ function onDn(e){
       S.selDown=sc;
       dragOpening=dtap?null:{openingId:opening.id};
       syncPlantaSelectionPanel();
+      updateToolButtons();
       redraw();
       return;
     }
@@ -19362,7 +19884,8 @@ function onDn(e){
       return;
     }
     if(S.vp&&!openDetail&&!hitVP(paper.x,paper.y)){
-      toast('Inserta la abertura dentro del viewport');
+      setTool('sel');
+      redraw();
       return;
     }
     const drawPaper=openDetail?clampPaperToDetail(openDetail,paper):paper;
@@ -19382,13 +19905,11 @@ function onDn(e){
       dragOpening=null;
       S.selOpening=null;
       syncPlantaSelectionPanel();
-      setTool('sel');
-      redraw();
-      return;
     }
     const target=nearestWallProjection(w0.x,w0.y);
     if(!target){
-      toast('Acerca la abertura a un muro');
+      setTool('sel');
+      redraw();
       return;
     }
     pushH();
@@ -19488,6 +20009,65 @@ function updateLineLengthFromCoords(line) {
   line.label = lenM.toFixed(2).replace(/0+$/,'').replace(/\.$/,'');
 }
 
+let wallAutoPanFrameId=0;
+let wallAutoPanLastSc=null;
+
+function cancelWallAutoPanLoop(){
+  if(wallAutoPanFrameId){
+    const cancel=typeof cancelAnimationFrame==='function'?cancelAnimationFrame:clearTimeout;
+    cancel(wallAutoPanFrameId);
+    wallAutoPanFrameId=0;
+  }
+  wallAutoPanLastSc=null;
+}
+
+function wallAutoPanFrame(){
+  wallAutoPanFrameId=0;
+  const sc=wallAutoPanLastSc;
+  if(!sc||!isWallDrawingTool()||!S.drag||!S.wallPointerDown){
+    wallAutoPanLastSc=null;
+    return;
+  }
+  const moved=autoPanDrawingViewport(sc);
+  if(moved&&S.wallGesture==='freehand') updateWallFreehandPreviewAtScreen(sc);
+  const rect=CW?.getBoundingClientRect?.();
+  if(!rect||!rect.width||!rect.height){wallAutoPanLastSc=null;return;}
+  const margin=Math.min(AUTO_PAN_EDGE_PX,Math.max(54,Math.min(rect.width,rect.height)*.14));
+  const nearEdge=sc.x<margin||sc.x>rect.width-margin||sc.y<margin||sc.y>rect.height-margin;
+  if(nearEdge){
+    const raf=typeof requestAnimationFrame==='function'?requestAnimationFrame:(cb=>setTimeout(cb,16));
+    wallAutoPanFrameId=raf(wallAutoPanFrame);
+  }else wallAutoPanLastSc=null;
+}
+
+function requestWallAutoPan(sc){
+  if(!sc||!isWallDrawingTool()||!S.drag||!S.wallPointerDown) return;
+  wallAutoPanLastSc={x:sc.x,y:sc.y};
+  if(!wallAutoPanFrameId){
+    const raf=typeof requestAnimationFrame==='function'?requestAnimationFrame:(cb=>setTimeout(cb,16));
+    wallAutoPanFrameId=raf(wallAutoPanFrame);
+  }
+}
+
+function updateWallFreehandPreviewAtScreen(sc){
+  if(!sc||!S.drag||S.wallGesture!=='freehand'||!S.ds) return false;
+  const detail=S.drawDetail;
+  const info=wallInputPointFromScreen(sc,detail,null);
+  if(!info) return false;
+  appendWallFreehandPoint(info.pt||info.raw);
+  S.wallFreehandPath=orthogonalizeWallGesture(S.wallFreehandPts);
+  const previewPath=S.wallFreehandPath||[];
+  S.de=previewPath.length>1?{...previewPath[previewPath.length-1]}:{...S.ds};
+  S.snapE=!!info.snap;
+  if(S.snapE){
+    const ss=modelToDrawingScreen(info.pt,detail);
+    showSnapDot(ss.x,ss.y,info.snap.snapDotType||info.snap.type);
+  }else DOT.style.display='none';
+  drawOverlay(info.pt||info.raw,detail);
+  drawLoupe(sc.x,sc.y);
+  return true;
+}
+
 function onMv(e){
   e.preventDefault();
   const sc=gpp(e);
@@ -19504,6 +20084,20 @@ function onMv(e){
 
   if(Object.keys(aPtr).length>=2){isPinch=true; restorePinchSelectionSnapshot(); pinch(); clearLoupe(); redraw(); return;}
   if(isPinch) return;
+
+  if(S.traceCalibration&&Number.isInteger(S.traceCalibration.dragPoint)){
+    moveTraceCalibrationPoint(screenToModel(sc.x,sc.y),S.traceCalibration.dragPoint);
+    redraw();drawOverlay(null);return;
+  }
+
+  if(ambientResizeState){
+    const resizePaper=tw(sc.x,sc.y);
+    const detail=ambientResizeState.detail||drawingDetailAtPaper(resizePaper);
+    const wAmbient=screenToDrawingModel(sc.x,sc.y,detail);
+    ambientResizeZone(ambientResizeState.zone, ambientResizeState.handle, wAmbient, ambientResizeState.rect);
+    redraw();
+    return;
+  }
 
   if (selectionRectGestureEnabled() && isSelectionTool() && !dragOpening && !S.dragOpeningHandle && S.selectRectPendingStart && !S.selectRectDrag && !S.groupDragActive && !S.lineHandleDown && !dragBlk && !dragLabelStart && !S.drag && !S.wallTapStart && !S.lineTapStart) {
     const moveDist = Math.hypot(sc.x - S.selectRectPendingStart.x, sc.y - S.selectRectPendingStart.y);
@@ -19522,12 +20116,30 @@ function onMv(e){
 
   const shouldAutoPan=
     (isDrawGestureTool()&&S.drag&&S.ds)
-    || (isWallDrawingTool()&&!!S.wallTapStart)
+    || (isWallDrawingTool()&&(!!S.wallTapStart||!!S.wallPointerDown||(S.drag&&S.wallGesture==='freehand')))
     || (S.lineEditLine&&!!S.lineDragGrip);
   if(shouldAutoPan) autoPanDrawingViewport(sc);
 
   const paper=tw(sc.x,sc.y);
   const w=screenToModel(sc.x,sc.y);
+
+  if(S.traceCalibration){
+    updateTraceCalibrationHover(w);
+    drawOverlay(null);
+    return;
+  }
+
+  if(isAreaFillTool() && ambientDrawStart){
+    const detail=ambientDrawStart.detail||drawingDetailAtPaper(paper);
+    const wAmbient=screenToDrawingModel(sc.x,sc.y,detail);
+    if(Math.hypot(sc.x-ambientDrawStart.sc.x, sc.y-ambientDrawStart.sc.y)>8){
+      ambientDrawDraft=ambientCreateFromRect({x:Math.min(ambientDrawStart.w.x,wAmbient.x),y:Math.min(ambientDrawStart.w.y,wAmbient.y),w:Math.abs(wAmbient.x-ambientDrawStart.w.x),h:Math.abs(wAmbient.y-ambientDrawStart.w.y)},{keepColorCursor:true,colorOnly:!!ambientDrawStart.colorOnly,colorId:ambientDrawStart.colorId||null});
+      ambientDrawDraft.w=Math.max(ambientDrawDraft.w,AMBIENT_MIN_SIZE);
+      ambientDrawDraft.h=Math.max(ambientDrawDraft.h,AMBIENT_MIN_SIZE);
+      redraw();
+    }
+    return;
+  }
 
   // Arrastre de cota al otro lado del muro (Flip)
   if (S.draggingCota && S.selectedCotaLine) {
@@ -20191,31 +20803,14 @@ function onMv(e){
       S.wallGesture='freehand';
       S.wallFreehandPts=[{...start}];
       S.wallFreehandPath=[{...start}];
+      requestWallAutoPan(sc);
     }
   }
 
   if(isWallDrawingTool()&&S.drag&&S.wallGesture==='freehand'&&S.ds){
-    const detail=S.drawDetail;
     const coalesced=typeof e.getCoalescedEvents==='function' ? e.getCoalescedEvents() : [e];
-    let info=null;
-    for(const ev of coalesced){
-      const sc2=gpp(ev);
-      info=wallInputPointFromScreen(sc2,detail,null);
-      appendWallFreehandPoint(info.pt || info.raw);
-    }
-    if(!info) info=wallInputPointFromScreen(sc,detail,null);
-    S.wallFreehandPath=orthogonalizeWallGesture(S.wallFreehandPts);
-    const previewPath=S.wallFreehandPath||[];
-    S.de=previewPath.length>1?{...previewPath[previewPath.length-1]}:{...S.ds};
-    S.snapE=!!(info&&info.snap);
-    if(S.snapE && info){
-      const ss=modelToDrawingScreen(info.pt,detail);
-      showSnapDot(ss.x,ss.y,info.snap.snapDotType||info.snap.type);
-    }else{
-      DOT.style.display='none';
-    }
-    drawOverlay((info&&info.pt)||info.raw,detail);
-    drawLoupe(sc.x,sc.y);
+    for(const ev of coalesced) updateWallFreehandPreviewAtScreen(gpp(ev));
+    requestWallAutoPan(sc);
     return;
   }
 
@@ -20309,8 +20904,15 @@ function onMv(e){
 
 function onUp(e){
   e.preventDefault();
+  cancelWallAutoPanLoop();
   const sc=gpp(e);
   delete aPtr[e.pointerId];
+
+  if(S.traceCalibration&&Number.isInteger(S.traceCalibration.dragPoint)){
+    S.traceCalibration.dragPoint=null;
+    try{OC.releasePointerCapture(e.pointerId);}catch(err){}
+    redraw();drawOverlay(null);return;
+  }
 
   if (S.selectRectDrag) {
     S.selectRectDrag = false;
@@ -20422,7 +21024,7 @@ function onUp(e){
         return;
       }
       if(ambientHit && ambientHit.target==='text'){
-        ambientDragState=null; ambientResizeState=null;
+        ambientDragState=null; ambientTextDragState=null; ambientResizeState=null;
         S.selAmbient=ambientHit.zone;
         S.selLine=null; S.lineEditLine=null; S.selBlock=null; S.selLabel=null; S.selOpening=null; S.selDetail=null;
         redraw();
@@ -20444,6 +21046,7 @@ function onUp(e){
         S.lineEditLine=null;
         S.scaleMode='cota';
         syncPlantaSelectionPanel();
+        updateToolButtons();
         openWallOpeningEditor(opening);
         redraw();
         return;
@@ -20713,16 +21316,17 @@ function onUp(e){
   if(hadDetailAdjust){redraw();return;}
 
   if(ambientResizeState){ ambientResizeState=null; redraw(); return; }
+  if(ambientTextDragState){ const zone=ambientTextDragState.zone; ambientTextDragState=null; S.selAmbient=zone; redraw(); return; }
   if(ambientDragState){ const zone=ambientDragState.zone; ambientDragState=null; S.selAmbient=zone; redraw(); return; }
   if(isAreaFillTool() && ambientDrawStart){
     const detail=ambientDrawStart.detail||drawingDetailAtPaper(tw(sc.x,sc.y));
     const wAmbient=screenToDrawingModel(sc.x,sc.y,detail);
     if(ambientDrawDraft && ambientNormalizedRect(ambientDrawDraft).w >= AMBIENT_MIN_SIZE && ambientNormalizedRect(ambientDrawDraft).h >= AMBIENT_MIN_SIZE){
-      pushH(); const created=normalizeAmbientZone(ambientDrawDraft); ensureAmbientState().push(created); if(!created.colorOnly || !S.colorFillSelectedColorId) bumpAmbientColorCursor(); S.selAmbient=created; const createdColorOnly=!!created.colorOnly; ambientDrawDraft=null; ambientDrawStart=null; redraw(); toast(createdColorOnly?'Coloreado creado':'Ambiente creado'); return;
+      pushH(); const created=normalizeAmbientZone(ambientDrawDraft); ensureAmbientState().push(created); if(!created.colorOnly || !S.colorFillSelectedColorId) bumpAmbientColorCursor(); const createdColorOnly=!!created.colorOnly; ambientDrawDraft=null; ambientDrawStart=null; S.selAmbient=null; redraw(); toast(createdColorOnly?'Coloreado creado':'Ambiente creado'); return;
     }
     const wallHit=ambientWallRectHit(wAmbient.x,wAmbient.y); const makeColorOnly=!!ambientDrawStart?.colorOnly || isColorFillTool(); ambientDrawStart=null; ambientDrawDraft=null;
-    if(wallHit){ pushH(); const zone=ambientCreateFromRect(wallHit.rect,{sourceRectId:wallHit.rectId||null,floorLevel:wallHit.floorLevel,seedX:wAmbient.x,seedY:wAmbient.y,colorOnly:makeColorOnly,colorId:makeColorOnly?colorFillCurrentColorId():null,keepColorCursor:makeColorOnly&&!!S.colorFillSelectedColorId}); ensureAmbientState().push(zone); toast(makeColorOnly?'Coloreado creado':'Ambiente creado en recinto cerrado'); S.selAmbient=zone; redraw(); return; }
-    redraw(); return;
+    if(wallHit){ pushH(); const zone=ambientCreateFromRect(wallHit.rect,{sourceRectId:wallHit.rectId||null,floorLevel:wallHit.floorLevel,seedX:wAmbient.x,seedY:wAmbient.y,colorOnly:makeColorOnly,colorId:makeColorOnly?colorFillCurrentColorId():null,cells:Array.isArray(wallHit.rect.cells)?wallHit.rect.cells:null,keepColorCursor:makeColorOnly&&!!S.colorFillSelectedColorId}); ensureAmbientState().push(zone); toast(makeColorOnly?'Coloreado creado':'Ambiente creado en recinto cerrado'); S.selAmbient=null; redraw(); return; }
+    S.selAmbient=null; setTool('sel'); redraw(); return;
   }
 
   // VP create end
@@ -21141,7 +21745,7 @@ function setViewportWorkMode(on,opts={}){
 }
 
 function enterVPEdit(){
-  if(S.fixedVP){setViewportWorkMode(true);setTool('line');return;}
+  if(S.fixedVP){setViewportWorkMode(true);setTool('sel');return;}
   S.vpEdit=true; S.vpSel=false;
   VP_KEYS.forEach(k=>vpH[k].style.display='none');
   updateViewportStatusChip();
@@ -21149,7 +21753,7 @@ function enterVPEdit(){
   toast('Modo dibujo en viewport - doble toque para salir');
 }
 function exitVPEdit(){
-  if(S.fixedVP){setViewportWorkMode(false);setTool('pan');return;}
+  if(S.fixedVP){setViewportWorkMode(false);setTool('sel');return;}
   S.vpEdit=false; S.vpSel=true;
   updateViewportStatusChip();
   setTool('sel'); redraw();
@@ -23944,6 +24548,635 @@ function loadCajetinSrc(src){
   S.cajetin=img;
   S.cajetinSrc=src;
 }
+const TRACE_MIN_DARK_RUN_PX=28;
+
+function traceStateForSave(){
+  const t=S.trace;
+  if(!t||!t.src) return null;
+  return {
+    src:t.src,name:t.name||'plano-base',kind:t.kind||'image',
+    imageW:t.imageW,imageH:t.imageH,x:t.x,y:t.y,scale:t.scale,angle:t.angle||0,
+    opacity:Number.isFinite(t.opacity)?t.opacity:0.60,
+    saturation:Number.isFinite(t.saturation)?t.saturation:0.08,
+    visible:t.visible!==false,snapEnabled:t.snapEnabled!==false,smartEnabled:t.smartEnabled!==false,
+    calibrated:!!t.calibrated,calibrationDistanceM:t.calibrationDistanceM||null
+  };
+}
+
+function traceLocalToWorld(trace,point){
+  const scale=Number(trace?.scale)||1;
+  const a=Number(trace?.angle)||0;
+  const c=Math.cos(a),s=Math.sin(a);
+  return {x:(Number(trace?.x)||0)+(point.x*scale*c-point.y*scale*s),y:(Number(trace?.y)||0)+(point.x*scale*s+point.y*scale*c)};
+}
+
+function traceWorldToLocal(trace,point){
+  const scale=Number(trace?.scale)||1;
+  const a=Number(trace?.angle)||0;
+  const c=Math.cos(a),s=Math.sin(a);
+  const dx=point.x-(Number(trace?.x)||0),dy=point.y-(Number(trace?.y)||0);
+  return {x:(c*dx+s*dy)/scale,y:(-s*dx+c*dy)/scale};
+}
+
+function tracePointInsideImage(trace,point){
+  return !!(trace&&point&&point.x>=-2&&point.y>=-2&&point.x<=trace.imageW+2&&point.y<=trace.imageH+2);
+}
+
+function traceLineRunCandidates(img,options={}){
+  if(!img||!img.naturalWidth||!img.naturalHeight) return [];
+  const maxDim=Math.max(420,Number(options.maxDim)||1300);
+  const renderScale=Math.min(1,maxDim/Math.max(img.naturalWidth,img.naturalHeight));
+  const w=Math.max(1,Math.round(img.naturalWidth*renderScale));
+  const h=Math.max(1,Math.round(img.naturalHeight*renderScale));
+  const cv=document.createElement('canvas'); cv.width=w;cv.height=h;
+  const ctx=cv.getContext('2d',{willReadFrequently:true});
+  if(!ctx) return [];
+  ctx.drawImage(img,0,0,w,h);
+  const data=ctx.getImageData(0,0,w,h).data;
+  const isDark=(x,y)=>{
+    const i=(y*w+x)*4;
+    if(data[i+3]<40) return false;
+    return (data[i]*0.299+data[i+1]*0.587+data[i+2]*0.114)<185;
+  };
+  const raw=[];
+  const minRun=Math.max(TRACE_MIN_DARK_RUN_PX,Math.round(Math.min(w,h)*0.035));
+  for(let y=0;y<h;y+=2){
+    let start=-1;
+    for(let x=0;x<=w;x++){
+      const dark=x<w&&isDark(x,y);
+      if(dark&&start<0) start=x;
+      if((!dark||x===w)&&start>=0){
+        if(x-start>=minRun) raw.push({axis:'h',a:{x:start/renderScale,y:y/renderScale},b:{x:(x-1)/renderScale,y:y/renderScale},score:x-start});
+        start=-1;
+      }
+    }
+  }
+  for(let x=0;x<w;x+=2){
+    let start=-1;
+    for(let y=0;y<=h;y++){
+      const dark=y<h&&isDark(x,y);
+      if(dark&&start<0) start=y;
+      if((!dark||y===h)&&start>=0){
+        if(y-start>=minRun) raw.push({axis:'v',a:{x:x/renderScale,y:start/renderScale},b:{x:x/renderScale,y:(y-1)/renderScale},score:y-start});
+        start=-1;
+      }
+    }
+  }
+  const merged=[];
+  for(const line of raw.sort((a,b)=>b.score-a.score)){
+    const same=merged.find(item=>item.axis===line.axis&&(
+      item.axis==='h'
+        ? Math.abs(item.a.y-line.a.y)<=4/renderScale && line.b.x>=item.a.x-18/renderScale && line.a.x<=item.b.x+18/renderScale
+        : Math.abs(item.a.x-line.a.x)<=4/renderScale && line.b.y>=item.a.y-18/renderScale && line.a.y<=item.b.y+18/renderScale
+    ));
+    if(same){
+      if(line.axis==='h'){same.a.x=Math.min(same.a.x,line.a.x);same.b.x=Math.max(same.b.x,line.b.x);same.a.y=same.b.y=(same.a.y+line.a.y)*0.5;}
+      else {same.a.y=Math.min(same.a.y,line.a.y);same.b.y=Math.max(same.b.y,line.b.y);same.a.x=same.b.x=(same.a.x+line.a.x)*0.5;}
+    }else merged.push({...line,a:{...line.a},b:{...line.b}});
+    if(merged.length>=180) break;
+  }
+  const minDim=Math.min(w,h);
+  const classify=(line)=>{
+    const clampX=value=>Math.max(0,Math.min(w-1,Math.round(value)));
+    const clampY=value=>Math.max(0,Math.min(h-1,Math.round(value)));
+    const sampleAt=ratio=>{
+      const px=((line.a.x+(line.b.x-line.a.x)*ratio)*renderScale);
+      const py=((line.a.y+(line.b.y-line.a.y)*ratio)*renderScale);
+      let thickness=1;
+      if(line.axis==='h'){
+        while(thickness<14&&isDark(clampX(px),clampY(py+thickness))) thickness++;
+        while(thickness<27&&isDark(clampX(px),clampY(py-(thickness-1)))) thickness++;
+      }else{
+        while(thickness<14&&isDark(clampX(px+thickness),clampY(py))) thickness++;
+        while(thickness<27&&isDark(clampX(px-(thickness-1)),clampY(py))) thickness++;
+      }
+      return thickness;
+    };
+    const thicknessSamples=[.12,.28,.50,.72,.88].map(t=>({t,thickness:sampleAt(t)}));
+    const thickness=Math.max(...thicknessSamples.map(sample=>sample.thickness));
+    const meanThickness=thicknessSamples.reduce((sum,sample)=>sum+sample.thickness,0)/Math.max(1,thicknessSamples.length);
+    const solidCoverage=thicknessSamples.filter(sample=>sample.thickness>=3).length/Math.max(1,thicknessSamples.length);
+    const span=Math.max(1,Math.round(line.score));
+    const wallLength=Math.max(46,Math.round(minDim*.045));
+    const windowLength=Math.max(22,Math.round(minDim*.018));
+    let kind='detail',confidence=0.25;
+    const wallEvidence=(solidCoverage>=.60&&span>=wallLength)
+      || (solidCoverage>=.40&&thickness>=5&&span>=Math.round(wallLength*.85));
+    if(wallEvidence){kind='wall';confidence=Math.min(.98,.76+solidCoverage*.22);}
+    else if(thickness>=3&&solidCoverage>=.40&&span>=windowLength){kind='window';confidence=.68;}
+    return {...line,kind,confidence,thickness,meanThickness,solidCoverage,thicknessSamples,pixelThickness:thickness/renderScale};
+  };
+  return merged.slice(0,140).map(classify);
+}
+
+function traceSnapAll(wx,wy,opts={}){
+  const trace=S.trace;
+  if(!isPlantaProject()||!trace||trace.visible===false||trace.snapEnabled===false||!Array.isArray(trace.snapLines)||!trace.snapLines.length) return null;
+  const radius=(opts.radiusPx||SNAP_R)/modelZoom();
+  let best=null;
+  const consider=(pt,type,d,line)=>{
+    if(d>radius) return;
+    const candidate={pt:{x:pt.x,y:pt.y},type,d,actualD:d,source:'trace',traceLine:line||null};
+    best=pickBetterSnapCandidate(best,candidate);
+  };
+  for(const local of trace.snapLines){
+    if(trace.smartEnabled!==false&&local.kind==='detail') continue;
+    const a=traceLocalToWorld(trace,local.a),b=traceLocalToWorld(trace,local.b);
+    const dx=b.x-a.x,dy=b.y-a.y,l2=dx*dx+dy*dy;
+    if(l2<1) continue;
+    const da=Math.hypot(wx-a.x,wy-a.y); consider(a,'ep',da,local);
+    const db=Math.hypot(wx-b.x,wy-b.y); consider(b,'ep',db,local);
+    let t=((wx-a.x)*dx+(wy-a.y)*dy)/l2; t=Math.max(0,Math.min(1,t));
+    const p={x:a.x+t*dx,y:a.y+t*dy};
+    consider(p,'ol',Math.hypot(wx-p.x,wy-p.y),local);
+  }
+  return best;
+}
+
+function traceAutoClamp(v,min,max){return Math.max(min,Math.min(max,v));}
+
+function traceAutoLocalAxis(line){
+  return line?.axis==='v'?'v':'h';
+}
+
+function traceAutoCoordinate(line,axis){
+  return axis==='v'?(line.a.x+line.b.x)*0.5:(line.a.y+line.b.y)*0.5;
+}
+
+function traceAutoAlongStart(line,axis){
+  return axis==='v'?Math.min(line.a.y,line.b.y):Math.min(line.a.x,line.b.x);
+}
+
+function traceAutoAlongEnd(line,axis){
+  return axis==='v'?Math.max(line.a.y,line.b.y):Math.max(line.a.x,line.b.x);
+}
+
+function traceAutoLineOverlap(a,b,axis){
+  const start=Math.max(traceAutoAlongStart(a,axis),traceAutoAlongStart(b,axis));
+  const end=Math.min(traceAutoAlongEnd(a,axis),traceAutoAlongEnd(b,axis));
+  const span=Math.max(0,end-start);
+  const base=Math.max(1,Math.min(traceAutoAlongEnd(a,axis)-traceAutoAlongStart(a,axis),traceAutoAlongEnd(b,axis)-traceAutoAlongStart(b,axis)));
+  return span/base;
+}
+
+function traceAutoSplitLine(line){
+  const samples=Array.isArray(line?.thicknessSamples)?line.thicknessSamples:[];
+  if(samples.length<3) return [line];
+  const cuts=[0];
+  for(let i=1;i<samples.length;i++){
+    const delta=Math.abs(Number(samples[i].thickness||0)-Number(samples[i-1].thickness||0));
+    const cut=(Number(samples[i].t)+Number(samples[i-1].t))*0.5;
+    if(delta>=2&&cut-cuts[cuts.length-1]>=.12&&1-cut>=.12) cuts.push(cut);
+  }
+  cuts.push(1);
+  if(cuts.length===2) return [line];
+  const parts=[];
+  const lerp=(a,b,t)=>({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t});
+  for(let i=0;i<cuts.length-1;i++){
+    const lo=cuts[i],hi=cuts[i+1];
+    if(hi-lo<.12) continue;
+    const localSamples=samples.filter(sample=>sample.t>=lo-.08&&sample.t<=hi+.08);
+    const average=localSamples.length
+      ? localSamples.reduce((sum,sample)=>sum+Number(sample.thickness||1),0)/localSamples.length
+      : Number(line.thickness||1);
+    const thickness=Math.max(1,Math.round(average));
+    const originalThickness=Math.max(.5,Number(line.pixelThickness||line.thickness||1));
+    const thicknessScale=originalThickness/Math.max(1,Number(line.thickness||1));
+    const part={...line,a:lerp(line.a,line.b,lo),b:lerp(line.a,line.b,hi),score:Math.max(1,Number(line.score||1)*(hi-lo)),thickness,thicknessSamples:localSamples,pixelThickness:thickness*thicknessScale};
+    if(Math.hypot(part.b.x-part.a.x,part.b.y-part.a.y)>=18) parts.push(part);
+  }
+  return parts.length>1?parts:[line];
+}
+
+function traceAutoGroupCandidates(lines){
+  const groups=[];
+  for(const line of lines.slice().sort((a,b)=>(b.score||0)-(a.score||0))){
+    const axis=traceAutoLocalAxis(line);
+    const coord=traceAutoCoordinate(line,axis);
+    const gapLimitPx=2.6*UNITS_PER_M/Math.max(0.0001,Number(S.trace?.scale)||1);
+    const overlapWith=base=>traceAutoLineOverlap(base,line,axis)>=0.18;
+    const gapBetween=base=>Math.max(0,Math.max(traceAutoAlongStart(base,axis),traceAutoAlongStart(line,axis))-Math.min(traceAutoAlongEnd(base,axis),traceAutoAlongEnd(line,axis)));
+    const similarThickness=base=>{
+      const a=Math.max(.5,Number(base.pixelThickness||base.thickness||1));
+      const b=Math.max(.5,Number(line.pixelThickness||line.thickness||1));
+      return Math.max(a,b)/Math.min(a,b)<=1.35;
+    };
+    const near=groups.find(group=>group.axis===axis&&Math.abs(group.coord-coord)<=Math.max(10,(line.pixelThickness||line.thickness||3)*2.4)&&group.lines.some(base=>similarThickness(base)&&(overlapWith(base)||gapBetween(base)<=gapLimitPx)));
+    if(near){near.lines.push(line);near.coord=(near.coord*(near.lines.length-1)+coord)/near.lines.length;}
+    else groups.push({axis,coord,lines:[line]});
+  }
+  return groups;
+}
+
+async function traceAutoAnalyze(){
+  const t=S.trace;
+  if(!t?.img||!t.calibrated){toast('Calca: primero calibra el plano con dos puntos');return null;}
+  if(S.traceAutoBusy) return S.traceAutoPreview;
+  S.traceAutoBusy=true;syncTraceAutoUI();
+  const analysisToken=S.traceLoadToken;
+  await new Promise(resolve=>setTimeout(resolve,30));
+  if(analysisToken!==S.traceLoadToken||S.trace!==t){S.traceAutoBusy=false;syncTraceAutoUI();return null;}
+  let detected=[];
+  try{
+    detected=traceLineRunCandidates(t.img,{maxDim:760}).filter(line=>line.kind==='wall'&&Number(line.thickness||0)>=2).flatMap(traceAutoSplitLine);
+  }catch(err){
+    console.error('Error analizando el calcado',err);toast('No se pudo analizar el plano');
+    S.traceAutoBusy=false;syncTraceAutoUI();return null;
+  }
+  const groups=traceAutoGroupCandidates(detected);
+  const walls=[],openingSpecs=[];
+  for(const group of groups){
+    const axis=group.axis;
+    const sorted=group.lines.slice().sort((a,b)=>traceAutoAlongStart(a,axis)-traceAutoAlongStart(b,axis));
+    const first=sorted[0],last=sorted[sorted.length-1];
+    const localA=axis==='v'
+      ? {x:group.coord,y:traceAutoAlongStart(first,axis)}
+      : {x:traceAutoAlongStart(first,axis),y:group.coord};
+    const localB=axis==='v'
+      ? {x:group.coord,y:traceAutoAlongEnd(last,axis)}
+      : {x:traceAutoAlongEnd(last,axis),y:group.coord};
+    const a=traceLocalToWorld(t,localA),b=traceLocalToWorld(t,localB);
+    const lengthM=Math.hypot(b.x-a.x,b.y-a.y)/UNITS_PER_M;
+    if(lengthM<0.45) continue;
+    const maxThicknessPx=Math.max(...sorted.map(line=>Number(line.pixelThickness||line.thickness||3)));
+    const widthM=traceAutoClamp((maxThicknessPx*(Number(t.scale)||1))/UNITS_PER_M,0.08,0.90);
+    const wall={a,b,axis,localA,localB,widthM,lengthM,source:'trace',score:Math.max(...sorted.map(line=>line.score||0)),isColumn:widthM>=0.28&&lengthM<=Math.max(1.8,widthM*5),segments:sorted};
+    const wallIndex=walls.length;
+    walls.push(wall);
+    for(let i=0;i<sorted.length-1;i++){
+      const current=sorted[i],next=sorted[i+1];
+      const gapPx=traceAutoAlongStart(next,axis)-traceAutoAlongEnd(current,axis);
+      const gapM=gapPx*(Number(t.scale)||1)/UNITS_PER_M;
+      if(gapM<0.62||gapM>2.40) continue;
+      const centerPx=(traceAutoAlongEnd(current,axis)+traceAutoAlongStart(next,axis))*0.5;
+      const centerLocal=axis==='v'?{x:group.coord,y:centerPx}:{x:centerPx,y:group.coord};
+      const kind=gapM<=1.15?'puerta':'ventana';
+      openingSpecs.push({kind,widthM:traceAutoClamp(gapM,0.60,2.20),centerLocal,wallIndex,confidence:Math.min(.96,Math.max(.55,1-Math.abs(gapM-(kind==='puerta'?.90:1.50))*.22))});
+    }
+  }
+  const preview={walls,openings:openingSpecs,createdAt:Date.now()};
+  S.traceAutoPreview=preview;
+  const columns=walls.filter(w=>w.isColumn).length;
+  const stats={walls:walls.length-columns,columns,openings:openingSpecs.length};
+  preview.stats=stats;
+  S.traceAutoBusy=false;syncTraceAutoUI();
+  redraw();drawOverlay(null);
+  return preview;
+}
+
+function traceAutoWorldT(line,point){
+  const dx=line.b.x-line.a.x,dy=line.b.y-line.a.y,l2=dx*dx+dy*dy;
+  if(l2<1e-6) return .5;
+  return traceAutoClamp(((point.x-line.a.x)*dx+(point.y-line.a.y)*dy)/l2,0,1);
+}
+
+function drawTraceAutoPreview(ctx,zoomScale){
+  const preview=S.traceAutoPreview;
+  if(!preview) return;
+  ctx.save();
+  ctx.setLineDash([10/zoomScale,6/zoomScale]);
+  for(const wall of preview.walls||[]){
+    ctx.strokeStyle=wall.isColumn?'rgba(245,158,11,.9)':'rgba(14,165,233,.9)';
+    ctx.lineWidth=Math.max(2/zoomScale,(wall.widthM*UNITS_PER_M)/zoomScale);
+    ctx.beginPath();ctx.moveTo(wall.a.x,wall.a.y);ctx.lineTo(wall.b.x,wall.b.y);ctx.stroke();
+    ctx.lineWidth=1.4/zoomScale;ctx.strokeStyle=wall.isColumn?'#fbbf24':'#38bdf8';
+    ctx.beginPath();ctx.moveTo(wall.a.x,wall.a.y);ctx.lineTo(wall.b.x,wall.b.y);ctx.stroke();
+  }
+  ctx.setLineDash([]);
+  for(const op of preview.openings||[]){
+    const wall=preview.walls[op.wallIndex];
+    if(!wall) continue;
+    const center=traceLocalToWorld(S.trace,op.centerLocal);
+    const dx=wall.b.x-wall.a.x,dy=wall.b.y-wall.a.y,len=Math.hypot(dx,dy)||1;
+    const ux=dx/len,uy=dy/len;
+    const r=Math.max(9/zoomScale,(op.widthM*UNITS_PER_M)*.35/zoomScale);
+    ctx.strokeStyle=op.kind==='puerta'?'#22c55e':'#c084fc';ctx.lineWidth=2/zoomScale;
+    ctx.beginPath();ctx.arc(center.x,center.y,r,0,Math.PI*2);ctx.stroke();
+    ctx.fillStyle=ctx.strokeStyle;ctx.font='900 '+(10/zoomScale)+'px sans-serif';ctx.fillText(op.kind==='puerta'?'P':'V',center.x+ux*r,center.y+uy*r);
+  }
+  ctx.restore();
+}
+
+function syncTraceAutoUI(){
+  const p=S.traceAutoPreview,stats=p?.stats||{walls:0,columns:0,openings:0};
+  const busy=!!S.traceAutoBusy||!!S.traceAutoCommitBusy;
+  const set=(id,value)=>{const el=document.getElementById(id);if(el) el.textContent=String(value);};
+  set('traceAutoWallCount',stats.walls);set('traceAutoColumnCount',stats.columns);set('traceAutoOpeningCount',stats.openings);
+  const hint=document.getElementById('traceAutoHint');
+  if(hint) hint.textContent=S.traceAutoCommitBusy?'Creando objetos, espera un momento...':S.traceAutoBusy?'Analizando el plano, espera un momento...':p?'Vista previa: azul muros, amarillo columnas, verde puertas y morado ventanas.':'Se analizaran lineas arquitectonicas de la imagen calibrada. El resultado quedara editable al confirmar.';
+  ['traceAutoCommit','traceAutoRerun'].forEach(id=>{const el=document.getElementById(id);if(el)el.disabled=busy;});
+}
+
+function clearTraceSelectionForGeneration(){
+  clearLineInteractionState(true);clearWallInteractionState(true);clearGroupSelection();
+  S.selLine=null;S.lineEditLine=null;S.selBlock=null;S.selLabel=null;S.selOpening=null;S.selDetail=null;S.selContinuation=null;S.selAmbient=null;
+  S.selectedCotaLine=null;S.selectedGroup=null;S.groupTool=null;S.groupDragMode=false;S.lineHandleDown=null;S.lineDragGrip=null;S.lineDragStart=null;
+  syncPlantaSelectionPanel();
+}
+
+function clearAutoTraceObjects(){
+  const ids=new Set((S.lines||[]).filter(line=>line?.autoTrace).map(line=>line.id));
+  S.lines=(S.lines||[]).filter(line=>!line?.autoTrace);
+  S.wallOpenings=(S.wallOpenings||[]).filter(op=>!ids.has(op.wallId)&&!op?.autoTrace);
+}
+
+function traceAutoFrame(){
+  const raf=typeof requestAnimationFrame==='function'?requestAnimationFrame:(cb=>setTimeout(cb,16));
+  return new Promise(resolve=>raf(()=>resolve()));
+}
+
+function ensureTraceOpeningList(){
+  if(!Array.isArray(S.wallOpenings)) S.wallOpenings=[];
+  return S.wallOpenings;
+}
+
+async function commitTraceAutoPlan(){
+  const preview=S.traceAutoPreview;
+  if(!preview?.walls?.length){toast('Calca: no se encontraron muros confiables');return;}
+  if(S.traceAutoBusy||S.traceAutoCommitBusy){toast('Calca: espera a que termine el proceso');return;}
+  S.traceAutoCommitBusy=true;
+  const created=[],createdIds=new Set(),openingList=ensureTraceOpeningList();
+  let skippedWalls=0,skippedOpenings=0;
+  try{
+    S.traceAutoPreview=null;closeM('traceAutoMod');clearTraceSelectionForGeneration();syncTraceAutoUI();redraw();
+    await traceAutoFrame();
+    try{pushH();}catch(historyErr){console.warn('Historial omitido durante generacion',historyErr);}
+    clearAutoTraceObjects();
+    for(let i=0;i<preview.walls.length;i++){
+      try{
+        const candidate=preview.walls[i];
+        if(!candidate?.a||!candidate?.b) throw new Error('geometria de muro vacia');
+        const wall=cloneWallDefaults(WALL_DEFAULTS);wall.widthM=Number(candidate.widthM)||0.15;wall.color='#000000';wall.referenceMode='center';wall.fillMode='solid';
+        const line=makeWallLine(candidate.a,candidate.b,wall);
+        line.autoTrace=true;line.traceKind=candidate.isColumn?'column':'wall';line.traceSource='image';line.wall.isColumn=!!candidate.isColumn;
+        S.lines.push(line);created.push(line);createdIds.add(line.id);
+      }catch(err){skippedWalls++;console.warn('Muro omitido',err);}
+      if(i%18===0) await traceAutoFrame();
+    }
+    for(let i=0;i<(preview.openings||[]).length;i++){
+      try{
+        const spec=preview.openings[i],line=created[spec.wallIndex];
+        if(!line) throw new Error('muro anfitrion no encontrado');
+        const center=traceLocalToWorld(S.trace,spec.centerLocal);
+        const op=createWallOpening(spec.kind,{line,t:traceAutoWorldT(line,center)});
+        op.widthM=Number(spec.widthM)||0.9;op.autoTrace=true;op.traceConfidence=spec.confidence;op.closed=spec.kind==='puerta'?false:op.closed;
+        openingList.push(op);
+      }catch(err){skippedOpenings++;console.warn('Abertura omitida',err);}
+      if(i%18===0) await traceAutoFrame();
+    }
+    syncTraceAutoUI();setTool('sel');redraw();
+    const detail=(skippedWalls||skippedOpenings)?' Omitidos: '+skippedWalls+' muros, '+skippedOpenings+' aberturas.':'';
+    toast('Plano generado: '+created.length+' muros y '+(openingList.length)+' aberturas.'+detail);
+  }catch(err){
+    console.error('Error creando objetos del calcado',err);
+    S.lines=(S.lines||[]).filter(line=>!createdIds.has(line.id));
+    S.wallOpenings=(S.wallOpenings||[]).filter(op=>!op?.autoTrace||!createdIds.has(op.wallId));
+    toast('Generacion detenida: '+String(err?.message||err).slice(0,72));
+  }finally{
+    S.traceAutoCommitBusy=false;syncTraceAutoUI();redraw();
+  }
+}
+
+function drawTraceUnderlay(ctx){
+  const t=S.trace;
+  if(!t||!t.img||t.visible===false||!isPlantaProject()) return;
+  ctx.save();
+  ctx.globalAlpha=Math.max(0.03,Math.min(0.9,Number(t.opacity)||0.60));
+  try { ctx.filter='grayscale('+(1-(Number(t.saturation)||0.08))+') saturate('+(Number(t.saturation)||0.08)+') contrast(0.92)'; } catch(e) {}
+  ctx.translate(Number(t.x)||0,Number(t.y)||0);
+  ctx.rotate(Number(t.angle)||0);
+  ctx.scale(Number(t.scale)||1,Number(t.scale)||1);
+  ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
+  ctx.drawImage(t.img,0,0,t.imageW,t.imageH);
+  ctx.restore();
+}
+
+function syncTraceUI(){
+  const loaded=!!S.trace;
+  const planta=isPlantaProject();
+  const traceBtn=document.getElementById('btrace');
+  const calBtn=document.getElementById('btracecal');
+  const clearBtn=document.getElementById('btraceclear');
+  if(traceBtn){traceBtn.style.display=planta?'flex':'none';traceBtn.classList.toggle('on',loaded);traceBtn.title=loaded?'Cambiar plano base':'Cargar plano base para calcar';}
+  if(calBtn) calBtn.style.display=planta&&loaded?'flex':'none';
+  if(clearBtn) clearBtn.style.display=planta&&loaded?'flex':'none';
+  const panel=document.getElementById('tracePanel');
+  if(panel) panel.style.display=planta&&loaded?'flex':'none';
+  const autoBtn=document.getElementById('btraceauto');
+  if(autoBtn) autoBtn.style.display=planta&&loaded?'flex':'none';
+  const manualBtn=document.getElementById('btracemanual');
+  if(manualBtn) manualBtn.style.display=planta&&loaded?'flex':'none';
+  const op=document.getElementById('traceOpacity');
+  const opVal=document.getElementById('traceOpacityVal');
+  if(op&&loaded) op.value=String(Number.isFinite(S.trace.opacity)?S.trace.opacity:0.60);
+  if(opVal&&loaded) opVal.textContent=Math.round((Number(S.trace.opacity)||0.60)*100)+'%';
+  const vis=document.getElementById('traceVisibleToggle');
+  if(vis&&loaded){vis.textContent=S.trace.visible===false?'Oculto':'Ver';vis.classList.toggle('on',S.trace.visible!==false);}
+  const snap=document.getElementById('traceSnapToggle');
+  if(snap&&loaded){snap.textContent=S.trace.snapEnabled===false?'Snap off':'Snap';snap.classList.toggle('on',S.trace.snapEnabled!==false);}
+  const smart=document.getElementById('traceSmartToggle');
+  if(smart&&loaded){smart.textContent=S.trace.smartEnabled===false?'Todo':'Arq';smart.title=S.trace.smartEnabled===false?'Snap sobre todas las lineas detectadas':'Priorizar muros y ventanas e ignorar la mayoria de cotas y textos';smart.classList.toggle('on',S.trace.smartEnabled!==false);}
+}
+
+function updateTraceCalibrationHover(worldPoint){
+  const c=S.traceCalibration;
+  if(!c||c.phase!==2||!c.worldPoints.length) return;
+  const first=c.worldPoints[0];
+  const raw={x:worldPoint.x,y:worldPoint.y};
+  const snap=traceSnapAll(raw.x,raw.y,{radiusPx:36});
+  let target=snap?{...snap.pt}:{...raw};
+  let axis=null;
+  if(!snap){
+    const horizontal={x:raw.x,y:first.y};
+    const vertical={x:first.x,y:raw.y};
+    const dh=Math.abs(raw.y-first.y),dv=Math.abs(raw.x-first.x);
+    const tolerance=28/modelZoom();
+    if(Math.min(dh,dv)<=tolerance){
+      if(dh<=dv){target=horizontal;axis='horizontal';}
+      else {target=vertical;axis='vertical';}
+    }
+  }
+  c.hover={raw,target,snap,axis};
+}
+
+function drawTraceCalibrationMarker(ctx,point,zoomScale,color,label,filled=false){
+  if(!point) return;
+  const r=10/Math.max(zoomScale,0.001);
+  ctx.save();
+  ctx.lineWidth=2/Math.max(zoomScale,0.001);
+  ctx.strokeStyle=color;
+  ctx.fillStyle=filled?color:'rgba(255,255,255,.9)';
+  ctx.beginPath();ctx.arc(point.x,point.y,r,0,Math.PI*2);ctx.fill();ctx.stroke();
+  ctx.beginPath();ctx.moveTo(point.x-r*1.55,point.y);ctx.lineTo(point.x+r*1.55,point.y);ctx.moveTo(point.x,point.y-r*1.55);ctx.lineTo(point.x,point.y+r*1.55);ctx.stroke();
+  ctx.fillStyle=color;ctx.font='900 '+(13/Math.max(zoomScale,0.001))+'px sans-serif';ctx.textAlign='left';ctx.textBaseline='bottom';ctx.fillText(label,point.x+r*1.8,point.y-r*1.2);
+  ctx.restore();
+}
+
+function drawTraceCalibrationOverlay(ctx,zoomScale){
+  const c=S.traceCalibration;
+  if(!c) return;
+  const first=c.worldPoints?.[0]||null;
+  if(first) drawTraceCalibrationMarker(ctx,first,zoomScale,'#22d3ee','1',true);
+  if(c.phase===3&&c.worldPoints?.[1]){
+    const second=c.worldPoints[1];
+    ctx.save();ctx.lineWidth=2/Math.max(zoomScale,0.001);ctx.strokeStyle='rgba(34,211,238,.95)';ctx.setLineDash([10/zoomScale,6/zoomScale]);
+    ctx.beginPath();ctx.moveTo(first.x,first.y);ctx.lineTo(second.x,second.y);ctx.stroke();ctx.setLineDash([]);ctx.restore();
+    drawTraceCalibrationMarker(ctx,second,zoomScale,c.snaps?.[1]?.type==='ep'?'#facc15':'#22d3ee','2',c.snaps?.[1]?.type==='ep');
+    return;
+  }
+  if(c.phase!==2||!c.hover) return;
+  const hover=c.hover, target=hover.target, raw=hover.raw;
+  if(first&&target){
+    ctx.save();ctx.lineWidth=2/Math.max(zoomScale,0.001);ctx.strokeStyle='rgba(34,211,238,.95)';ctx.setLineDash([10/zoomScale,6/zoomScale]);
+    ctx.beginPath();ctx.moveTo(first.x,first.y);ctx.lineTo(target.x,target.y);ctx.stroke();ctx.setLineDash([]);ctx.restore();
+  }
+  if(raw&&target&&Math.hypot(raw.x-target.x,raw.y-target.y)>0.4/Math.max(zoomScale,0.001)){
+    ctx.save();ctx.lineWidth=1.25/Math.max(zoomScale,0.001);ctx.strokeStyle='rgba(192,132,252,.95)';ctx.setLineDash([5/zoomScale,4/zoomScale]);
+    ctx.beginPath();ctx.moveTo(raw.x,raw.y);ctx.lineTo(target.x,target.y);ctx.stroke();ctx.setLineDash([]);ctx.restore();
+  }
+  if(hover.snap?.traceLine){
+    const line=hover.snap.traceLine;
+    const a=traceLocalToWorld(S.trace,line.a),b=traceLocalToWorld(S.trace,line.b);
+    ctx.save();ctx.lineWidth=1.25/Math.max(zoomScale,0.001);ctx.strokeStyle='rgba(250,204,21,.9)';ctx.setLineDash([6/zoomScale,5/zoomScale]);
+    ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();ctx.setLineDash([]);ctx.restore();
+  }
+  const color=hover.snap?.type==='ep'?'#facc15':hover.axis?'#a78bfa':'#22d3ee';
+  drawTraceCalibrationMarker(ctx,target,zoomScale,color,'2',hover.snap?.type==='ep');
+}
+
+function traceCalibrationHandleAt(worldPoint){
+  const c=S.traceCalibration;
+  if(!c||c.phase!==3||!Array.isArray(c.worldPoints)) return -1;
+  const hitRadius=24;
+  let best=-1,bestD=Infinity;
+  c.worldPoints.slice(0,2).forEach((point,index)=>{
+    if(!point) return;
+    const screen=modelToScreen(point);
+    const d=Math.hypot(screen.x-modelToScreen(worldPoint).x,screen.y-modelToScreen(worldPoint).y);
+    if(d<=hitRadius&&d<bestD){best=index;bestD=d;}
+  });
+  return best;
+}
+
+function moveTraceCalibrationPoint(worldPoint,index){
+  const t=S.trace,c=S.traceCalibration;
+  if(!t||!c||c.phase!==3||index<0||index>1) return;
+  const raw={x:worldPoint.x,y:worldPoint.y};
+  const snap=traceSnapAll(raw.x,raw.y,{radiusPx:36});
+  const target=snap?{...snap.pt}:raw;
+  const local=traceWorldToLocal(t,target);
+  if(!tracePointInsideImage(t,local)) return;
+  c.worldPoints[index]=target;
+  c.localPoints[index]=local;
+  c.snaps[index]=snap||null;
+}
+
+function startTraceCalibration(){
+  if(!S.trace) return;
+  if(!S.vpEdit) setViewportWorkMode(true,{fit:false});
+  setTool('sel');
+  S.traceCalibration={phase:1,localPoints:[],worldPoints:[],snaps:[],hover:null,dragPoint:null};
+  closeM('traceCalibmod');
+  toast('Calca: toca el primer punto del plano base');
+  redraw();drawOverlay(null);
+}
+
+function handleTraceCalibrationTap(worldPoint){
+  const t=S.trace,c=S.traceCalibration;
+  if(!t||!c) return false;
+  const local=traceWorldToLocal(t,worldPoint);
+  if(!tracePointInsideImage(t,local)){toast('Toca dentro del plano base');return true;}
+  const rawWorld={x:worldPoint.x,y:worldPoint.y};
+  const snap=traceSnapAll(rawWorld.x,rawWorld.y,{radiusPx:36});
+  const selectedWorld=snap?{...snap.pt}:rawWorld;
+  const selectedLocal=traceWorldToLocal(t,selectedWorld);
+  if(!tracePointInsideImage(t,selectedLocal)){toast('Toca dentro del plano base');return true;}
+  if(c.phase===1){
+    c.localPoints=[selectedLocal];c.worldPoints=[selectedWorld];c.snaps=[snap||null];c.phase=2;c.hover=null;
+    toast(snap?'Punto 1 ajustado al plano: toca el segundo punto':'Calca: toca el segundo punto conocido');redraw();drawOverlay(null);return true;
+  }
+  if(c.phase===2){
+    c.localPoints.push(selectedLocal);c.worldPoints.push(selectedWorld);c.snaps=[...(c.snaps||[]),snap||null];c.phase=3;c.hover=null;c.dragPoint=null;
+    const input=document.getElementById('traceCalibDistance');if(input) input.value='';
+    openM('traceCalibmod');redraw();return true;
+  }
+  return true;
+}
+
+function applyTraceCalibration(){
+  const t=S.trace,c=S.traceCalibration;
+  const realM=parseFloat(String(document.getElementById('traceCalibDistance')?.value||'').replace(',','.'));
+  if(!t||!c||c.localPoints.length!==2||!Number.isFinite(realM)||realM<=0){toast('Ingresa una distancia valida');return;}
+  const q1=c.localPoints[0],q2=c.localPoints[1],w1=c.worldPoints[0],w2=c.worldPoints[1];
+  const pixelDistance=Math.hypot(q2.x-q1.x,q2.y-q1.y);
+  const worldDistance=Math.hypot(w2.x-w1.x,w2.y-w1.y);
+  if(pixelDistance<1||worldDistance<1){toast('Los puntos estan demasiado cerca');return;}
+  t.scale=(realM*UNITS_PER_M)/pixelDistance;
+  t.angle=Math.atan2(w2.y-w1.y,w2.x-w1.x)-Math.atan2(q2.y-q1.y,q2.x-q1.x);
+  const mapped=traceLocalToWorld(t,q1);
+  t.x+=(w1.x-mapped.x);t.y+=(w1.y-mapped.y);
+  t.calibrated=true;t.calibrationDistanceM=realM;
+  S.traceCalibration=null;S.traceAutoPreview=null;closeM('traceCalibmod');syncTraceUI();syncTraceAutoUI();redraw();drawOverlay(null);toast('Plano calibrado a '+realM.toFixed(2)+' m');
+}
+
+function clearTraceUnderlay(){
+  if(!S.trace) return;
+  S.traceLoadToken=(S.traceLoadToken||0)+1;S.trace=null;S.traceCalibration=null;S.traceAutoPreview=null;S.traceAutoBusy=false;S.traceAutoCommitBusy=false;closeM('traceCalibmod');closeM('traceAutoMod');syncTraceUI();syncTraceAutoUI();redraw();drawOverlay(null);toast('Plano base quitado');
+}
+
+function installTraceImage(src,meta={},opts={}){
+  if(!src) return;
+  const img=new Image();
+  const token=(S.traceLoadToken||0)+1;S.traceLoadToken=token;
+  img.onload=()=>{
+    if(token!==S.traceLoadToken) return;
+    const saved=opts.saved||null;
+    const vp=ensureVP();
+    const fitScale=Math.min(vp.w/img.naturalWidth,vp.h/img.naturalHeight)*0.96;
+    const scale=Number.isFinite(saved?.scale)?saved.scale:fitScale;
+    const imageW=Number(saved?.imageW)||img.naturalWidth,imageH=Number(saved?.imageH)||img.naturalHeight;
+    const w=scale*imageW,h=scale*imageH;
+    const trace={
+      src,name:meta.name||saved?.name||'plano-base',kind:meta.kind||saved?.kind||'image',img,imageW,imageH,
+      x:Number.isFinite(saved?.x)?saved.x:vp.x+(vp.w-w)*0.5,
+      y:Number.isFinite(saved?.y)?saved.y:vp.y+(vp.h-h)*0.5,
+      scale,angle:Number(saved?.angle)||0,opacity:Number.isFinite(saved?.opacity)?saved.opacity:0.60,
+      saturation:Number.isFinite(saved?.saturation)?saved.saturation:0.08,
+      visible:saved?.visible!==false,snapEnabled:saved?.snapEnabled!==false,smartEnabled:saved?.smartEnabled!==false,calibrated:!!saved?.calibrated,
+      calibrationDistanceM:saved?.calibrationDistanceM||null,snapLines:[]
+    };
+    S.trace=trace;trace.snapLines=traceLineRunCandidates(img);syncTraceUI();redraw();
+    if(opts.autoCalibrate) startTraceCalibration();
+  };
+  img.onerror=()=>toast('No se pudo cargar el plano base');
+  img.src=src;
+}
+
+async function handleTraceFile(file){
+  if(!file||!isPlantaProject()) return;
+  try{
+    const isPdf=file.type==='application/pdf'||/\.pdf$/i.test(file.name);
+    if(isPdf){
+      if(typeof pdfjsLib==='undefined'){toast('PDF requiere cargar la libreria PDF');return;}
+      pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise;
+      const page=await pdf.getPage(1);const viewport=page.getViewport({scale:2});
+      const cv=document.createElement('canvas');cv.width=Math.ceil(viewport.width);cv.height=Math.ceil(viewport.height);
+      await page.render({canvasContext:cv.getContext('2d'),viewport}).promise;
+      installTraceImage(cv.toDataURL('image/png'),{name:file.name,kind:'pdf'},{autoCalibrate:true});
+      return;
+    }
+    const reader=new FileReader();
+    reader.onload=()=>installTraceImage(reader.result,{name:file.name,kind:'image'},{autoCalibrate:true});
+    reader.readAsDataURL(file);
+  }catch(err){console.error('Error cargando plano base',err);toast('No se pudo abrir el plano base');}
+}
+
+function loadTraceState(data){
+  if(!data||!data.src){S.trace=null;S.traceCalibration=null;S.traceAutoPreview=null;syncTraceUI();syncTraceAutoUI();return;}
+  installTraceImage(data.src,data,{saved:data,autoCalibrate:false});
+}
+
 function resetProject(form=blankForm(),kind=S.projectKind||'iso'){
   S.lines=[]; S.blocks=[]; S.texts=[]; S.tees=[]; S.wallOpenings=[]; S.pipeLabels=[]; S.lib=[]; S.hist=[]; S.fut=[];
   hasUnsavedChanges = false;
@@ -23981,6 +25214,8 @@ function resetProject(form=blankForm(),kind=S.projectKind||'iso'){
   S.operationChipMessage='';
   S.operationChipUntil=0;
   S.cajetin=null; S.cajetinSrc=null;
+  S.traceLoadToken=(S.traceLoadToken||0)+1;
+  S.trace=null; S.traceCalibration=null;
   S.detailVP=null; S.detailVPs=[]; S.activeDetail=null; S.selDetail=null; S.drawDetail=null; S.editingTee=null;
   S.autoContinuationEnabled=false; S.autoContinuations=[]; S.selContinuation=null;
   syncAutoFileNameFromForm(true);
@@ -24055,7 +25290,8 @@ function captureProject(){
     wallOpenings:S.wallOpenings,
     blocks:S.blocks,
     lib:S.lib.map(item=>({id:item.id,name:item.name||item.id,views:item.builtin ? [] : (item.views||[]),cpts:item.cpts||[],viewCpts:item.viewCpts||null,viewFacePts:item.viewFacePts||null,viewBounds:item.viewBounds||null,scale:item.scale||0.25,realSize:item.realSize||null,renderMode:item.renderMode||null,builtin:!!item.builtin})),
-    cajetinSrc:S.cajetinSrc||null
+    cajetinSrc:S.cajetinSrc||null,
+    trace:traceStateForSave()
   };
 }
 function downloadJSON(name,data){
@@ -24166,6 +25402,7 @@ function loadProjectData(data){
   hydrateLib(data.lib||[]);
   normalizeBuiltinBlockInstances();
   loadCajetinSrc(data.cajetinSrc||null);
+  loadTraceState(data.trace||null);
   updateProfBtn();
   document.getElementById('thkVal').textContent=activeProf().thick;
   const slider=document.getElementById('tscaleSlider');
@@ -25296,9 +26533,15 @@ function setTool(tool,opts={}){
 
 function updateToolButtons(){
   const map={line:'btline',wall:'bmuro',vano:'bvano',window:'bventana',door:'bpuerta',sel:'btsel',pan:'bpan',text:'baddtext',ambient:'bambient',colorfill:'bcolorfill'};
+  const selectedOpeningTool=S.tool==='sel'&&S.selOpening?openingToolName(S.selOpening.kind):null;
   Object.keys(map).forEach(t=>{
     const el=document.getElementById(map[t]);
-    if(el) el.classList.toggle('on',t===S.tool);
+    if(el) el.classList.toggle('on',t===S.tool||t===selectedOpeningTool);
+  });
+  const familyButtons={door:'bdoorSmart',window:'bwinSmart'};
+  Object.keys(familyButtons).forEach(t=>{
+    const el=document.getElementById(familyButtons[t]);
+    if(el) el.classList.toggle('on',t===S.tool||t===selectedOpeningTool);
   });
   const wallDimsBtn=document.getElementById('bwalldims');
   if(wallDimsBtn) wallDimsBtn.classList.toggle('on',!!S.wallDimsVisible);
@@ -25647,7 +26890,8 @@ function initToolbarDrag() {
 document.getElementById('bwork').addEventListener('click',()=>{
   const on=!S.vpEdit;
   setViewportWorkMode(on);
-  setTool(on?'line':'pan');
+  const nextTool=on?((S.fixedVP||(S.projectKind||'iso')==='planta')?'sel':'line'):'pan';
+  setTool(nextTool);
   toast(on?'Dibujo dentro del viewport':'Navegacion de hoja completa');
 });
 const isoToPlantaActionBtn=document.getElementById('bIsoToPlanta');
@@ -25700,6 +26944,53 @@ document.getElementById('wallOpacitySlider')?.addEventListener('input',(e)=>{
   redraw();
 });
 document.getElementById('bpan').addEventListener('click',()=>setTool('pan'));
+document.getElementById('btrace')?.addEventListener('click',()=>document.getElementById('traceFileInput')?.click());
+document.getElementById('btracecal')?.addEventListener('click',startTraceCalibration);
+document.getElementById('btraceauto')?.addEventListener('click',async()=>{
+  if(!S.trace?.calibrated){toast('Calca: calibra primero el plano con dos puntos');return;}
+  const result=await traceAutoAnalyze();if(result) openM('traceAutoMod');
+});
+document.getElementById('btracemanual')?.addEventListener('click',()=>{
+  if(!S.trace){toast('Calca: carga primero un JPG o PDF');return;}
+  S.traceAutoPreview=null;clearTraceSelectionForGeneration();setViewportWorkMode(true,{fit:false});setTool('wall');syncTraceAutoUI();redraw();
+  toast('Calcado manual: arrastra el muro; la lupa y el auto-pan siguen el borde');
+});
+document.getElementById('btraceclear')?.addEventListener('click',clearTraceUnderlay);
+document.getElementById('traceFileInput')?.addEventListener('change',e=>{
+  const file=e.target.files&&e.target.files[0];
+  if(file) handleTraceFile(file);
+  e.target.value='';
+});
+document.getElementById('traceVisibleToggle')?.addEventListener('click',()=>{
+  if(!S.trace) return;
+  S.trace.visible=S.trace.visible===false;
+  syncTraceUI();redraw();
+});
+document.getElementById('traceSnapToggle')?.addEventListener('click',()=>{
+  if(!S.trace) return;
+  S.trace.snapEnabled=S.trace.snapEnabled===false;
+  syncTraceUI();redraw();
+});
+document.getElementById('traceSmartToggle')?.addEventListener('click',()=>{
+  if(!S.trace) return;
+  S.trace.smartEnabled=S.trace.smartEnabled===false;
+  syncTraceUI();redraw();
+  toast(S.trace.smartEnabled===false?'Calca: snap de todas las lineas':'Calca: deteccion arquitectonica activa');
+});
+document.getElementById('traceOpacity')?.addEventListener('input',e=>{
+  if(!S.trace) return;
+  S.trace.opacity=Math.max(0.05,Math.min(0.8,parseFloat(e.target.value)||0.60));
+  syncTraceUI();redraw();
+});
+document.getElementById('traceCalibCancel')?.addEventListener('click',()=>{S.traceCalibration=null;closeM('traceCalibmod');redraw();drawOverlay(null);});
+document.getElementById('traceCalibRemark')?.addEventListener('click',()=>{
+  S.traceCalibration={phase:1,localPoints:[],worldPoints:[],snaps:[],hover:null,dragPoint:null};
+  closeM('traceCalibmod');toast('Calca: vuelve a marcar el primer punto');redraw();drawOverlay(null);
+});
+document.getElementById('traceCalibSave')?.addEventListener('click',applyTraceCalibration);
+document.getElementById('traceAutoRerun')?.addEventListener('click',async()=>{await traceAutoAnalyze();});
+document.getElementById('traceAutoCommit')?.addEventListener('click',commitTraceAutoPlan);
+document.getElementById('traceAutoCancel')?.addEventListener('click',()=>{S.traceAutoPreview=null;closeM('traceAutoMod');syncTraceAutoUI();redraw();drawOverlay(null);});
 document.getElementById('btline').addEventListener('click',()=>{setViewportWorkMode(true,{fit:false});setTool('line');});
 document.getElementById('binputmode')?.addEventListener('click',()=>{
   S.inputMode=S.inputMode==='hand'?'pen':'hand';
@@ -25932,12 +27223,19 @@ document.getElementById('bclearall').addEventListener('click', () => {
     S.blocks = [];
     S.texts = [];
     S.pipeLabels = [];
+    S.ambientZones = [];
+    S.ambientColorCursor = 0;
+    S.colorFillSelectedColorId = null;
     S.tees = [];
     S.wallOpenings = [];
     S.polyAnchor = null;
     S.selLine = null;
     S.selBlock = null;
     S.selOpening = null;
+    S.selAmbient = null;
+    S.ambientModalZone = null;
+    S.colorFillModalZone = null;
+    closeM('ambientmod'); closeM('colorfillmod'); syncColorFillQuickPalette();
     redraw();
     toast('Dibujo borrado por completo');
   }
