@@ -19198,9 +19198,25 @@ function onDn(e){
       }
     }
     if(c.phase===1||c.phase===2){
+      if(c.pointerDown&&c.pointerDown.pointerId!==e.pointerId){
+        c.navigationGesture=true;
+        c.pointerDown=null;
+        c.hover=null;
+        cancelWallAutoPanLoop();
+        clearLoupe();
+        if(Object.keys(aPtr).length===1&&!pinchSelectionSnapshot) pinchSelectionSnapshot=capturePinchSelectionSnapshot();
+        aPtr[e.pointerId]=sc;
+        try{OC.setPointerCapture(e.pointerId);}catch(err){}
+        isPinch=true;
+        S.tDist=null;S.tMid=null;pinchScope=null;
+        restorePinchSelectionSnapshot();
+        pinch();
+        redraw();return;
+      }
       const local=traceWorldToLocal(S.trace,w);
       if(!tracePointInsideImage(S.trace,local)){toast('Toca dentro del plano base');return;}
       c.pointerDown={pointerId:e.pointerId,startSc:{...sc}};
+      c.navigationGesture=false;
       aPtr[e.pointerId]=sc;
       try{OC.setPointerCapture(e.pointerId);}catch(err){}
       updateTraceCalibrationHover(w);
@@ -20130,7 +20146,15 @@ function onMv(e){
     }
   }
 
-  if(Object.keys(aPtr).length>=2){isPinch=true; restorePinchSelectionSnapshot(); pinch(); clearLoupe(); redraw(); return;}
+  if(Object.keys(aPtr).length>=2){
+    if(S.traceCalibration?.pointerDown||S.traceCalibration?.phase===2){
+      S.traceCalibration.pointerDown=null;
+      S.traceCalibration.navigationGesture=true;
+      S.traceCalibration.hover=null;
+      cancelWallAutoPanLoop();
+    }
+    isPinch=true; restorePinchSelectionSnapshot(); pinch(); clearLoupe(); redraw(); return;
+  }
   if(isPinch) return;
 
   if(S.traceCalibration&&Number.isInteger(S.traceCalibration.dragPoint)){
@@ -21374,6 +21398,11 @@ function onUp(e){
   const hadDetailAdjust=S.detailMove || S.detailResize;
   const hadTextResize=!!resizeText;
   if(Object.keys(aPtr).length<2){isPinch=false;S.tDist=null;S.tMid=null;pinchScope=null;}
+  if(S.traceCalibration&&S.traceCalibration.navigationGesture&&Object.keys(aPtr).length===0){
+    S.traceCalibration.navigationGesture=false;
+    S.traceCalibration.hover=null;
+    redraw();drawOverlay(null);
+  }
   if(Object.keys(aPtr).length===0){S.panPt=null;pinchSelectionSnapshot=null;}
   if(Object.keys(aPtr).length===0){S.detailPan=null;S.detailMove=null;S.detailResize=null;resizeText=null;}
   const keepProjectionGuide=shouldKeepProjectionGuideAfterPointerUp();
@@ -25048,21 +25077,21 @@ function updateTraceCalibrationHover(worldPoint){
   const c=S.traceCalibration;
   if(!c||(c.phase!==1&&c.phase!==2)) return;
   const raw={x:worldPoint.x,y:worldPoint.y};
-  const snap=traceSnapAll(raw.x,raw.y,{radiusPx:36});
-  let target=snap?{...snap.pt}:{...raw};
+  let target={...raw};
   let axis=null;
+  let orthogonal=null;
+  let perpendicular=null;
   const first=c.worldPoints?.[0];
-  if(c.phase===2&&first&&!snap){
+  if(c.phase===2&&first){
     const horizontal={x:raw.x,y:first.y};
     const vertical={x:first.x,y:raw.y};
     const dh=Math.abs(raw.y-first.y),dv=Math.abs(raw.x-first.x);
     const tolerance=28/modelZoom();
-    if(Math.min(dh,dv)<=tolerance){
-      if(dh<=dv){target=horizontal;axis='horizontal';}
-      else {target=vertical;axis='vertical';}
-    }
+    orthogonal={horizontal,vertical};
+    if(dh<=tolerance&&dh<=dv){target=horizontal;axis='horizontal';perpendicular={from:raw,to:horizontal};}
+    else if(dv<=tolerance){target=vertical;axis='vertical';perpendicular={from:raw,to:vertical};}
   }
-  c.hover={raw,target,snap,axis};
+  c.hover={raw,target,snap:null,axis,orthogonal,perpendicular};
 }
 
 function drawTraceCalibrationMarker(ctx,point,zoomScale,color,label,filled=false){
@@ -25084,39 +25113,30 @@ function drawTraceCalibrationOverlay(ctx,zoomScale){
   const first=c.worldPoints?.[0]||null;
   if(first) drawTraceCalibrationMarker(ctx,first,zoomScale,'#22d3ee','1',true);
   if(c.phase===1&&c.hover){
-    const hover=c.hover,target=hover.target,raw=hover.raw;
-    if(raw&&target&&Math.hypot(raw.x-target.x,raw.y-target.y)>0.4/Math.max(zoomScale,0.001)){
-      ctx.save();ctx.lineWidth=1.25/Math.max(zoomScale,0.001);ctx.strokeStyle='rgba(192,132,252,.95)';ctx.setLineDash([5/zoomScale,4/zoomScale]);
-      ctx.beginPath();ctx.moveTo(raw.x,raw.y);ctx.lineTo(target.x,target.y);ctx.stroke();ctx.setLineDash([]);ctx.restore();
-    }
-    drawTraceCalibrationMarker(ctx,target,zoomScale,hover.snap?.type==='ep'?'#facc15':'#22d3ee','1',hover.snap?.type==='ep');
+    drawTraceCalibrationMarker(ctx,c.hover.target,zoomScale,'#22d3ee','1',false);
     return;
   }
   if(c.phase===3&&c.worldPoints?.[1]){
     const second=c.worldPoints[1];
     ctx.save();ctx.lineWidth=2/Math.max(zoomScale,0.001);ctx.strokeStyle='rgba(34,211,238,.95)';ctx.setLineDash([10/zoomScale,6/zoomScale]);
     ctx.beginPath();ctx.moveTo(first.x,first.y);ctx.lineTo(second.x,second.y);ctx.stroke();ctx.setLineDash([]);ctx.restore();
-    drawTraceCalibrationMarker(ctx,second,zoomScale,c.snaps?.[1]?.type==='ep'?'#facc15':'#22d3ee','2',c.snaps?.[1]?.type==='ep');
+    drawTraceCalibrationMarker(ctx,second,zoomScale,'#22d3ee','2',false);
     return;
   }
-  if(c.phase!==2||!c.hover) return;
-  const hover=c.hover, target=hover.target, raw=hover.raw;
-  if(first&&target){
-    ctx.save();ctx.lineWidth=2/Math.max(zoomScale,0.001);ctx.strokeStyle='rgba(34,211,238,.95)';ctx.setLineDash([10/zoomScale,6/zoomScale]);
-    ctx.beginPath();ctx.moveTo(first.x,first.y);ctx.lineTo(target.x,target.y);ctx.stroke();ctx.setLineDash([]);ctx.restore();
+  if(c.phase!==2||!c.hover||!first) return;
+  const hover=c.hover,target=hover.target,raw=hover.raw;
+  const guides=hover.orthogonal;
+  if(guides){
+    ctx.save();ctx.lineWidth=1.1/Math.max(zoomScale,0.001);ctx.strokeStyle='rgba(167,139,250,.72)';ctx.setLineDash([6/zoomScale,5/zoomScale]);
+    ctx.beginPath();ctx.moveTo(first.x,first.y);ctx.lineTo(guides.horizontal.x,guides.horizontal.y);ctx.moveTo(first.x,first.y);ctx.lineTo(guides.vertical.x,guides.vertical.y);ctx.stroke();ctx.setLineDash([]);ctx.restore();
   }
-  if(raw&&target&&Math.hypot(raw.x-target.x,raw.y-target.y)>0.4/Math.max(zoomScale,0.001)){
+  ctx.save();ctx.lineWidth=2/Math.max(zoomScale,0.001);ctx.strokeStyle='rgba(34,211,238,.95)';ctx.setLineDash([10/zoomScale,6/zoomScale]);
+  ctx.beginPath();ctx.moveTo(first.x,first.y);ctx.lineTo(target.x,target.y);ctx.stroke();ctx.setLineDash([]);ctx.restore();
+  if(hover.perpendicular){
     ctx.save();ctx.lineWidth=1.25/Math.max(zoomScale,0.001);ctx.strokeStyle='rgba(192,132,252,.95)';ctx.setLineDash([5/zoomScale,4/zoomScale]);
-    ctx.beginPath();ctx.moveTo(raw.x,raw.y);ctx.lineTo(target.x,target.y);ctx.stroke();ctx.setLineDash([]);ctx.restore();
+    ctx.beginPath();ctx.moveTo(hover.perpendicular.from.x,hover.perpendicular.from.y);ctx.lineTo(hover.perpendicular.to.x,hover.perpendicular.to.y);ctx.stroke();ctx.setLineDash([]);ctx.restore();
   }
-  if(hover.snap?.traceLine){
-    const line=hover.snap.traceLine;
-    const a=traceLocalToWorld(S.trace,line.a),b=traceLocalToWorld(S.trace,line.b);
-    ctx.save();ctx.lineWidth=1.25/Math.max(zoomScale,0.001);ctx.strokeStyle='rgba(250,204,21,.9)';ctx.setLineDash([6/zoomScale,5/zoomScale]);
-    ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();ctx.setLineDash([]);ctx.restore();
-  }
-  const color=hover.snap?.type==='ep'?'#facc15':hover.axis?'#a78bfa':'#22d3ee';
-  drawTraceCalibrationMarker(ctx,target,zoomScale,color,'2',hover.snap?.type==='ep');
+  drawTraceCalibrationMarker(ctx,target,zoomScale,hover.axis?'#a78bfa':'#22d3ee','2',false);
 }
 
 function traceCalibrationHandleAt(worldPoint){
@@ -25136,14 +25156,12 @@ function traceCalibrationHandleAt(worldPoint){
 function moveTraceCalibrationPoint(worldPoint,index){
   const t=S.trace,c=S.traceCalibration;
   if(!t||!c||c.phase!==3||index<0||index>1) return;
-  const raw={x:worldPoint.x,y:worldPoint.y};
-  const snap=traceSnapAll(raw.x,raw.y,{radiusPx:36});
-  const target=snap?{...snap.pt}:raw;
+  const target={x:worldPoint.x,y:worldPoint.y};
   const local=traceWorldToLocal(t,target);
   if(!tracePointInsideImage(t,local)) return;
   c.worldPoints[index]=target;
   c.localPoints[index]=local;
-  c.snaps[index]=snap||null;
+  c.snaps[index]=null;
 }
 
 function startTraceCalibration(){
@@ -25159,19 +25177,15 @@ function startTraceCalibration(){
 function handleTraceCalibrationTap(worldPoint){
   const t=S.trace,c=S.traceCalibration;
   if(!t||!c) return false;
-  const local=traceWorldToLocal(t,worldPoint);
-  if(!tracePointInsideImage(t,local)){toast('Toca dentro del plano base');return true;}
   const rawWorld={x:worldPoint.x,y:worldPoint.y};
-  const snap=traceSnapAll(rawWorld.x,rawWorld.y,{radiusPx:36});
-  const selectedWorld=snap?{...snap.pt}:rawWorld;
-  const selectedLocal=traceWorldToLocal(t,selectedWorld);
+  const selectedLocal=traceWorldToLocal(t,rawWorld);
   if(!tracePointInsideImage(t,selectedLocal)){toast('Toca dentro del plano base');return true;}
   if(c.phase===1){
-    c.localPoints=[selectedLocal];c.worldPoints=[selectedWorld];c.snaps=[snap||null];c.phase=2;c.hover=null;
-    toast(snap?'Punto 1 ajustado al plano: toca el segundo punto':'Calca: toca el segundo punto conocido');redraw();drawOverlay(null);return true;
+    c.localPoints=[selectedLocal];c.worldPoints=[rawWorld];c.snaps=[null];c.phase=2;c.hover=null;
+    toast('Calca: toca el segundo punto conocido');redraw();drawOverlay(null);return true;
   }
   if(c.phase===2){
-    c.localPoints.push(selectedLocal);c.worldPoints.push(selectedWorld);c.snaps=[...(c.snaps||[]),snap||null];c.phase=3;c.hover=null;c.dragPoint=null;
+    c.localPoints.push(selectedLocal);c.worldPoints.push(rawWorld);c.snaps=[...(c.snaps||[]),null];c.phase=3;c.hover=null;c.dragPoint=null;
     const input=document.getElementById('traceCalibDistance');if(input) input.value='';
     openM('traceCalibmod');redraw();return true;
   }
